@@ -48,9 +48,9 @@ The easiest way is using Windows Package Manager (`winget`), which sets up your 
 1. Click **Start**, type **PowerShell**, and open it.
 2. Run:
    ```powershell
-   winget install Gyan.FFmpeg
+   winget install ffmpeg
    ```
-   *(or `winget install ffmpeg`)*
+   *(Note: If prompted with multiple package options, run `winget install Gyan.FFmpeg`)*
 3. Close PowerShell and open it again.
 4. Verify that it worked:
    ```powershell
