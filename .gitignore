@@ -1,0 +1,21 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.env
+.venv/
+venv/
+
+# PyInstaller build outputs
+build/
+dist/
+*.spec
+
+# Windows Shortcuts & Metadata
+*.lnk
+Thumbs.db
+Desktop.ini
+
+# IDE / Editors
+.vscode/
+.idea/
