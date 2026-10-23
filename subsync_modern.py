@@ -9,6 +9,7 @@ import shutil
 import subprocess
 import sys
 import threading
+import webbrowser
 from tkinter import filedialog, messagebox
 
 import customtkinter as ctk
@@ -43,10 +44,287 @@ def resource_path(relative_path):
     return os.path.join(base_path, relative_path)
 
 
+def refresh_environment_path():
+    """Reload User and System PATH from Windows Registry so winget installations are recognized immediately."""
+    if os.name != "nt":
+        return
+    paths = []
+    try:
+        import winreg
+        try:
+            with winreg.OpenKey(winreg.HKEY_CURRENT_USER, r"Environment", 0, winreg.KEY_READ) as k:
+                val, _ = winreg.QueryValueEx(k, "Path")
+                if val:
+                    paths.extend(val.split(";"))
+        except Exception:
+            pass
+        try:
+            with winreg.OpenKey(winreg.HKEY_LOCAL_MACHINE, r"SYSTEM\CurrentControlSet\Control\Session Manager\Environment", 0, winreg.KEY_READ) as k:
+                val, _ = winreg.QueryValueEx(k, "Path")
+                if val:
+                    paths.extend(val.split(";"))
+        except Exception:
+            pass
+    except Exception:
+        pass
+
+    current = os.environ.get("PATH", "").split(";")
+    for p in paths:
+        p = p.strip()
+        if p and p not in current and os.path.isdir(p):
+            current.insert(0, p)
+    os.environ["PATH"] = ";".join(current)
+
+
+def find_ffmpeg():
+    """Locate ffmpeg executable from PATH, local directories, or standard locations."""
+    refresh_environment_path()
+    found = shutil.which("ffmpeg")
+    if found:
+        return found
+
+    # Check next to executable or script
+    app_dir = os.path.dirname(os.path.abspath(sys.argv[0]))
+    candidates = [
+        os.path.join(app_dir, "ffmpeg.exe"),
+        os.path.join(app_dir, "bin", "ffmpeg.exe"),
+        r"C:\Program Files\FFmpeg\bin\ffmpeg.exe",
+        r"C:\ffmpeg\bin\ffmpeg.exe",
+    ]
+    for c in candidates:
+        if os.path.isfile(c):
+            parent = os.path.dirname(c)
+            os.environ["PATH"] = parent + os.pathsep + os.environ.get("PATH", "")
+            return c
+
+    # Check WinGet package location
+    local_app_data = os.environ.get("LOCALAPPDATA", "")
+    if local_app_data:
+        winget_dir = os.path.join(local_app_data, "Microsoft", "WinGet", "Packages")
+        if os.path.isdir(winget_dir):
+            for root, dirs, files in os.walk(winget_dir):
+                if "ffmpeg.exe" in files:
+                    full_p = os.path.join(root, "ffmpeg.exe")
+                    os.environ["PATH"] = root + os.pathsep + os.environ.get("PATH", "")
+                    return full_p
+    return None
+
+
 def build_command(video, sub, out):
     exe = shutil.which("ffs") or shutil.which("ffsubsync")
     base = [exe] if exe else [sys.executable, "-m", "ffsubsync"]
     return base + [video, "-i", sub, "-o", out]
+
+
+class FFmpegSetupDialog(ctk.CTkToplevel):
+    def __init__(self, parent, on_complete=None):
+        super().__init__(parent)
+        self.parent = parent
+        self.on_complete = on_complete
+
+        self.title("FFmpeg Setup Required")
+        self.geometry("560x420")
+        self.minsize(520, 390)
+        self.resizable(False, False)
+        self.transient(parent)
+        self.grab_set()
+
+        # Center on parent window
+        parent.update_idletasks()
+        px = parent.winfo_x()
+        py = parent.winfo_y()
+        pw = parent.winfo_width()
+        ph = parent.winfo_height()
+        x = px + max(0, (pw - 560) // 2)
+        y = py + max(0, (ph - 420) // 2)
+        self.geometry(f"+{x}+{y}")
+
+        self.is_running = False
+        self.build_ui()
+
+    def build_ui(self):
+        container = ctk.CTkFrame(self, fg_color="transparent")
+        container.pack(fill="both", expand=True, padx=28, pady=24)
+
+        # Header with icon and title
+        header_row = ctk.CTkFrame(container, fg_color="transparent")
+        header_row.pack(fill="x", pady=(0, 10))
+
+        icon_lbl = ctk.CTkLabel(header_row, text="⚡", font=ctk.CTkFont(size=28), text_color=ACCENT)
+        icon_lbl.pack(side="left", padx=(0, 10))
+
+        title_lbl = ctk.CTkLabel(
+            header_row,
+            text="FFmpeg Required",
+            font=ctk.CTkFont(family="Segoe UI", size=20, weight="bold")
+        )
+        title_lbl.pack(side="left")
+
+        # Explanatory text
+        desc_lbl = ctk.CTkLabel(
+            container,
+            text=(
+                "To synchronize subtitles with your movie, Subtitle Sync requires FFmpeg to "
+                "extract and analyze the speech audio track from your video.\n\n"
+                "Would you like to automatically download and set up FFmpeg now?"
+            ),
+            font=ctk.CTkFont(size=13),
+            text_color=MUTED_TEXT,
+            justify="left",
+            wraplength=500
+        )
+        desc_lbl.pack(fill="x", pady=(0, 14))
+
+        # Card describing what winget will do
+        card = ctk.CTkFrame(container, fg_color=CARD_BG, border_color=CARD_BORDER, border_width=1, corner_radius=12)
+        card.pack(fill="x", pady=(0, 16), ipady=8)
+
+        info_lbl = ctk.CTkLabel(
+            card,
+            text=(
+                "💡 Automatic Setup will run Windows Package Manager (winget) to install the "
+                "official FFmpeg package globally and configure your system PATH."
+            ),
+            font=ctk.CTkFont(size=12),
+            text_color=MUTED_TEXT,
+            justify="left",
+            wraplength=480
+        )
+        info_lbl.pack(padx=16, pady=4, anchor="w")
+
+        # Progress / Status Section
+        self.status_lbl = ctk.CTkLabel(
+            container,
+            text="Status: Ready to install",
+            font=ctk.CTkFont(size=12),
+            text_color=MUTED_TEXT,
+            anchor="w"
+        )
+        self.status_lbl.pack(fill="x", pady=(0, 6))
+
+        self.progress_bar = ctk.CTkProgressBar(container, height=6, progress_color=ACCENT)
+        self.progress_bar.set(0)
+        self.progress_bar.pack(fill="x", pady=(0, 18))
+
+        # Buttons Row
+        self.actions_row = ctk.CTkFrame(container, fg_color="transparent")
+        self.actions_row.pack(fill="x", side="bottom")
+
+        self.install_btn = ctk.CTkButton(
+            self.actions_row,
+            text="⚡ Setup FFmpeg Automatically",
+            font=ctk.CTkFont(size=13, weight="bold"),
+            fg_color=ACCENT,
+            hover_color=ACCENT_HOVER,
+            height=38,
+            command=self.start_install
+        )
+        self.install_btn.pack(side="left", fill="x", expand=True, padx=(0, 8))
+
+        self.manual_btn = ctk.CTkButton(
+            self.actions_row,
+            text="Manual Setup",
+            font=ctk.CTkFont(size=12),
+            fg_color="transparent",
+            border_width=1,
+            border_color=CARD_BORDER,
+            text_color=MUTED_TEXT,
+            height=38,
+            width=110,
+            command=self.open_manual_site
+        )
+        self.manual_btn.pack(side="left", padx=(0, 8))
+
+        self.cancel_btn = ctk.CTkButton(
+            self.actions_row,
+            text="Skip / Cancel",
+            font=ctk.CTkFont(size=12),
+            fg_color="transparent",
+            border_width=1,
+            border_color=CARD_BORDER,
+            text_color=MUTED_TEXT,
+            height=38,
+            width=90,
+            command=self.destroy
+        )
+        self.cancel_btn.pack(side="right")
+
+    def open_manual_site(self):
+        webbrowser.open("https://ffmpeg.org/download.html")
+
+    def start_install(self):
+        if self.is_running:
+            return
+        self.is_running = True
+        self.install_btn.configure(state="disabled", text="Installing FFmpeg...")
+        self.manual_btn.configure(state="disabled")
+        self.cancel_btn.configure(state="disabled")
+        self.progress_bar.configure(mode="indeterminate")
+        self.progress_bar.start()
+        self.status_lbl.configure(text="Status: Installing official FFmpeg via Windows Package Manager...", text_color=ACCENT)
+
+        threading.Thread(target=self._worker, daemon=True).start()
+
+    def _worker(self):
+        flags = subprocess.CREATE_NO_WINDOW if os.name == "nt" else 0
+        cmd = ["winget", "install", "Gyan.FFmpeg", "--accept-source-agreements", "--accept-package-agreements"]
+        try:
+            proc = subprocess.Popen(
+                cmd,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
+                text=True,
+                encoding="utf-8",
+                errors="replace",
+                creationflags=flags
+            )
+            for line in proc.stdout:
+                line = line.strip()
+                if line:
+                    clean_line = line[:65]
+                    self.after(0, self._set_status_text, clean_line)
+            proc.wait()
+        except Exception:
+            pass
+
+        self.after(0, self._set_status_text, "Configuring environment...")
+        refresh_environment_path()
+        found = find_ffmpeg()
+        if found:
+            self.after(0, self._finish_success, found)
+        else:
+            self.after(0, self._finish_failure)
+
+    def _set_status_text(self, text):
+        self.status_lbl.configure(text=f"Status: {text}")
+
+    def _finish_success(self, path):
+        self.progress_bar.stop()
+        self.progress_bar.set(1.0)
+        self.status_lbl.configure(text="Status: FFmpeg ready!", text_color=SUCCESS)
+        self.install_btn.configure(text="Completed", fg_color=SUCCESS)
+        if hasattr(self.parent, "write"):
+            self.parent.write(f"\n[FFmpeg Setup] FFmpeg detected at: {path}\n")
+        if hasattr(self.parent, "update_ffmpeg_status"):
+            self.parent.update_ffmpeg_status()
+        if self.on_complete:
+            try:
+                self.on_complete()
+            except Exception:
+                pass
+        self.after(1400, self.destroy)
+
+    def _finish_failure(self):
+        self.progress_bar.stop()
+        self.progress_bar.set(0)
+        self.is_running = False
+        self.status_lbl.configure(
+            text="Status: Automatic setup did not complete. Try 'Manual Setup' button.",
+            text_color=DANGER
+        )
+        self.install_btn.configure(state="normal", text="Retry Setup")
+        self.manual_btn.configure(state="normal")
+        self.cancel_btn.configure(state="normal")
 
 
 def short(path, n=58):
@@ -78,6 +356,7 @@ class App(ctk.CTk):
         self.last_output_dir = None
 
         self.build_ui()
+        self.after(600, self.check_ffmpeg_initial)
 
     # ---------- UI ----------
     def build_ui(self):
@@ -129,6 +408,16 @@ class App(ctk.CTk):
         )
         self.theme_switch.select()
         self.theme_switch.pack(side="right")
+
+        self.ffmpeg_btn = ctk.CTkButton(
+            header_actions,
+            text="Checking FFmpeg...",
+            font=ctk.CTkFont(size=11),
+            height=26,
+            corner_radius=13,
+            command=self.show_ffmpeg_dialog
+        )
+        self.ffmpeg_btn.pack(side="right", padx=(0, 14))
 
         # Container for Steps
         self.cards_container = ctk.CTkFrame(self, fg_color="transparent")
@@ -543,7 +832,36 @@ class App(ctk.CTk):
             self.progress.stop()
             self.progress.set(0)
 
+    def update_ffmpeg_status(self):
+        found = find_ffmpeg()
+        if found:
+            self.ffmpeg_btn.configure(
+                text="● FFmpeg Ready",
+                fg_color=BADGE_BG,
+                text_color=SUCCESS,
+                hover=False
+            )
+        else:
+            self.ffmpeg_btn.configure(
+                text="⚠️ Setup FFmpeg",
+                fg_color=WARNING,
+                hover_color="#D97706",
+                text_color="#1E222D",
+                hover=True
+            )
+
+    def show_ffmpeg_dialog(self, on_complete=None):
+        FFmpegSetupDialog(self, on_complete=on_complete)
+
+    def check_ffmpeg_initial(self):
+        self.update_ffmpeg_status()
+        if not find_ffmpeg():
+            self.show_ffmpeg_dialog()
+
     def start(self):
+        if not find_ffmpeg():
+            self.show_ffmpeg_dialog(on_complete=self.start)
+            return
         if not os.path.isfile(self.video_path):
             messagebox.showerror("Missing movie", "Please choose a valid movie file.")
             return
