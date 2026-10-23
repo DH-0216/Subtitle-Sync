@@ -30,7 +30,7 @@
 
 ## 🚀 Quick Start (Download Executable)
 
-1. Go to the [**Releases**](https://github.com/) section on GitHub.
+1. Go to the [**Releases**](https://github.com/DH-0216/Subtitle-Sync/releases) section on GitHub.
 2. Download the latest `SubtitleSync.exe`.
 3. Ensure **[ffmpeg](https://ffmpeg.org/)** is installed on your computer.
 4. Double-click `SubtitleSync.exe` to run!
@@ -67,8 +67,8 @@ If you prefer running directly with Python:
 
 ```bash
 # 1. Clone the repository
-git clone https://github.com/your-username/subtitle-sync-studio.git
-cd subtitle-sync-studio
+git clone https://github.com/DH-0216/Subtitle-Sync.git
+cd Subtitle-Sync
 
 # 2. Install dependencies
 pip install customtkinter ffsubsync
