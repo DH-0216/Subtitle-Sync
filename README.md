@@ -39,10 +39,25 @@
 
 ## 🛠️ Prerequisites
 
-Subtitle synchronization relies on **`ffmpeg`** to extract and analyze audio tracks from your video:
+Subtitle synchronization relies on **`ffmpeg`** to extract and analyze audio tracks from your video.
 
-1. Download `ffmpeg` from [ffmpeg.org](https://ffmpeg.org/download.html) (or install via `winget install Gyan.FFmpeg` / `choco install ffmpeg`).
-2. Ensure `ffmpeg` is added to your system's `PATH`.
+### Installing FFmpeg (Windows)
+
+The easiest way is using Windows Package Manager (`winget`), which sets up your system `PATH` automatically:
+
+1. Click **Start**, type **PowerShell**, and open it.
+2. Run:
+   ```powershell
+   winget install Gyan.FFmpeg
+   ```
+   *(or `winget install ffmpeg`)*
+3. Close PowerShell and open it again.
+4. Verify that it worked:
+   ```powershell
+   ffmpeg -version
+   ```
+
+*(Alternative: You can also install manually from [ffmpeg.org](https://ffmpeg.org/download.html) or via `choco install ffmpeg`)*
 
 ---
 
