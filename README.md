@@ -41,25 +41,22 @@ Go to the [**Releases**](https://github.com/DH-0216/Subtitle-Sync/releases) sect
 
 ## 🛠️ Prerequisites
 
-Subtitle synchronization relies on **`ffmpeg`** to extract and analyze audio tracks from your video.
+> [!NOTE]
+> If you downloaded **`SubtitleSync-Setup.exe`** or **`SubtitleSync.exe`**, FFmpeg is handled automatically! You do not need to install it manually.
 
-### Installing FFmpeg (Windows)
+Subtitle synchronization uses **`ffmpeg`** to extract and analyze speech audio from your video files. If you are **running from source** or prefer installing it manually on Windows:
 
-The easiest way is using Windows Package Manager (`winget`), which sets up your system `PATH` automatically:
-
-1. Click **Start**, type **PowerShell**, and open it.
-2. Run:
+1. Open **PowerShell** and run:
    ```powershell
    winget install ffmpeg
    ```
    *(Note: If prompted with multiple package options, run `winget install Gyan.FFmpeg`)*
-3. Close PowerShell and open it again.
-4. Verify that it worked:
+2. Verify that it worked:
    ```powershell
    ffmpeg -version
    ```
 
-*(Alternative: You can also install manually from [ffmpeg.org](https://ffmpeg.org/download.html) or via `choco install ffmpeg`)*
+*(Alternative: You can also download manually from [ffmpeg.org/download.html](https://ffmpeg.org/download.html) and add it to your system `PATH`)*
 
 ---
 
@@ -81,17 +78,18 @@ python subsync_modern.py
 
 ---
 
-## 📦 Building the Executable (.exe)
+## 📦 Building the Executable & Installer
 
-You can build the standalone `.exe` with PyInstaller using the included 1-click builder:
+You can build both the standalone portable `.exe` and the standard Windows setup installer using the included 1-click builder:
 
 1. Double-click **`build.bat`**.
 2. It will automatically:
-   - Check and install required build packages (`pyinstaller`, `pillow`, `customtkinter`, `ffsubsync`).
-   - Package the app with the custom icon and assets.
-   - Output `SubtitleSync.exe` directly inside the `dist/` directory.
+   - Check and verify required build dependencies.
+   - Package the portable **`dist/SubtitleSync.exe`** with PyInstaller and embedded assets.
+   - Auto-locate `ffmpeg.exe` and compile the **`dist/SubtitleSync-Setup.exe`** installer with Inno Setup.
+   - Create a desktop shortcut for quick access.
 
-Or run manually in your terminal:
+Or build the portable `.exe` manually in your terminal:
 
 ```bash
 pyinstaller --noconsole --onefile --clean --name "SubtitleSync" --icon "app_icon.ico" --add-data "app_icon.ico;." --collect-all customtkinter subsync_modern.py

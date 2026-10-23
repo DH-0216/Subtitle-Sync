@@ -6,13 +6,67 @@ Run:            python subsync_modern.py
 """
 import os
 import shutil
+import json
+import re
 import subprocess
 import sys
+import tempfile
 import threading
+import urllib.request
 import webbrowser
 from tkinter import filedialog, messagebox
 
+APP_VERSION = "1.1.0"
+GITHUB_REPO = "DH-0216/Subtitle-Sync"
+def set_windows_titlebar_color(window, dark: bool):
+    if os.name != "nt":
+        return
+    try:
+        import ctypes
+        hwnd = ctypes.windll.user32.GetParent(window.winfo_id())
+        DWMWA_USE_IMMERSIVE_DARK_MODE = 20
+        DWMWA_USE_IMMERSIVE_DARK_MODE_BEFORE_20H1 = 19
+        value = ctypes.c_int(1 if dark else 0)
+        res = ctypes.windll.dwmapi.DwmSetWindowAttribute(
+            hwnd, DWMWA_USE_IMMERSIVE_DARK_MODE, ctypes.byref(value), ctypes.sizeof(value)
+        )
+        if res != 0:
+            ctypes.windll.dwmapi.DwmSetWindowAttribute(
+                hwnd, DWMWA_USE_IMMERSIVE_DARK_MODE_BEFORE_20H1, ctypes.byref(value), ctypes.sizeof(value)
+            )
+    except Exception:
+        pass
+
+
+def get_settings_path():
+    local = os.path.join(os.environ.get("LOCALAPPDATA", ""), "SubtitleSync")
+    os.makedirs(local, exist_ok=True)
+    return os.path.join(local, "settings.json")
+
+def load_settings():
+    try:
+        p = get_settings_path()
+        if os.path.isfile(p):
+            with open(p, "r", encoding="utf-8") as f:
+                return json.load(f)
+    except Exception:
+        pass
+    return {"theme": "dark", "check_updates_startup": True}
+
+def save_settings(data):
+    try:
+        p = get_settings_path()
+        with open(p, "w", encoding="utf-8") as f:
+            json.dump(data, f, indent=2)
+    except Exception:
+        pass
+
 import customtkinter as ctk
+
+# Prevent CustomTkinter from manipulating Windows titlebars with withdraw(),
+# which causes window flashing, Aero snap breakage, and frozen mouse click focus.
+ctk.CTk._deactivate_windows_window_header_manipulation = True
+ctk.CTkToplevel._deactivate_windows_window_header_manipulation = True
 
 # Color palette & themes
 ACCENT = "#6366F1"          # Modern Indigo
@@ -24,12 +78,12 @@ WARNING = "#F59E0B"
 
 # Theme-aware surface colors (light, dark)
 CARD_BG = ("#FFFFFF", "#1E222D")
-CARD_BORDER = ("#E2E8F0", "#2E3446")
+CARD_BORDER = ("#CBD5E1", "#2E3446")
 INSET_BG = ("#F1F5F9", "#14171F")
 SUB_ITEM_BG = ("#F8FAFC", "#252B3B")
 BADGE_BG = ("#EEF2FF", "#2E3258")
 BADGE_FG = ("#4F46E5", "#A5B4FC")
-MUTED_TEXT = ("#64748B", "#94A3B8")
+MUTED_TEXT = ("#334155", "#94A3B8")
 
 VIDEO_TYPES = [("Video files", "*.mkv *.mp4 *.avi *.mov *.m4v *.webm"), ("All files", "*.*")]
 SUB_TYPES = [("Subtitle files", "*.srt *.ass *.ssa *.vtt"), ("All files", "*.*")]
@@ -122,12 +176,14 @@ class FFmpegSetupDialog(ctk.CTkToplevel):
         self.parent = parent
         self.on_complete = on_complete
 
+        self._deactivate_windows_window_header_manipulation = True
         self.title("FFmpeg Setup Required")
         self.geometry("560x420")
         self.minsize(520, 390)
         self.resizable(False, False)
         self.transient(parent)
-        self.grab_set()
+        self.lift()
+        self.focus()
 
         # Center on parent window
         parent.update_idletasks()
@@ -327,6 +383,476 @@ class FFmpegSetupDialog(ctk.CTkToplevel):
         self.cancel_btn.configure(state="normal")
 
 
+def parse_version(v_str):
+    """Extract semantic version tuple (e.g., 'v1.0.1' -> (1, 0, 1))."""
+    clean = re.sub(r'^[vV]', '', str(v_str).strip())
+    parts = []
+    for part in clean.split('.'):
+        digits = re.findall(r'\d+', part)
+        parts.append(int(digits[0]) if digits else 0)
+    while len(parts) < 3:
+        parts.append(0)
+    return tuple(parts[:3])
+
+
+class UpdateDialog(ctk.CTkToplevel):
+    def __init__(self, parent, release_data):
+        super().__init__(parent)
+        self.parent = parent
+        self.release_data = release_data
+        self.is_downloading = False
+
+        self.new_version = release_data.get("tag_name", "Latest")
+        self.release_notes = release_data.get("body", "Bug fixes and performance improvements.").strip()
+        self.html_url = release_data.get("html_url", f"https://github.com/{GITHUB_REPO}/releases/latest")
+
+        self._deactivate_windows_window_header_manipulation = True
+        self.title("Software Update Available")
+        self.geometry("580x480")
+        self.minsize(520, 430)
+        self.resizable(False, False)
+        self.transient(parent)
+        self.lift()
+        self.focus()
+
+        parent.update_idletasks()
+        px = parent.winfo_x()
+        py = parent.winfo_y()
+        pw = parent.winfo_width()
+        ph = parent.winfo_height()
+        x = px + max(0, (pw - 580) // 2)
+        y = py + max(0, (ph - 480) // 2)
+        self.geometry(f"+{x}+{y}")
+
+        self.build_ui()
+
+    def build_ui(self):
+        container = ctk.CTkFrame(self, fg_color="transparent")
+        container.pack(fill="both", expand=True, padx=26, pady=22)
+
+        # Header with icon and version info
+        header_row = ctk.CTkFrame(container, fg_color="transparent")
+        header_row.pack(fill="x", pady=(0, 6))
+
+        icon_lbl = ctk.CTkLabel(header_row, text="⚡", font=ctk.CTkFont(size=26), text_color=ACCENT)
+        icon_lbl.pack(side="left", padx=(0, 8))
+
+        title_lbl = ctk.CTkLabel(
+            header_row,
+            text=f"Update Available: {self.new_version}",
+            font=ctk.CTkFont(family="Segoe UI", size=20, weight="bold")
+        )
+        title_lbl.pack(side="left")
+
+        ver_badge = ctk.CTkLabel(
+            header_row,
+            text=f"v{APP_VERSION} → {self.new_version}",
+            font=ctk.CTkFont(size=12, weight="bold"),
+            text_color=SUCCESS,
+            fg_color=BADGE_BG,
+            corner_radius=6,
+            padx=8,
+            pady=2
+        )
+        ver_badge.pack(side="right")
+
+        notes_title = ctk.CTkLabel(
+            container,
+            text="What's New in this update:",
+            font=ctk.CTkFont(size=13, weight="bold"),
+            anchor="w"
+        )
+        notes_title.pack(fill="x", pady=(10, 4))
+
+        # Release notes box
+        self.textbox = ctk.CTkTextbox(
+            container,
+            height=170,
+            corner_radius=10,
+            fg_color=CARD_BG,
+            border_color=CARD_BORDER,
+            border_width=1,
+            font=ctk.CTkFont(size=12)
+        )
+        self.textbox.pack(fill="x", pady=(0, 14))
+        self.textbox.insert("1.0", self.release_notes if self.release_notes else "Bug fixes and performance improvements.")
+        self.textbox.configure(state="disabled")
+
+        # Progress & Status
+        self.status_lbl = ctk.CTkLabel(
+            container,
+            text="Ready to download and install update.",
+            font=ctk.CTkFont(size=12),
+            text_color=MUTED_TEXT,
+            anchor="w"
+        )
+        self.status_lbl.pack(fill="x", pady=(0, 6))
+
+        self.progress_bar = ctk.CTkProgressBar(container, height=6, progress_color=ACCENT)
+        self.progress_bar.set(0)
+        self.progress_bar.pack(fill="x", pady=(0, 18))
+
+        # Action buttons
+        self.actions_row = ctk.CTkFrame(container, fg_color="transparent")
+        self.actions_row.pack(fill="x", side="bottom")
+
+        self.install_btn = ctk.CTkButton(
+            self.actions_row,
+            text="⚡ Download & Install Update",
+            font=ctk.CTkFont(size=13, weight="bold"),
+            fg_color=ACCENT,
+            hover_color=ACCENT_HOVER,
+            height=38,
+            command=self.start_download
+        )
+        self.install_btn.pack(side="left", fill="x", expand=True, padx=(0, 8))
+
+        self.view_btn = ctk.CTkButton(
+            self.actions_row,
+            text="View on GitHub",
+            font=ctk.CTkFont(size=12),
+            fg_color="transparent",
+            border_width=1,
+            border_color=CARD_BORDER,
+            text_color=MUTED_TEXT,
+            height=38,
+            width=110,
+            command=self.open_github_release
+        )
+        self.view_btn.pack(side="left", padx=(0, 8))
+
+        self.cancel_btn = ctk.CTkButton(
+            self.actions_row,
+            text="Later",
+            font=ctk.CTkFont(size=12),
+            fg_color="transparent",
+            border_width=1,
+            border_color=CARD_BORDER,
+            text_color=MUTED_TEXT,
+            height=38,
+            width=70,
+            command=self.destroy
+        )
+        self.cancel_btn.pack(side="right")
+
+    def open_github_release(self):
+        webbrowser.open(self.html_url)
+
+    def start_download(self):
+        if self.is_downloading:
+            return
+        self.is_downloading = True
+        self.install_btn.configure(state="disabled", text="Downloading...")
+        self.view_btn.configure(state="disabled")
+        self.cancel_btn.configure(state="disabled")
+        self.progress_bar.set(0)
+        self.status_lbl.configure(text="Connecting to GitHub Releases...", text_color=ACCENT)
+
+        assets = self.release_data.get("assets", [])
+        download_url = None
+        filename = "SubtitleSync-Update.exe"
+
+        # Prefer Setup installer, fallback to standalone exe
+        for a in assets:
+            name = a.get("name", "")
+            if "setup" in name.lower() and name.endswith(".exe"):
+                download_url = a.get("browser_download_url")
+                filename = name
+                break
+        if not download_url:
+            for a in assets:
+                name = a.get("name", "")
+                if name.endswith(".exe"):
+                    download_url = a.get("browser_download_url")
+                    filename = name
+                    break
+
+        if not download_url:
+            webbrowser.open(self.html_url)
+            self.destroy()
+            return
+
+        threading.Thread(target=self._download_worker, args=(download_url, filename), daemon=True).start()
+
+    def _download_worker(self, download_url, filename):
+        try:
+            dest_path = os.path.join(tempfile.gettempdir(), filename)
+            req = urllib.request.Request(download_url, headers={"User-Agent": "SubtitleSync-App"})
+            with urllib.request.urlopen(req, timeout=40) as resp:
+                total_size = int(resp.headers.get("Content-Length", 0))
+                downloaded = 0
+                chunk_size = 64 * 1024
+                with open(dest_path, "wb") as f:
+                    while True:
+                        chunk = resp.read(chunk_size)
+                        if not chunk:
+                            break
+                        f.write(chunk)
+                        downloaded += len(chunk)
+                        if total_size > 0:
+                            pct = downloaded / total_size
+                            mb_down = downloaded / (1024 * 1024)
+                            mb_tot = total_size / (1024 * 1024)
+                            self.after(0, self._update_progress, pct, f"Downloading update: {mb_down:.1f} MB / {mb_tot:.1f} MB ({int(pct*100)}%)")
+
+            self.after(0, self._install_and_restart, dest_path)
+        except Exception as e:
+            self.after(0, self._on_download_error, str(e))
+
+    def _update_progress(self, pct, text):
+        self.progress_bar.set(pct)
+        self.status_lbl.configure(text=text)
+
+    def _install_and_restart(self, dest_path):
+        self.progress_bar.set(1.0)
+        self.status_lbl.configure(text="✅ Update downloaded! Launching installer...", text_color=SUCCESS)
+        self.install_btn.configure(text="Restarting...")
+        self.after(1200, lambda: self._launch_and_exit(dest_path))
+
+    def _launch_and_exit(self, dest_path):
+        try:
+            subprocess.Popen([dest_path])
+        except Exception:
+            pass
+        self.parent.destroy()
+        sys.exit(0)
+
+    def _on_download_error(self, err_msg):
+        self.is_downloading = False
+        self.progress_bar.set(0)
+        self.status_lbl.configure(text=f"⚠️ Download failed. Try 'View on GitHub'.", text_color=DANGER)
+        self.install_btn.configure(state="normal", text="Retry Download")
+        self.view_btn.configure(state="normal")
+        self.cancel_btn.configure(state="normal")
+
+
+class SettingsDialog(ctk.CTkToplevel):
+    def __init__(self, parent):
+        super().__init__(parent)
+        self.parent = parent
+        self._deactivate_windows_window_header_manipulation = True
+        self.title("Settings")
+        self.geometry("520x460")
+        self.minsize(480, 420)
+        self.resizable(False, False)
+        self.transient(parent)
+        self.lift()
+        self.focus()
+
+        parent.update_idletasks()
+        px = parent.winfo_x()
+        py = parent.winfo_y()
+        pw = parent.winfo_width()
+        ph = parent.winfo_height()
+        x = px + max(0, (pw - 520) // 2)
+        y = py + max(0, (ph - 460) // 2)
+        self.geometry(f"+{x}+{y}")
+
+        self.build_ui()
+
+    def build_ui(self):
+        container = ctk.CTkFrame(self, fg_color="transparent")
+        container.pack(fill="both", expand=True, padx=26, pady=22)
+
+        # Header
+        header_row = ctk.CTkFrame(container, fg_color="transparent")
+        header_row.pack(fill="x", pady=(0, 16))
+
+        icon_lbl = ctk.CTkLabel(header_row, text="⚙️", font=ctk.CTkFont(size=24))
+        icon_lbl.pack(side="left", padx=(0, 10))
+
+        title_lbl = ctk.CTkLabel(
+            header_row,
+            text="Settings & Preferences",
+            font=ctk.CTkFont(family="Segoe UI", size=20, weight="bold")
+        )
+        title_lbl.pack(side="left")
+
+        # Card 1: Appearance
+        card_theme = ctk.CTkFrame(container, fg_color=CARD_BG, border_color=CARD_BORDER, border_width=1, corner_radius=12)
+        card_theme.pack(fill="x", pady=(0, 12), ipady=6)
+
+        theme_row = ctk.CTkFrame(card_theme, fg_color="transparent")
+        theme_row.pack(fill="x", padx=16, pady=8)
+        theme_row.grid_columnconfigure(0, weight=1)
+
+        theme_text = ctk.CTkFrame(theme_row, fg_color="transparent")
+        theme_text.grid(row=0, column=0, sticky="w")
+
+        ctk.CTkLabel(theme_text, text="Appearance Mode", font=ctk.CTkFont(size=13, weight="bold")).pack(anchor="w")
+        ctk.CTkLabel(theme_text, text="Toggle between Dark and Light interface themes", font=ctk.CTkFont(size=11), text_color=MUTED_TEXT).pack(anchor="w")
+
+        current_mode = self.parent.settings.get("theme", "dark")
+        self.theme_switch = ctk.CTkSwitch(
+            theme_row,
+            text="Dark mode",
+            font=ctk.CTkFont(size=12),
+            command=self.on_toggle_theme,
+            progress_color=ACCENT
+        )
+        if current_mode == "dark":
+            self.theme_switch.select()
+        else:
+            self.theme_switch.deselect()
+        self.theme_switch.grid(row=0, column=1, sticky="e")
+
+        # Card 2: Software Updates
+        card_updates = ctk.CTkFrame(container, fg_color=CARD_BG, border_color=CARD_BORDER, border_width=1, corner_radius=12)
+        card_updates.pack(fill="x", pady=(0, 12), ipady=6)
+
+        up_row = ctk.CTkFrame(card_updates, fg_color="transparent")
+        up_row.pack(fill="x", padx=16, pady=(8, 4))
+        up_row.grid_columnconfigure(0, weight=1)
+
+        up_text = ctk.CTkFrame(up_row, fg_color="transparent")
+        up_text.grid(row=0, column=0, sticky="w")
+        ctk.CTkLabel(up_text, text="Automatic Updates", font=ctk.CTkFont(size=13, weight="bold")).pack(anchor="w")
+        ctk.CTkLabel(up_text, text="Check for newer versions automatically on startup", font=ctk.CTkFont(size=11), text_color=MUTED_TEXT).pack(anchor="w")
+
+        self.up_switch = ctk.CTkSwitch(
+            up_row,
+            text="Enabled",
+            font=ctk.CTkFont(size=12),
+            command=self.on_toggle_auto_update,
+            progress_color=ACCENT
+        )
+        if self.parent.settings.get("check_updates_startup", True):
+            self.up_switch.select()
+        else:
+            self.up_switch.deselect()
+        self.up_switch.grid(row=0, column=1, sticky="e")
+
+        # Manual check row
+        manual_row = ctk.CTkFrame(card_updates, fg_color="transparent")
+        manual_row.pack(fill="x", padx=16, pady=(4, 8))
+        manual_row.grid_columnconfigure(0, weight=1)
+
+        self.check_status_lbl = ctk.CTkLabel(
+            manual_row,
+            text=f"Current Version: v{APP_VERSION}",
+            font=ctk.CTkFont(size=11),
+            text_color=MUTED_TEXT
+        )
+        self.check_status_lbl.grid(row=0, column=0, sticky="w")
+
+        self.check_now_btn = ctk.CTkButton(
+            manual_row,
+            text="🔍 Check Now",
+            font=ctk.CTkFont(size=11),
+            height=26,
+            width=100,
+            fg_color="transparent",
+            border_width=1,
+            border_color=CARD_BORDER,
+            text_color=("gray20", "gray85"),
+            hover_color=("gray90", "gray25"),
+            command=self.manual_check_update
+        )
+        self.check_now_btn.grid(row=0, column=1, sticky="e")
+
+        # Card 3: About
+        card_about = ctk.CTkFrame(container, fg_color=CARD_BG, border_color=CARD_BORDER, border_width=1, corner_radius=12)
+        card_about.pack(fill="x", pady=(0, 16), ipady=6)
+
+        about_row = ctk.CTkFrame(card_about, fg_color="transparent")
+        about_row.pack(fill="x", padx=16, pady=8)
+        about_row.grid_columnconfigure(0, weight=1)
+
+        about_info = ctk.CTkFrame(about_row, fg_color="transparent")
+        about_info.grid(row=0, column=0, sticky="w")
+        ctk.CTkLabel(about_info, text="Subtitle Sync Studio", font=ctk.CTkFont(size=13, weight="bold")).pack(anchor="w")
+        ctk.CTkLabel(about_info, text="Developed by DH-0216", font=ctk.CTkFont(size=11), text_color=MUTED_TEXT).pack(anchor="w")
+
+        repo_btn = ctk.CTkButton(
+            about_row,
+            text="GitHub ↗",
+            font=ctk.CTkFont(size=11),
+            height=26,
+            width=75,
+            fg_color="transparent",
+            border_width=1,
+            border_color=CARD_BORDER,
+            text_color=("gray20", "gray85"),
+            hover_color=("gray90", "gray25"),
+            command=lambda: webbrowser.open(f"https://github.com/{GITHUB_REPO}")
+        )
+        repo_btn.grid(row=0, column=1, sticky="e")
+
+        # Close button
+        close_btn = ctk.CTkButton(
+            container,
+            text="Done",
+            font=ctk.CTkFont(size=13, weight="bold"),
+            height=36,
+            fg_color=ACCENT,
+            hover_color=ACCENT_HOVER,
+            command=self.destroy
+        )
+        close_btn.pack(fill="x", side="bottom")
+
+    def destroy(self):
+        super().destroy()
+        try:
+            self.parent.focus_force()
+        except Exception:
+            pass
+
+    def on_toggle_theme(self):
+        new_theme = "dark" if self.theme_switch.get() else "light"
+        self.parent.settings["theme"] = new_theme
+        save_settings(self.parent.settings)
+        ctk.set_appearance_mode(new_theme)
+        set_windows_titlebar_color(self.parent, new_theme == "dark")
+        set_windows_titlebar_color(self, new_theme == "dark")
+        try:
+            self.focus_force()
+        except Exception:
+            pass
+
+    def on_toggle_auto_update(self):
+        val = bool(self.up_switch.get())
+        self.parent.settings["check_updates_startup"] = val
+        save_settings(self.parent.settings)
+
+    def manual_check_update(self):
+        self.check_now_btn.configure(state="disabled", text="Checking...")
+        self.check_status_lbl.configure(text="Checking GitHub Releases...")
+        threading.Thread(target=self._manual_worker, daemon=True).start()
+
+    def _manual_worker(self):
+        try:
+            url = f"https://api.github.com/repos/{GITHUB_REPO}/releases/latest"
+            req = urllib.request.Request(url, headers={"User-Agent": "SubtitleSync-App"})
+            with urllib.request.urlopen(req, timeout=6) as response:
+                if response.status == 200:
+                    data = json.loads(response.read().decode("utf-8"))
+                    tag = data.get("tag_name", "")
+                    if parse_version(tag) > parse_version(APP_VERSION):
+                        self.after(0, self._on_manual_found, data)
+                        return
+                    else:
+                        self.after(0, self._on_manual_up_to_date)
+                        return
+        except Exception:
+            pass
+        self.after(0, self._on_manual_error)
+
+    def _on_manual_found(self, data):
+        self.check_now_btn.configure(state="normal", text="🔍 Check Now")
+        self.check_status_lbl.configure(text=f"Update available: {data.get('tag_name')}", text_color=SUCCESS)
+        self.parent.on_update_found(data)
+        self.destroy()
+        self.parent.show_update_dialog()
+
+    def _on_manual_up_to_date(self):
+        self.check_now_btn.configure(state="normal", text="🔍 Check Now")
+        self.check_status_lbl.configure(text=f"✅ You're on the latest version (v{APP_VERSION})", text_color=SUCCESS)
+
+    def _on_manual_error(self):
+        self.check_now_btn.configure(state="normal", text="🔍 Check Now")
+        self.check_status_lbl.configure(text="Could not connect to GitHub.", text_color=DANGER)
+
+
 def short(path, n=58):
     name = os.path.basename(path)
     return name if len(name) <= n else name[: n - 3] + "..."
@@ -335,7 +861,10 @@ def short(path, n=58):
 class App(ctk.CTk):
     def __init__(self):
         super().__init__()
-        ctk.set_appearance_mode("dark")
+        self._deactivate_windows_window_header_manipulation = True
+        self.settings = load_settings()
+        ctk.set_appearance_mode(self.settings.get("theme", "dark"))
+        self.after(50, lambda: set_windows_titlebar_color(self, self.settings.get("theme", "dark") == "dark"))
         ctk.set_default_color_theme("blue")
         self.title("Subtitle Sync Studio")
         self.geometry("820x780")
@@ -355,8 +884,11 @@ class App(ctk.CTk):
         self.proc = None
         self.last_output_dir = None
 
+        self.latest_release_data = None
         self.build_ui()
         self.after(600, self.check_ffmpeg_initial)
+        if self.settings.get("check_updates_startup", True):
+            self.after(2500, self.start_update_check)
 
     # ---------- UI ----------
     def build_ui(self):
@@ -389,6 +921,13 @@ class App(ctk.CTk):
         ).pack(side="left")
 
         ctk.CTkLabel(
+            title_row,
+            text=f"v{APP_VERSION}",
+            font=ctk.CTkFont(size=12),
+            text_color=MUTED_TEXT
+        ).pack(side="left", padx=(8, 0), pady=(4, 0))
+
+        ctk.CTkLabel(
             title_box,
             text="Automatically synchronize out-of-sync subtitles with your movie's reference audio",
             font=ctk.CTkFont(size=12),
@@ -397,17 +936,24 @@ class App(ctk.CTk):
 
         # Right side header actions: theme toggle
         header_actions = ctk.CTkFrame(header, fg_color="transparent")
+        self.header_actions = header_actions
+        self.update_btn = None
         header_actions.grid(row=0, column=1, sticky="e")
 
-        self.theme_switch = ctk.CTkSwitch(
+        self.settings_btn = ctk.CTkButton(
             header_actions,
-            text="Dark mode",
+            text="⚙️ Settings",
             font=ctk.CTkFont(size=12),
-            command=self.toggle_theme,
-            progress_color=ACCENT
+            height=28,
+            corner_radius=14,
+            fg_color="transparent",
+            border_width=1,
+            border_color=CARD_BORDER,
+            text_color=("gray20", "gray85"),
+            hover_color=("gray90", "gray25"),
+            command=self.show_settings_dialog
         )
-        self.theme_switch.select()
-        self.theme_switch.pack(side="right")
+        self.settings_btn.pack(side="right")
 
         self.ffmpeg_btn = ctk.CTkButton(
             header_actions,
@@ -662,6 +1208,32 @@ class App(ctk.CTk):
         )
         self.open_btn.grid(row=0, column=1, sticky="e")
 
+        # ---------------- DEVELOPER ATTRIBUTION & GITHUB ----------------
+        bottom_credit_bar = ctk.CTkFrame(self, fg_color="transparent")
+        bottom_credit_bar.grid(row=5, column=0, sticky="ew", padx=28, pady=(0, 14))
+        bottom_credit_bar.grid_columnconfigure(0, weight=1)
+
+        credit_lbl = ctk.CTkLabel(
+            bottom_credit_bar,
+            text="Developed by DH-0216",
+            font=ctk.CTkFont(size=11),
+            text_color=MUTED_TEXT
+        )
+        credit_lbl.grid(row=0, column=0, sticky="w")
+
+        github_link = ctk.CTkButton(
+            bottom_credit_bar,
+            text="GitHub Repository ↗",
+            font=ctk.CTkFont(size=11),
+            fg_color="transparent",
+            hover_color=("gray90", "gray25"),
+            text_color=ACCENT,
+            height=22,
+            cursor="hand2",
+            command=self.open_github_repo
+        )
+        github_link.grid(row=0, column=1, sticky="e")
+
         self.write("Pick your movie and subtitle file(s), then press 'Start Syncing'.\n"
                    "Fixed files will be saved next to originals as NAME.synced.srt\n")
 
@@ -711,8 +1283,8 @@ class App(ctk.CTk):
         return frame
 
     # ---------- helpers ----------
-    def toggle_theme(self):
-        ctk.set_appearance_mode("dark" if self.theme_switch.get() else "light")
+    def open_github_repo(self):
+        webbrowser.open(f"https://github.com/{GITHUB_REPO}")
 
     def write(self, text):
         self.log.configure(state="normal")
@@ -852,6 +1424,45 @@ class App(ctk.CTk):
 
     def show_ffmpeg_dialog(self, on_complete=None):
         FFmpegSetupDialog(self, on_complete=on_complete)
+
+    def start_update_check(self):
+        threading.Thread(target=self._check_update_worker, daemon=True).start()
+
+    def _check_update_worker(self):
+        try:
+            url = f"https://api.github.com/repos/{GITHUB_REPO}/releases/latest"
+            req = urllib.request.Request(url, headers={"User-Agent": "SubtitleSync-App"})
+            with urllib.request.urlopen(req, timeout=5) as response:
+                if response.status == 200:
+                    data = json.loads(response.read().decode("utf-8"))
+                    tag = data.get("tag_name", "")
+                    if parse_version(tag) > parse_version(APP_VERSION):
+                        self.after(0, self.on_update_found, data)
+        except Exception:
+            pass
+
+    def on_update_found(self, data):
+        self.latest_release_data = data
+        tag = data.get("tag_name", "new")
+        if not self.update_btn and hasattr(self, "header_actions"):
+            self.update_btn = ctk.CTkButton(
+                self.header_actions,
+                text=f"⚡ Update Available ({tag})",
+                font=ctk.CTkFont(size=11, weight="bold"),
+                height=26,
+                corner_radius=13,
+                fg_color=ACCENT,
+                hover_color=ACCENT_HOVER,
+                command=self.show_update_dialog
+            )
+            self.update_btn.pack(side="right", padx=(0, 10))
+
+    def show_settings_dialog(self):
+        SettingsDialog(self)
+
+    def show_update_dialog(self):
+        if self.latest_release_data:
+            UpdateDialog(self, self.latest_release_data)
 
     def check_ffmpeg_initial(self):
         self.update_ffmpeg_status()

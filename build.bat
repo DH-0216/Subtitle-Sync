@@ -7,8 +7,8 @@ echo          Subtitle Sync - 1-Click Builder
 echo =======================================================
 echo.
 
-echo [1/4] Checking and installing required packages...
-python -m pip install --upgrade customtkinter ffsubsync pyinstaller pillow
+echo [1/5] Checking required packages...
+python -m pip install customtkinter ffsubsync pyinstaller pillow --no-warn-script-location
 if %errorlevel% neq 0 (
     echo.
     echo [ERROR] Failed to install required packages.
