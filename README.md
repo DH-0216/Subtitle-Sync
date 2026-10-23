@@ -28,12 +28,14 @@
 
 ---
 
-## 🚀 Quick Start (Download Executable)
+## 🚀 Quick Start (Download)
 
-1. Go to the [**Releases**](https://github.com/DH-0216/Subtitle-Sync/releases) section on GitHub.
-2. Download the latest `SubtitleSync.exe`.
-3. Ensure **[ffmpeg](https://ffmpeg.org/)** is installed on your computer.
-4. Double-click `SubtitleSync.exe` to run!
+Go to the [**Releases**](https://github.com/DH-0216/Subtitle-Sync/releases) section on GitHub and pick your preferred download:
+
+| Package | File | Description |
+| :--- | :--- | :--- |
+| **Windows Installer** *(Recommended)* | **`SubtitleSync-Setup.exe`** | Standard setup wizard. Installs to Program Files, adds Start Menu & Desktop shortcuts, includes standard uninstaller, and sets up FFmpeg offline. |
+| **Portable Version** | **`SubtitleSync.exe`** | Standalone single `.exe`. Zero installation required. If FFmpeg is missing, prompts with an in-app 1-click auto-setup button. |
 
 ---
 
@@ -100,14 +102,16 @@ pyinstaller --noconsole --onefile --clean --name "SubtitleSync" --icon "app_icon
 ## 📂 File Structure
 
 ```text
-├── subsync_modern.py     # Main application source code
-├── create_icon.py        # Icon generation script
-├── app_icon.ico          # Windows multi-resolution icon
-├── app_icon.png          # High-resolution icon preview
-├── build.bat             # 1-click PyInstaller build script
-├── dist/                 # Compiled executable output folder
-│   └── SubtitleSync.exe  # Standalone double-click application
-└── README.md             # Project documentation
+├── subsync_modern.py        # Main application source code
+├── installer.iss            # Inno Setup Windows installer script
+├── create_icon.py           # Icon generation script
+├── app_icon.ico             # Windows multi-resolution icon
+├── app_icon.png             # High-resolution icon preview
+├── build.bat                # 1-click builder script (Portable & Installer)
+├── dist/                    # Compiled distribution output folder
+│   ├── SubtitleSync-Setup.exe  # Standard Windows Setup Installer
+│   └── SubtitleSync.exe        # Standalone portable application
+└── README.md                # Project documentation
 ```
 
 ---
@@ -120,7 +124,10 @@ Synchronized subtitle files are automatically saved in the same directory as the
 
 ---
 
-## 🙏 Credits
+## 🙏 Credits & Third-Party Notices
 
-- UI built with [CustomTkinter](https://github.com/TomSchimansky/CustomTkinter).
-- Speech alignment powered by [ffsubsync](https://github.com/smarnach/ffsubsync).
+Subtitle Sync Studio relies on the following open-source projects:
+
+- **[FFmpeg](https://ffmpeg.org/)**: Multimedia framework used to extract and analyze audio tracks from video files. FFmpeg is licensed under the [GNU LGPL / GPL](https://ffmpeg.org/legal.html). Its source code can be downloaded from [ffmpeg.org/download.html](https://ffmpeg.org/download.html).
+- **[ffsubsync](https://github.com/smarnach/ffsubsync)**: Speech-to-subtitle alignment engine powered by [ffsubsync](https://github.com/smarnach/ffsubsync) (MIT License).
+- **[CustomTkinter](https://github.com/TomSchimansky/CustomTkinter)**: Desktop UI interface built with [CustomTkinter](https://github.com/TomSchimansky/CustomTkinter) (Creative Commons Zero / MIT License).
