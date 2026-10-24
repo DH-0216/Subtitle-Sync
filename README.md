@@ -127,5 +127,5 @@ Synchronized subtitle files are automatically saved in the same directory as the
 Subtitle Sync Studio relies on the following open-source projects:
 
 - **[FFmpeg](https://ffmpeg.org/)**: Multimedia framework used to extract and analyze audio tracks from video files. FFmpeg is licensed under the [GNU LGPL / GPL](https://ffmpeg.org/legal.html). Its source code can be downloaded from [ffmpeg.org/download.html](https://ffmpeg.org/download.html).
-- **[ffsubsync](https://github.com/smarnach/ffsubsync)**: Speech-to-subtitle alignment engine powered by [ffsubsync](https://github.com/smarnach/ffsubsync) (MIT License).
+- **[ffsubsync](https://github.com/smacke/ffsubsync)**: Speech-to-subtitle alignment engine powered by [ffsubsync](https://github.com/smacke/ffsubsync) (MIT License).
 - **[CustomTkinter](https://github.com/TomSchimansky/CustomTkinter)**: Desktop UI interface built with [CustomTkinter](https://github.com/TomSchimansky/CustomTkinter) (Creative Commons Zero / MIT License).
