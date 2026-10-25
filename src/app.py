@@ -1,27 +1,27 @@
 """Main Application Window for Subtitle Sync Studio."""
-import json
 import os
-import queue
-import re
-import shutil
 import subprocess
 import sys
-import tempfile
 import threading
-import urllib.request
 import webbrowser
 from tkinter import filedialog, messagebox
 import customtkinter as ctk
 
 from src.constants import (
-    APP_VERSION, GITHUB_REPO, ACCENT, ACCENT_HOVER, DANGER, DANGER_HOVER,
-    SUCCESS, WARNING, CARD_BG, CARD_BORDER, INSET_BG, SUB_ITEM_BG,
-    BADGE_BG, BADGE_FG, MUTED_TEXT, VIDEO_TYPES, SUB_TYPES, LOCKED_HINT
+    APP_VERSION, GITHUB_REPO, ACCENT, ACCENT_HOVER, DANGER, SUCCESS, WARNING,
+    BADGE_BG, BADGE_FG, MUTED_TEXT, VIDEO_TYPES, SUB_TYPES,
+    MODE_SMART, MODE_SPLIT, MODE_HINTS, MAX_SUBTITLES
 )
 from src.settings import load_settings, save_settings
-from src.utils import set_windows_titlebar_color, resource_path, short, get_gear_icon
-from src.media import find_ffmpeg, build_command, refresh_environment_path, list_audio_tracks
+from src.utils import set_windows_titlebar_color, resource_path, short, fetch_github_release
+from src.media import (
+    find_ffmpeg, list_audio_tracks, get_video_sync_details, detect_subtitle_fps,
+    get_subtitle_sync_details
+)
 from src.dialogs import FFmpegSetupDialog, UpdateDialog, SettingsDialog, parse_version
+from src.engine import SyncEngine
+from src.ui_builder import build_main_ui, create_step_card, render_subtitle_list
+from src.recommender import analyze_recommendation
 
 class App(ctk.CTk):
     def __init__(self):
@@ -32,8 +32,14 @@ class App(ctk.CTk):
         self.after(50, lambda: set_windows_titlebar_color(self, self.settings.get("theme", "dark") == "dark"))
         ctk.set_default_color_theme("blue")
         self.title("Subtitle Sync Studio")
-        self.geometry("820x830")
-        self.minsize(720, 730)
+
+        # Smart sizing to fit comfortably on both laptops and desktop monitors
+        screen_w = self.winfo_screenwidth()
+        screen_h = self.winfo_screenheight()
+        default_w = min(820, max(720, screen_w - 40))
+        default_h = min(770, max(560, screen_h - 80))
+        self.geometry(f"{default_w}x{default_h}")
+        self.minsize(680, 520)
 
         icon_file = resource_path("app_icon.ico")
         if os.path.isfile(icon_file):
@@ -45,454 +51,143 @@ class App(ctk.CTk):
         self.video_path = ""
         self.subs = []
         self.audio_tracks = []
+        self.video_fps = None
+        self.sub_fps = None
         self.running = False
         self.cancelled = False
         self.proc = None
         self.last_output_dir = None
+        self.last_output_file = None
+        self.user_selected_mode = False
 
         self.latest_release_data = None
         self.build_ui()
-        self.after(600, self.check_ffmpeg_initial)
+        self.after(100, self.check_ffmpeg_initial)
         if self.settings.get("check_updates_startup", True):
             self.after(2500, self.start_update_check)
 
     # ---------- UI ----------
     def build_ui(self):
-        self.grid_columnconfigure(0, weight=1)
-        self.grid_rowconfigure(3, weight=1)
-
-        # Header Section
-        header = ctk.CTkFrame(self, fg_color="transparent")
-        header.grid(row=0, column=0, sticky="ew", padx=28, pady=(20, 14))
-        header.grid_columnconfigure(0, weight=1)
-
-        title_box = ctk.CTkFrame(header, fg_color="transparent")
-        title_box.grid(row=0, column=0, sticky="w")
-
-        title_row = ctk.CTkFrame(title_box, fg_color="transparent")
-        title_row.pack(anchor="w")
-
-        title_icon = ctk.CTkLabel(
-            title_row,
-            text="⚡",
-            font=ctk.CTkFont(size=24),
-            text_color=ACCENT
-        )
-        title_icon.pack(side="left", padx=(0, 8))
-
-        ctk.CTkLabel(
-            title_row,
-            text="Subtitle Sync",
-            font=ctk.CTkFont(family="Segoe UI", size=24, weight="bold")
-        ).pack(side="left")
-
-        ctk.CTkLabel(
-            title_row,
-            text=f"v{APP_VERSION}",
-            font=ctk.CTkFont(size=12),
-            text_color=MUTED_TEXT
-        ).pack(side="left", padx=(8, 0), pady=(4, 0))
-
-        ctk.CTkLabel(
-            title_box,
-            text="Automatically synchronize out-of-sync subtitles with your movie's reference audio",
-            font=ctk.CTkFont(size=12),
-            text_color=MUTED_TEXT
-        ).pack(anchor="w", pady=(3, 0))
-
-        # Right side header actions: theme toggle
-        header_actions = ctk.CTkFrame(header, fg_color="transparent")
-        self.header_actions = header_actions
-        self.update_btn = None
-        header_actions.grid(row=0, column=1, sticky="e")
-
-        self.settings_btn = ctk.CTkButton(
-            header_actions,
-            text=" Settings",
-            image=get_gear_icon(14),
-            compound="left",
-            font=ctk.CTkFont(size=12),
-            height=28,
-            corner_radius=14,
-            fg_color="transparent",
-            border_width=1,
-            border_color=CARD_BORDER,
-            text_color=("gray20", "gray85"),
-            hover_color=("gray90", "gray25"),
-            command=self.show_settings_dialog
-        )
-        self.settings_btn.pack(side="right")
-
-        self.ffmpeg_btn = ctk.CTkButton(
-            header_actions,
-            text="Checking FFmpeg...",
-            font=ctk.CTkFont(size=11),
-            height=26,
-            corner_radius=13,
-            command=self.show_ffmpeg_dialog
-        )
-        self.ffmpeg_btn.pack(side="right", padx=(0, 14))
-
-        # Container for Steps
-        self.cards_container = ctk.CTkFrame(self, fg_color="transparent")
-        self.cards_container.grid(row=1, column=0, sticky="ew", padx=28, pady=0)
-        self.cards_container.grid_columnconfigure(0, weight=1)
-
-        # ---------------- STEP 1: Movie File ----------------
-        card1 = self.create_step_card(
-            step_num="STEP 1",
-            title="Movie Reference",
-            subtitle="Select the video file containing the source audio track"
-        )
-        card1.grid(row=0, column=0, sticky="ew", pady=(0, 12))
-        card1.grid_columnconfigure(0, weight=1)
-
-        # Step 1 Content: sleek file slot
-        v_slot = ctk.CTkFrame(
-            card1,
-            fg_color=INSET_BG,
-            corner_radius=10,
-            border_width=1,
-            border_color=CARD_BORDER
-        )
-        v_slot.grid(row=1, column=0, columnspan=2, sticky="ew", padx=16, pady=(0, 16))
-        v_slot.grid_columnconfigure(1, weight=1)
-
-        ctk.CTkLabel(
-            v_slot,
-            text="🎬",
-            font=ctk.CTkFont(size=16)
-        ).grid(row=0, column=0, padx=(12, 6), pady=10)
-
-        self.video_label = ctk.CTkLabel(
-            v_slot,
-            text="No movie selected yet (select .mp4, .mkv, .avi, etc.)",
-            anchor="w",
-            font=ctk.CTkFont(size=12),
-            text_color=MUTED_TEXT
-        )
-        self.video_label.grid(row=0, column=1, sticky="ew", padx=(0, 10), pady=10)
-
-        ctk.CTkButton(
-            v_slot,
-            text="Browse Video",
-            width=120,
-            height=32,
-            font=ctk.CTkFont(size=12, weight="bold"),
-            fg_color=ACCENT,
-            hover_color=ACCENT_HOVER,
-            corner_radius=8,
-            command=self.pick_video
-        ).grid(row=0, column=2, padx=(0, 10), pady=8)
-
-        # ---------------- STEP 2: Subtitle Files ----------------
-        card2 = self.create_step_card(
-            step_num="STEP 2",
-            title="Subtitle Files",
-            subtitle="Add one or multiple subtitles that need synchronization"
-        )
-        card2.grid(row=1, column=0, sticky="ew", pady=(0, 12))
-        card2.grid_columnconfigure(0, weight=1)
-
-        # Subtitle Action Bar (Add & Clear Buttons + Counter)
-        sub_toolbar = ctk.CTkFrame(card2, fg_color="transparent")
-        sub_toolbar.grid(row=1, column=0, columnspan=2, sticky="ew", padx=16, pady=(0, 10))
-        sub_toolbar.grid_columnconfigure(1, weight=1)
-
-        ctk.CTkButton(
-            sub_toolbar,
-            text="+ Add Subtitle(s)",
-            width=140,
-            height=30,
-            font=ctk.CTkFont(size=12, weight="bold"),
-            fg_color=ACCENT,
-            hover_color=ACCENT_HOVER,
-            corner_radius=8,
-            command=self.add_subs
-        ).grid(row=0, column=0, padx=(0, 8))
-
-        self.sub_count_label = ctk.CTkLabel(
-            sub_toolbar,
-            text="0 files added",
-            font=ctk.CTkFont(size=11),
-            text_color=MUTED_TEXT
-        )
-        self.sub_count_label.grid(row=0, column=1, sticky="w", padx=6)
-
-        ctk.CTkButton(
-            sub_toolbar,
-            text="Clear all",
-            width=80,
-            height=30,
-            font=ctk.CTkFont(size=11),
-            fg_color="transparent",
-            border_width=1,
-            border_color=CARD_BORDER,
-            text_color=("gray20", "gray80"),
-            hover_color=("gray90", "gray25"),
-            corner_radius=8,
-            command=self.clear_subs
-        ).grid(row=0, column=2, sticky="e")
-
-        # Scrollable subtitle list
-        self.sub_list = ctk.CTkScrollableFrame(
-            card2,
-            height=100,
-            corner_radius=10,
-            fg_color=INSET_BG,
-            border_width=1,
-            border_color=CARD_BORDER
-        )
-        self.sub_list.grid(row=2, column=0, columnspan=2, sticky="ew", padx=16, pady=(0, 16))
-        self.sub_list.grid_columnconfigure(0, weight=1)
-
-        self.refresh_sub_list()
-
-        # Notice banner above Step 3 (collapses when unlocked)
-        self.lock_hint = ctk.CTkLabel(
-            self.cards_container,
-            text=f"🔒 {LOCKED_HINT}",
-            font=ctk.CTkFont(size=12, weight="bold"),
-            text_color=WARNING,
-            anchor="w"
-        )
-        self.lock_hint.grid(row=2, column=0, sticky="w", padx=6, pady=(0, 8))
-
-        # ---------------- STEP 3: Sync Actions ----------------
-        card3 = self.create_step_card(
-            step_num="STEP 3",
-            title="Synchronize",
-            subtitle="Start speech alignment and output synced subtitle files"
-        )
-        card3.grid(row=3, column=0, sticky="ew", pady=(0, 12))
-        card3.grid_columnconfigure(1, weight=1)
-
-        opts = ctk.CTkFrame(card3, fg_color="transparent")
-        opts.grid(row=1, column=0, columnspan=2, sticky="ew", padx=16, pady=(0, 8))
-        opts.grid_columnconfigure(0, weight=1)
-
-        # Audio track picker: shown when movie has more than one audio track
-        self.extra_row = ctk.CTkFrame(opts, fg_color="transparent")
-        self.extra_row.grid(row=0, column=0, sticky="w")
-
-        ctk.CTkLabel(
-            self.extra_row,
-            text="Audio track",
-            font=ctk.CTkFont(size=11),
-            text_color=MUTED_TEXT
-        ).pack(side="left", padx=(0, 6))
-
-        self.audio_menu = ctk.CTkOptionMenu(
-            self.extra_row,
-            values=["Track 1"],
-            width=430,
-            height=26,
-            dynamic_resizing=False,
-            font=ctk.CTkFont(size=11),
-            dropdown_font=ctk.CTkFont(size=11),
-            fg_color=INSET_BG,
-            button_color=BADGE_BG,
-            button_hover_color=CARD_BORDER,
-            text_color=("gray10", "gray90")
-        )
-        self.audio_menu.pack(side="left")
-        self.extra_row.grid_remove()
-
-        action_row = ctk.CTkFrame(card3, fg_color="transparent")
-        action_row.grid(row=2, column=0, columnspan=2, sticky="ew", padx=16, pady=(0, 16))
-        action_row.grid_columnconfigure(1, weight=1)
-
-        self.start_btn = ctk.CTkButton(
-            action_row,
-            text="⚡ Start Syncing",
-            height=38,
-            width=160,
-            font=ctk.CTkFont(size=13, weight="bold"),
-            fg_color=ACCENT,
-            hover_color=ACCENT_HOVER,
-            corner_radius=8,
-            command=self.start
-        )
-        self.start_btn.grid(row=0, column=0)
-
-        # Modern progress bar
-        self.progress = ctk.CTkProgressBar(
-            action_row,
-            mode="indeterminate",
-            progress_color=ACCENT,
-            height=10,
-            corner_radius=5
-        )
-        self.progress.grid(row=0, column=1, sticky="ew", padx=16)
-        self.progress.set(0)
-
-        self.cancel_btn = ctk.CTkButton(
-            action_row,
-            text="Cancel",
-            width=90,
-            height=38,
-            font=ctk.CTkFont(size=12, weight="bold"),
-            fg_color=DANGER,
-            hover_color=DANGER_HOVER,
-            corner_radius=8,
-            state="disabled",
-            command=self.cancel
-        )
-        self.cancel_btn.grid(row=0, column=2)
-
-        # ---------------- ACTIVITY LOG ----------------
-        logcard = ctk.CTkFrame(
-            self,
-            corner_radius=14,
-            fg_color=CARD_BG,
-            border_width=1,
-            border_color=CARD_BORDER
-        )
-        logcard.grid(row=3, column=0, sticky="nsew", padx=28, pady=(0, 12))
-        logcard.grid_columnconfigure(0, weight=1)
-        logcard.grid_rowconfigure(1, weight=1)
-
-        log_header = ctk.CTkFrame(logcard, fg_color="transparent")
-        log_header.grid(row=0, column=0, sticky="ew", padx=16, pady=(12, 6))
-        log_header.grid_columnconfigure(1, weight=1)
-
-        ctk.CTkLabel(
-            log_header,
-            text="CONSOLE ACTIVITY",
-            font=ctk.CTkFont(size=11, weight="bold"),
-            text_color=MUTED_TEXT
-        ).grid(row=0, column=0, sticky="w")
-
-        self.log = ctk.CTkTextbox(
-            logcard,
-            font=ctk.CTkFont(family="Consolas", size=11),
-            fg_color=INSET_BG,
-            corner_radius=10,
-            wrap="word",
-            border_width=1,
-            border_color=CARD_BORDER
-        )
-        self.log.grid(row=1, column=0, sticky="nsew", padx=14, pady=(0, 14))
-        self.log.configure(state="disabled")
-
-        # ---------------- FOOTER ----------------
-        footer = ctk.CTkFrame(self, fg_color="transparent")
-        footer.grid(row=4, column=0, sticky="ew", padx=28, pady=(0, 18))
-        footer.grid_columnconfigure(0, weight=1)
-
-        status_container = ctk.CTkFrame(footer, fg_color="transparent")
-        status_container.grid(row=0, column=0, sticky="w")
-
-        self.status_dot = ctk.CTkLabel(
-            status_container,
-            text="●",
-            font=ctk.CTkFont(size=14),
-            text_color=MUTED_TEXT
-        )
-        self.status_dot.pack(side="left", padx=(0, 6))
-
-        self.status = ctk.CTkLabel(
-            status_container,
-            text="Ready to sync",
-            anchor="w",
-            font=ctk.CTkFont(size=12),
-            text_color=MUTED_TEXT
-        )
-        self.status.pack(side="left")
-
-        self.open_btn = ctk.CTkButton(
-            footer,
-            text="📂 Open Output Folder",
-            width=165,
-            height=32,
-            font=ctk.CTkFont(size=12),
-            fg_color="transparent",
-            border_width=1,
-            border_color=CARD_BORDER,
-            text_color=("gray20", "gray85"),
-            hover_color=("gray90", "gray25"),
-            corner_radius=8,
-            state="disabled",
-            command=self.open_folder
-        )
-        self.open_btn.grid(row=0, column=1, sticky="e")
-
-        # ---------------- DEVELOPER ATTRIBUTION & GITHUB ----------------
-        bottom_credit_bar = ctk.CTkFrame(self, fg_color="transparent")
-        bottom_credit_bar.grid(row=5, column=0, sticky="ew", padx=28, pady=(0, 14))
-        bottom_credit_bar.grid_columnconfigure(0, weight=1)
-
-        credit_lbl = ctk.CTkLabel(
-            bottom_credit_bar,
-            text="Developed by DH-0216",
-            font=ctk.CTkFont(size=11),
-            text_color=MUTED_TEXT
-        )
-        credit_lbl.grid(row=0, column=0, sticky="w")
-
-        github_link = ctk.CTkButton(
-            bottom_credit_bar,
-            text="GitHub Repository ↗",
-            font=ctk.CTkFont(size=11),
-            fg_color="transparent",
-            hover_color=("gray90", "gray25"),
-            text_color=ACCENT,
-            height=22,
-            cursor="hand2",
-            command=self.open_github_repo
-        )
-        github_link.grid(row=0, column=1, sticky="e")
-
+        build_main_ui(self)
         self.update_sync_state()
         self.write("Pick your movie and subtitle file(s), then press 'Start Syncing'.\n"
-                   "Fixed files will be saved next to originals as NAME.synced.srt\n")
+                   "Fixed files will be saved next to originals as NAME.synced.srt\n"
+                   "Subtitle does not match the video? Try 'Smart' (drift) or 'Split sync' (different cut).\n")
+
+        # Global mouse wheel & precision trackpad bindings (Tk 8.6 & Tk 9.0 TIP 684 support)
+        self.cards_container._mouse_wheel_all = self._on_master_mousewheel
+        self.sub_list._mouse_wheel_all = self._on_master_mousewheel
+        for evt in ("<MouseWheel>", "<TouchpadScroll>", "<Button-4>", "<Button-5>"):
+            try:
+                self.unbind_all(evt)
+            except Exception:
+                pass
+            self.bind_all(evt, self._on_master_mousewheel)
+
+        self.bind("<Enter>", lambda e: self.focus_set(), add="+")
+        if hasattr(self, "cards_container"):
+            self.cards_container.bind("<Enter>", lambda e: self.focus_set(), add="+")
 
     def create_step_card(self, step_num, title, subtitle):
         """Creates a standardized, modern card header with 'STEP X' badge and subtitle."""
-        frame = ctk.CTkFrame(
-            self.cards_container,
-            corner_radius=14,
-            fg_color=CARD_BG,
-            border_width=1,
-            border_color=CARD_BORDER
-        )
-
-        header_frame = ctk.CTkFrame(frame, fg_color="transparent")
-        header_frame.grid(row=0, column=0, columnspan=2, sticky="ew", padx=16, pady=(14, 10))
-        header_frame.grid_columnconfigure(1, weight=1)
-
-        # Step Badge (Pill)
-        badge = ctk.CTkLabel(
-            header_frame,
-            text=f"  {step_num}  ",
-            font=ctk.CTkFont(size=10, weight="bold"),
-            fg_color=BADGE_BG,
-            text_color=BADGE_FG,
-            corner_radius=6,
-            height=22
-        )
-        badge.grid(row=0, column=0, rowspan=2, padx=(0, 10), sticky="n")
-
-        # Title
-        ctk.CTkLabel(
-            header_frame,
-            text=title,
-            font=ctk.CTkFont(size=14, weight="bold"),
-            anchor="w"
-        ).grid(row=0, column=1, sticky="w")
-
-        # Subtitle
-        ctk.CTkLabel(
-            header_frame,
-            text=subtitle,
-            font=ctk.CTkFont(size=11),
-            text_color=MUTED_TEXT,
-            anchor="w"
-        ).grid(row=1, column=1, sticky="w")
-
-        return frame
+        return create_step_card(self.cards_container, step_num, title, subtitle)
 
     # ---------- helpers ----------
+    def _on_master_mousewheel(self, event):
+        """Universal mouse wheel and precision trackpad scrolling handler across the entire window."""
+        if not hasattr(self, "cards_container"):
+            return
+
+        delta = getattr(event, "delta", 0)
+        # Handle Linux / X11 Button-4 (up) and Button-5 (down)
+        if not delta and hasattr(event, "num"):
+            if event.num == 4:
+                delta = 120
+            elif event.num == 5:
+                delta = -120
+        if not delta:
+            return
+
+        # Decode delta across Tk 8.6, Tk 9.0 (TIP 684 TouchpadScroll), and high-precision trackpads
+        dy = delta
+        try:
+            dx, unpacked_dy = self.tk.call("tk::PreciseScrollDeltas", delta)
+            dy = unpacked_dy
+        except Exception:
+            # Fallback if delta is an unsigned 16-bit negative integer
+            if delta > 32767:
+                dy = delta - 65536
+
+        if dy == 0:
+            return
+
+        # Check widget under cursor
+        widget_under = None
+        try:
+            if hasattr(event, "x_root") and hasattr(event, "y_root"):
+                widget_under = self.winfo_containing(event.x_root, event.y_root)
+        except Exception:
+            pass
+        if widget_under is None:
+            widget_under = getattr(event, "widget", None)
+
+        # Allow native scrolling inside console activity log when expanded
+        if hasattr(self, "log") and getattr(self, "log_visible", False):
+            curr = widget_under
+            while curr is not None:
+                if curr == self.log or curr == getattr(self.log, "_textbox", None):
+                    return
+                curr = getattr(curr, "master", None)
+
+        # Check if pointer is over sub_list when it has more than 2 subtitles
+        target_canvas = self.cards_container._parent_canvas
+        if hasattr(self, "sub_list") and len(self.subs) > 2:
+            curr = widget_under
+            while curr is not None:
+                if curr == self.sub_list or curr == getattr(self.sub_list, "_parent_canvas", None) or curr == getattr(self.sub_list, "_parent_frame", None):
+                    target_canvas = self.sub_list._parent_canvas
+                    break
+                curr = getattr(curr, "master", None)
+
+        # In CTkScrollableFrame on Windows, canvas yscrollincrement is 1px per unit.
+        # Standard mouse wheel: 120 units -> 55 pixels per notch.
+        # Precision trackpad: ~2.5px per micro-delta unit for fluid, responsive scrolling.
+        if abs(dy) >= 120:
+            units = -int((dy / 120.0) * 55)
+            self._wheel_accum = 0.0
+        else:
+            self._wheel_accum = getattr(self, "_wheel_accum", 0.0) - (dy * 2.5)
+            if abs(self._wheel_accum) >= 1.0:
+                units = int(self._wheel_accum)
+                self._wheel_accum -= units
+            else:
+                units = -1 if dy > 0 else (1 if dy < 0 else 0)
+
+        if units != 0:
+            try:
+                target_canvas.yview("scroll", units, "units")
+            except Exception:
+                pass
+
+        return "break"
+
+    def toggle_log(self, force_show=None):
+        """Toggles visibility of the console activity log or forces state."""
+        if force_show is not None:
+            should_show = bool(force_show)
+        else:
+            should_show = not getattr(self, "log_visible", False)
+
+        if should_show:
+            self.log.grid()
+            if hasattr(self, "log_toggle_btn"):
+                self.log_toggle_btn.configure(text="Hide Log ▲")
+            self.log_visible = True
+        else:
+            self.log.grid_remove()
+            if hasattr(self, "log_toggle_btn"):
+                self.log_toggle_btn.configure(text="Show Log ▼")
+            self.log_visible = False
     def open_github_repo(self):
         webbrowser.open(f"https://github.com/{GITHUB_REPO}")
 
@@ -503,108 +198,86 @@ class App(ctk.CTk):
         self.log.configure(state="disabled")
 
     def set_status(self, text, color=None):
-        status_color = color or MUTED_TEXT
+        if text.strip().lower() == "ready to sync":
+            dot_color = SUCCESS
+            status_color = MUTED_TEXT
+        else:
+            status_color = color or MUTED_TEXT
+            dot_color = status_color
         self.status.configure(text=text, text_color=status_color)
         if hasattr(self, "status_dot"):
-            self.status_dot.configure(text_color=status_color)
+            self.status_dot.configure(text_color=dot_color)
 
     def refresh_sub_list(self):
-        for w in self.sub_list.winfo_children():
-            w.destroy()
-
         count = len(self.subs)
         if hasattr(self, "sub_count_label"):
-            self.sub_count_label.configure(
-                text=f"{count} {'file' if count == 1 else 'files'} added"
-            )
-
-        if not self.subs:
-            empty_box = ctk.CTkFrame(self.sub_list, fg_color="transparent")
-            empty_box.grid(row=0, column=0, pady=24)
-            ctk.CTkLabel(
-                empty_box,
-                text="📑",
-                font=ctk.CTkFont(size=20),
-                text_color=MUTED_TEXT
-            ).pack()
-            ctk.CTkLabel(
-                empty_box,
-                text="No subtitle files added yet",
-                font=ctk.CTkFont(size=12, weight="bold"),
-                text_color=MUTED_TEXT
-            ).pack(pady=(2, 2))
-            ctk.CTkLabel(
-                empty_box,
-                text="Click '+ Add Subtitle(s)' to choose .srt, .ass, or .vtt files",
-                font=ctk.CTkFont(size=11),
-                text_color=MUTED_TEXT
-            ).pack()
-            return
-
-        for i, path in enumerate(self.subs):
-            item = ctk.CTkFrame(
-                self.sub_list,
-                corner_radius=8,
-                fg_color=SUB_ITEM_BG,
-                border_width=1,
-                border_color=CARD_BORDER
-            )
-            item.grid(row=i, column=0, sticky="ew", pady=2, padx=4)
-            item.grid_columnconfigure(1, weight=1)
-
-            ctk.CTkLabel(
-                item,
-                text="📄",
-                font=ctk.CTkFont(size=13),
-                text_color=ACCENT
-            ).grid(row=0, column=0, padx=(10, 6), pady=6)
-
-            ctk.CTkLabel(
-                item,
-                text=short(path, 65),
-                anchor="w",
-                font=ctk.CTkFont(size=12)
-            ).grid(row=0, column=1, sticky="ew", padx=(0, 6), pady=6)
-
-            ctk.CTkButton(
-                item,
-                text="✕",
-                width=26,
-                height=26,
-                font=ctk.CTkFont(size=11, weight="bold"),
-                fg_color="transparent",
-                text_color=DANGER,
-                hover_color=("gray85", "gray30"),
-                corner_radius=6,
-                command=lambda p=path: self.remove_sub(p)
-            ).grid(row=0, column=2, padx=6, pady=4)
+            if count >= MAX_SUBTITLES:
+                self.sub_count_label.configure(
+                    text=f"{count} / {MAX_SUBTITLES} (Max limit reached)",
+                    text_color=WARNING
+                )
+            else:
+                self.sub_count_label.configure(
+                    text=f"{count} / {MAX_SUBTITLES} {'file' if count == 1 else 'files'} added",
+                    text_color=MUTED_TEXT
+                )
+        render_subtitle_list(self.sub_list, self.subs, self.remove_sub)
 
     # ---------- actions ----------
     def pick_video(self):
         path = filedialog.askopenfilename(title="Choose the movie", filetypes=VIDEO_TYPES)
         if path:
             self.video_path = path
+            self.user_selected_mode = False
             self.video_label.configure(
                 text=short(path, 70),
                 text_color=("gray10", "gray90")
             )
-            # Forget previous tracks, probe in background
             self.audio_tracks = []
+            self.video_fps = None
             self.extra_row.grid_remove()
             threading.Thread(target=self._probe_worker, args=(path,), daemon=True).start()
             self.update_sync_state()
 
     def _probe_worker(self, path):
         labels = list_audio_tracks(path)
+        meta = get_video_sync_details(path)
         try:
-            self.after(0, self.on_tracks_found, path, labels)
+            self.after(0, self.on_tracks_found, path, labels, meta)
         except Exception:
             pass
 
-    def on_tracks_found(self, path, labels):
+    def on_tracks_found(self, path, labels, meta=None):
         if path != self.video_path:
             return
         self.audio_tracks = labels
+        meta = meta or {}
+        fps = meta.get("fps")
+        self.video_fps = fps
+        if fps:
+            self.write(f"Movie analyzed: Video frame rate is {fps} fps.\n")
+
+        details = []
+        if fps:
+            details.append(f"🎬 {fps} fps")
+        if meta.get("duration"):
+            details.append(f"⏱️ {meta['duration']}")
+        if meta.get("resolution"):
+            details.append(f"📐 {meta['resolution']}")
+        a_cnt = meta.get("audio_count", len(labels))
+        if a_cnt:
+            details.append(f"🔊 {a_cnt} Audio {'track' if a_cnt == 1 else 'tracks'}")
+        s_cnt = meta.get("sub_count", 0)
+        if s_cnt:
+            details.append(f"💬 {s_cnt} Embedded {'sub' if s_cnt == 1 else 'subs'}")
+
+        if hasattr(self, "video_meta_label"):
+            if details:
+                self.video_meta_label.configure(text=" • ".join(details))
+                self.video_meta_label.grid()
+            else:
+                self.video_meta_label.grid_remove()
+
         if len(labels) > 1:
             self.audio_menu.configure(values=labels)
             self.audio_menu.set(labels[0])
@@ -615,23 +288,82 @@ class App(ctk.CTk):
             self.extra_row.grid_remove()
         self.update_sync_state()
 
-    def add_subs(self):
-        for p in filedialog.askopenfilenames(title="Choose subtitle file(s)", filetypes=SUB_TYPES):
-            if p not in self.subs:
-                self.subs.append(p)
+    def add_subs(self, files=None):
+        current_count = len(self.subs)
+        if current_count >= MAX_SUBTITLES:
+            messagebox.showwarning(
+                "Subtitle Limit Reached",
+                f"You have reached the maximum limit of {MAX_SUBTITLES} subtitle files.\n\n"
+                f"Please remove some files or process the current batch first."
+            )
+            return
+
+        chosen = files if files is not None else filedialog.askopenfilenames(title="Choose subtitle file(s)", filetypes=SUB_TYPES)
+        if not chosen:
+            return
+
+        available_slots = MAX_SUBTITLES - current_count
+        new_files = [p for p in chosen if p not in self.subs]
+        if not new_files:
+            return
+
+        if len(new_files) > available_slots:
+            added = new_files[:available_slots]
+            self.subs.extend(added)
+            messagebox.showinfo(
+                "Maximum Limit Applied",
+                f"Added {len(added)} subtitle(s).\n\n"
+                f"{len(new_files) - len(added)} file(s) were omitted because the maximum limit is {MAX_SUBTITLES} subtitles per session."
+            )
+            files_to_log = added
+        else:
+            self.subs.extend(new_files)
+            files_to_log = new_files
+
+        self.user_selected_mode = False
         self.refresh_sub_list()
+        self.update_sub_meta()
+        for p in files_to_log:
+            meta = get_subtitle_sync_details(p)
+            tag_str = f" ({meta['tag']})" if meta.get("tag") else ""
+            self.write(f"Subtitle added: '{os.path.basename(p)}' (target {meta['fps']} fps{tag_str}).\n")
         self.update_sync_state()
 
     def remove_sub(self, path):
         if path in self.subs:
             self.subs.remove(path)
+        self.user_selected_mode = False
         self.refresh_sub_list()
+        self.update_sub_meta()
         self.update_sync_state()
+
+    def update_sub_meta(self):
+        if not self.subs:
+            self.sub_fps = None
+            return
+
+        if len(self.subs) == 1:
+            self.sub_fps = detect_subtitle_fps(self.subs[0])
+        else:
+            fps_list = [detect_subtitle_fps(p) for p in self.subs]
+            unique_fps = sorted(list(set(fps_list)))
+            self.sub_fps = unique_fps[0] if len(unique_fps) == 1 else None
 
     def clear_subs(self):
         self.subs.clear()
+        self.sub_fps = None
+        self.user_selected_mode = False
         self.refresh_sub_list()
         self.update_sync_state()
+
+    def on_mode_change(self, value=None, save=True):
+        self.user_selected_mode = True
+        mode = value or (self.mode_btn.get() if hasattr(self, "mode_btn") else None)
+        if mode and hasattr(self, "mode_hint"):
+            self.mode_hint.configure(text=MODE_HINTS.get(mode, ""), text_color=MUTED_TEXT)
+        if save and mode:
+            self.settings["sync_mode"] = mode
+            save_settings(self.settings)
 
     def update_sync_state(self):
         """Step 3 stays grayed out until a movie and at least one subtitle are chosen."""
@@ -639,6 +371,8 @@ class App(ctk.CTk):
             return
         ready = bool(self.video_path) and os.path.isfile(self.video_path) and bool(self.subs)
         state = "normal" if (ready and not self.running) else "disabled"
+        if hasattr(self, "mode_btn"):
+            self.mode_btn.configure(state=state)
         if hasattr(self, "audio_menu"):
             self.audio_menu.configure(state=state)
         self.start_btn.configure(state=state)
@@ -647,6 +381,28 @@ class App(ctk.CTk):
                 self.lock_hint.grid_remove()
             else:
                 self.lock_hint.grid()
+        if hasattr(self, "mode_hint"):
+            cur_mode = self.mode_btn.get()
+            self.mode_hint.configure(text=MODE_HINTS.get(cur_mode, ""), text_color=MUTED_TEXT)
+
+        if hasattr(self, "fps_box"):
+            if ready and (self.video_fps or self.sub_fps or self.subs):
+                rec = analyze_recommendation(self.video_path, self.video_fps, self.subs)
+                if rec:
+                    self.fps_label.configure(text=rec.title, text_color=rec.color)
+                    self.fps_rec_label.configure(text=rec.hint)
+
+                    # Select recommended mode on the segmented button (unless user manually chose another mode)
+                    if rec.mode and hasattr(self, "mode_btn") and not getattr(self, "user_selected_mode", False):
+                        self.mode_btn.set(rec.mode)
+                        if hasattr(self, "mode_hint"):
+                            self.mode_hint.configure(text=MODE_HINTS.get(rec.mode, ""), text_color=MUTED_TEXT)
+
+                    self.fps_box.grid()
+                else:
+                    self.fps_box.grid_remove()
+            else:
+                self.fps_box.grid_remove()
 
     def get_track(self):
         """0-based audio track chosen by the person, or None when the movie has just one."""
@@ -674,7 +430,8 @@ class App(ctk.CTk):
                 text="● FFmpeg Ready",
                 fg_color=BADGE_BG,
                 text_color=SUCCESS,
-                hover=False
+                hover=False,
+                cursor="arrow"
             )
         else:
             self.ffmpeg_btn.configure(
@@ -682,27 +439,26 @@ class App(ctk.CTk):
                 fg_color=WARNING,
                 hover_color="#D97706",
                 text_color="#1E222D",
-                hover=True
+                hover=True,
+                cursor="hand2"
             )
 
     def show_ffmpeg_dialog(self, on_complete=None):
+        if find_ffmpeg():
+            if on_complete:
+                on_complete()
+            return
         FFmpegSetupDialog(self, on_complete=on_complete)
 
     def start_update_check(self):
         threading.Thread(target=self._check_update_worker, daemon=True).start()
 
     def _check_update_worker(self):
-        try:
-            url = f"https://api.github.com/repos/{GITHUB_REPO}/releases/latest"
-            req = urllib.request.Request(url, headers={"User-Agent": "SubtitleSync-App"})
-            with urllib.request.urlopen(req, timeout=5) as response:
-                if response.status == 200:
-                    data = json.loads(response.read().decode("utf-8"))
-                    tag = data.get("tag_name", "")
-                    if parse_version(tag) > parse_version(APP_VERSION):
-                        self.after(0, self.on_update_found, data)
-        except Exception:
-            pass
+        data, _ = fetch_github_release(GITHUB_REPO, timeout=8)
+        if data:
+            tag = data.get("tag_name", "")
+            if parse_version(tag) > parse_version(APP_VERSION):
+                self.after(0, self.on_update_found, data)
 
     def on_update_found(self, data):
         self.latest_release_data = data
@@ -743,10 +499,11 @@ class App(ctk.CTk):
             messagebox.showerror("Missing subtitles", "Please add at least one subtitle file.")
             return
         self.cancelled = False
-        self.open_btn.configure(state="disabled")
         self.set_running(True)
+        mode = self.mode_btn.get()
         track = self.get_track()
-        threading.Thread(target=self.worker, args=(self.video_path, list(self.subs), track),
+        threading.Thread(target=self.worker,
+                         args=(self.video_path, list(self.subs), mode, track),
                          daemon=True).start()
 
     def cancel(self):
@@ -754,11 +511,16 @@ class App(ctk.CTk):
         if self.proc and self.proc.poll() is None:
             self.proc.terminate()
         self.set_status("Cancelling...", DANGER)
+        if hasattr(self, "open_btn"):
+            self.open_btn.configure(state="normal")
 
-    def worker(self, video, subs, track=None):
-        env = dict(os.environ, PYTHONIOENCODING="utf-8")
-        flags = subprocess.CREATE_NO_WINDOW if os.name == "nt" else 0
-        extra = ["--reference-stream", f"a:{track}"] if track is not None else None
+    def worker(self, video, subs, mode, track=None):
+        engine = SyncEngine(
+            log_cb=lambda msg: self.after(0, self.write, msg),
+            status_cb=lambda msg, color=None: self.after(0, self.set_status, msg, color),
+            is_cancelled_cb=lambda: self.cancelled,
+            set_proc_cb=lambda proc: setattr(self, "proc", proc)
+        )
         ok = 0
         for n, sub in enumerate(subs, 1):
             if self.cancelled:
@@ -766,32 +528,33 @@ class App(ctk.CTk):
             base, ext = os.path.splitext(sub)
             out = f"{base}.synced{ext or '.srt'}"
             self.after(0, self.set_status, f"Syncing {n} of {len(subs)}: {short(sub, 40)}", ACCENT)
-            self.after(0, self.write, f"\n=== [{n}/{len(subs)}] {os.path.basename(sub)} ===\n")
+            self.after(0, self.write, f"\n=== [{n}/{len(subs)}] {os.path.basename(sub)} ({mode}) ===\n")
+            success = False
             try:
-                self.proc = subprocess.Popen(
-                    build_command(video, sub, out, extra),
-                    stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
-                    text=True, encoding="utf-8", errors="replace",
-                    env=env, creationflags=flags,
-                )
-                for line in self.proc.stdout:
-                    line = line.rstrip()
-                    if line:
-                        self.after(0, self.write, line + "\n")
-                code = self.proc.wait()
+                if mode == MODE_SPLIT:
+                    success = engine.sync_split(video, sub, out, track)
+                elif mode == MODE_SMART:
+                    success = engine.sync_smart(video, sub, out, track)
+                else:
+                    success = engine.sync_standard(video, sub, out, track)
             except FileNotFoundError:
-                self.after(0, self.write, "ffsubsync not found. Run: pip install ffsubsync\n")
+                self.after(0, self.write,
+                           "A required program was not found (ffsubsync or ffmpeg). Run: pip install ffsubsync\n")
                 break
-            if code == 0 and os.path.isfile(out):
+            except Exception as e:
+                self.after(0, self.write, f"Error: {e}\n")
+            if success and not self.cancelled:
                 ok += 1
-                self.last_output_dir = os.path.dirname(out)
+                abs_out = os.path.abspath(out)
+                self.last_output_dir = os.path.dirname(abs_out)
+                self.last_output_file = abs_out
                 self.after(0, self.write, f"Saved: {out}\n")
-            elif not self.cancelled:
-                self.after(0, self.write, f"Failed (exit code {code}).\n")
         self.after(0, self.finish, ok, len(subs))
 
     def finish(self, ok, total):
         self.set_running(False)
+        if hasattr(self, "open_btn"):
+            self.open_btn.configure(state="normal")
         if self.cancelled:
             self.set_status("Cancelled", DANGER)
             messagebox.showinfo("Sync Cancelled", "Subtitle synchronization was cancelled.")
@@ -810,14 +573,51 @@ class App(ctk.CTk):
                 f"Some files could not be synced. Check the Activity Log for details."
             )
         self.write(f"\nDone: {ok} of {total} file(s) synced.\n")
-        if ok and self.last_output_dir:
-            self.open_btn.configure(state="normal")
 
     def open_folder(self):
-        if self.last_output_dir and os.path.isdir(self.last_output_dir):
-            if os.name == "nt":
-                os.startfile(self.last_output_dir)
+        target_dir = None
+        target_file = getattr(self, "last_output_file", None)
+
+        if target_file and os.path.exists(target_file):
+            target_dir = os.path.dirname(target_file)
+        elif self.last_output_dir and os.path.isdir(self.last_output_dir):
+            target_dir = self.last_output_dir
+        elif self.subs and os.path.exists(self.subs[0]):
+            target_dir = os.path.dirname(os.path.abspath(self.subs[0]))
+        elif self.video_path and os.path.exists(self.video_path):
+            target_dir = os.path.dirname(os.path.abspath(self.video_path))
+        else:
+            for d in [
+                os.path.join(os.path.expanduser("~"), "Downloads"),
+                os.path.join(os.path.expanduser("~"), "Videos"),
+                os.path.expanduser("~")
+            ]:
+                if os.path.isdir(d):
+                    target_dir = d
+                    break
+
+        if not target_dir or not os.path.exists(target_dir):
+            return
+
+        target_dir = os.path.normpath(target_dir)
+
+        try:
+            if sys.platform == "win32" or os.name == "nt":
+                if target_file and os.path.exists(target_file):
+                    norm_file = os.path.normpath(target_file)
+                    subprocess.Popen(f'explorer /select,"{norm_file}"')
+                else:
+                    os.startfile(target_dir)
             elif sys.platform == "darwin":
-                subprocess.Popen(["open", self.last_output_dir])
+                if target_file and os.path.exists(target_file):
+                    subprocess.Popen(["open", "-R", target_file])
+                else:
+                    subprocess.Popen(["open", target_dir])
             else:
-                subprocess.Popen(["xdg-open", self.last_output_dir])
+                subprocess.Popen(["xdg-open", target_dir])
+        except Exception:
+            try:
+                if sys.platform == "win32" or os.name == "nt":
+                    subprocess.Popen(["explorer", target_dir])
+            except Exception:
+                pass

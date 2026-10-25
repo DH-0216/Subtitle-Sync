@@ -91,3 +91,55 @@ def resource_path(relative_path):
 def short(path, n=58):
     name = os.path.basename(path)
     return name if len(name) <= n else name[: n - 3] + "..."
+
+def fetch_github_release(repo, timeout=10):
+    """Fetches the latest release info from GitHub API with SSL resilience and fallback."""
+    import json
+    import ssl
+    import urllib.request
+    import urllib.error
+
+    url = f"https://api.github.com/repos/{repo}/releases/latest"
+    req = urllib.request.Request(
+        url,
+        headers={
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) SubtitleSync/1.2.0",
+            "Accept": "application/vnd.github.v3+json",
+        }
+    )
+
+    ctx = None
+    try:
+        import certifi
+        ctx = ssl.create_default_context(cafile=certifi.where())
+    except Exception:
+        try:
+            ctx = ssl.create_default_context()
+        except Exception:
+            pass
+
+    try:
+        with urllib.request.urlopen(req, timeout=timeout, context=ctx) as resp:
+            if resp.status == 200:
+                return json.loads(resp.read().decode("utf-8")), None
+    except urllib.error.HTTPError as e:
+        if e.code == 403:
+            return None, "GitHub API rate limit exceeded. Please try again later."
+        if e.code == 404:
+            return None, "No releases published yet on GitHub."
+        return None, f"GitHub error (HTTP {e.code})"
+    except Exception as primary_err:
+        try:
+            unverified_ctx = ssl._create_unverified_context()
+            with urllib.request.urlopen(req, timeout=timeout, context=unverified_ctx) as resp:
+                if resp.status == 200:
+                    return json.loads(resp.read().decode("utf-8")), None
+        except urllib.error.HTTPError as e:
+            if e.code == 403:
+                return None, "GitHub API rate limit exceeded. Please try again later."
+            return None, f"GitHub error (HTTP {e.code})"
+        except Exception:
+            pass
+        return None, f"Could not connect to GitHub ({primary_err.__class__.__name__})."
+
+    return None, "Could not connect to GitHub."

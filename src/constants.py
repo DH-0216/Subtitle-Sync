@@ -6,7 +6,7 @@ import customtkinter as ctk
 ctk.CTk._deactivate_windows_window_header_manipulation = True
 ctk.CTkToplevel._deactivate_windows_window_header_manipulation = True
 
-APP_VERSION = "1.1.0"
+APP_VERSION = "1.2.0"
 GITHUB_REPO = "DH-0216/Subtitle-Sync"
 
 # Color palette & themes
@@ -28,5 +28,23 @@ MUTED_TEXT = ("#334155", "#94A3B8")
 
 VIDEO_TYPES = [("Video files", "*.mkv *.mp4 *.avi *.mov *.m4v *.webm"), ("All files", "*.*")]
 SUB_TYPES = [("Subtitle files", "*.srt *.ass *.ssa *.vtt"), ("All files", "*.*")]
+MAX_SUBTITLES = 10          # Maximum subtitle files allowed in a single batch session
 
+# ---------------------------------------------------------------------------
+# Sync modes & hints
+# ---------------------------------------------------------------------------
+MODE_STANDARD = "Standard"
+MODE_SMART = "Smart"
+MODE_SPLIT = "Split sync"
+MODES = [MODE_STANDARD, MODE_SMART, MODE_SPLIT]
+MODE_HINTS = {
+    MODE_STANDARD: "⚡ Standard: Fast 1-pass alignment. Best for normal movies and episodes that only need a fixed time shift.",
+    MODE_SMART: "🔍 Smart: Multi-pass search with speed drift correction. Best when subtitles slowly drift out of sync over time.",
+    MODE_SPLIT: "✂️ Split sync: Piecewise alignment. Best for TV episodes or movies with different cuts (HDTV vs BluRay, commercials, or extended scenes).",
+}
 LOCKED_HINT = "Step 3 unlocks after you choose a movie (Step 1) and at least one subtitle (Step 2)."
+
+FIRST_MARGIN = 900        # seconds searched around the first part (+/- 15 min)
+TRACK_MARGIN = 300        # seconds searched around later parts (+/- 5 min)
+MIN_CUES_PER_PART = 5     # parts with fewer subtitle lines reuse the previous offset
+PART_MINUTES = 2          # Split sync part size: small = precise around ad breaks/cuts

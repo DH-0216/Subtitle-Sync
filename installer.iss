@@ -2,7 +2,7 @@
 ; Generates a professional, standard Windows offline installer (SubtitleSync-Setup.exe)
 
 #define MyAppName "Subtitle Sync Studio"
-#define MyAppVersion "1.1.0"
+#define MyAppVersion "1.2.0"
 #define MyAppPublisher "DH-0216"
 #define MyAppURL "https://github.com/DH-0216/Subtitle-Sync"
 #define MyAppExeName "SubtitleSync.exe"

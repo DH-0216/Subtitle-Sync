@@ -13,10 +13,10 @@ import customtkinter as ctk
 
 from src.constants import (
     APP_VERSION, GITHUB_REPO, ACCENT, ACCENT_HOVER, DANGER,
-    SUCCESS, CARD_BG, CARD_BORDER, INSET_BG, MUTED_TEXT
+    SUCCESS, CARD_BG, CARD_BORDER, INSET_BG, BADGE_BG, BADGE_FG, MUTED_TEXT
 )
 from src.settings import load_settings, save_settings
-from src.utils import set_windows_titlebar_color, get_gear_icon, resource_path
+from src.utils import set_windows_titlebar_color, get_gear_icon, resource_path, fetch_github_release
 from src.media import find_ffmpeg, refresh_environment_path
 
 class FFmpegSetupDialog(ctk.CTkToplevel):
@@ -696,22 +696,16 @@ class SettingsDialog(ctk.CTkToplevel):
         threading.Thread(target=self._manual_worker, daemon=True).start()
 
     def _manual_worker(self):
-        try:
-            url = f"https://api.github.com/repos/{GITHUB_REPO}/releases/latest"
-            req = urllib.request.Request(url, headers={"User-Agent": "SubtitleSync-App"})
-            with urllib.request.urlopen(req, timeout=6) as response:
-                if response.status == 200:
-                    data = json.loads(response.read().decode("utf-8"))
-                    tag = data.get("tag_name", "")
-                    if parse_version(tag) > parse_version(APP_VERSION):
-                        self.after(0, self._on_manual_found, data)
-                        return
-                    else:
-                        self.after(0, self._on_manual_up_to_date)
-                        return
-        except Exception:
-            pass
-        self.after(0, self._on_manual_error)
+        data, err = fetch_github_release(GITHUB_REPO, timeout=10)
+        if data:
+            tag = data.get("tag_name", "")
+            if parse_version(tag) > parse_version(APP_VERSION):
+                self.after(0, self._on_manual_found, data)
+                return
+            else:
+                self.after(0, self._on_manual_up_to_date)
+                return
+        self.after(0, self._on_manual_error, err or "Could not connect to GitHub.")
 
     def _on_manual_found(self, data):
         self.check_now_btn.configure(state="normal", text="🔍 Check Now")
@@ -724,8 +718,8 @@ class SettingsDialog(ctk.CTkToplevel):
         self.check_now_btn.configure(state="normal", text="🔍 Check Now")
         self.check_status_lbl.configure(text=f"✅ You're on the latest version (v{APP_VERSION})", text_color=SUCCESS)
 
-    def _on_manual_error(self):
+    def _on_manual_error(self, err_msg="Could not connect to GitHub."):
         self.check_now_btn.configure(state="normal", text="🔍 Check Now")
-        self.check_status_lbl.configure(text="Could not connect to GitHub.", text_color=DANGER)
+        self.check_status_lbl.configure(text=err_msg, text_color=DANGER)
 
 
