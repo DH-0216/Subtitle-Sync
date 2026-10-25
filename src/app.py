@@ -16,11 +16,11 @@ import customtkinter as ctk
 from src.constants import (
     APP_VERSION, GITHUB_REPO, ACCENT, ACCENT_HOVER, DANGER, DANGER_HOVER,
     SUCCESS, WARNING, CARD_BG, CARD_BORDER, INSET_BG, SUB_ITEM_BG,
-    BADGE_BG, BADGE_FG, MUTED_TEXT, VIDEO_TYPES, SUB_TYPES
+    BADGE_BG, BADGE_FG, MUTED_TEXT, VIDEO_TYPES, SUB_TYPES, LOCKED_HINT
 )
 from src.settings import load_settings, save_settings
-from src.utils import set_windows_titlebar_color, resource_path, short
-from src.media import find_ffmpeg, build_command, refresh_environment_path
+from src.utils import set_windows_titlebar_color, resource_path, short, get_gear_icon
+from src.media import find_ffmpeg, build_command, refresh_environment_path, list_audio_tracks
 from src.dialogs import FFmpegSetupDialog, UpdateDialog, SettingsDialog, parse_version
 
 class App(ctk.CTk):
@@ -32,8 +32,8 @@ class App(ctk.CTk):
         self.after(50, lambda: set_windows_titlebar_color(self, self.settings.get("theme", "dark") == "dark"))
         ctk.set_default_color_theme("blue")
         self.title("Subtitle Sync Studio")
-        self.geometry("820x780")
-        self.minsize(720, 680)
+        self.geometry("820x830")
+        self.minsize(720, 730)
 
         icon_file = resource_path("app_icon.ico")
         if os.path.isfile(icon_file):
@@ -44,6 +44,7 @@ class App(ctk.CTk):
 
         self.video_path = ""
         self.subs = []
+        self.audio_tracks = []
         self.running = False
         self.cancelled = False
         self.proc = None
@@ -107,7 +108,9 @@ class App(ctk.CTk):
 
         self.settings_btn = ctk.CTkButton(
             header_actions,
-            text="⚙️ Settings",
+            text=" Settings",
+            image=get_gear_icon(14),
+            compound="left",
             font=ctk.CTkFont(size=12),
             height=28,
             corner_radius=14,
@@ -234,7 +237,7 @@ class App(ctk.CTk):
         # Scrollable subtitle list
         self.sub_list = ctk.CTkScrollableFrame(
             card2,
-            height=125,
+            height=100,
             corner_radius=10,
             fg_color=INSET_BG,
             border_width=1,
@@ -245,17 +248,58 @@ class App(ctk.CTk):
 
         self.refresh_sub_list()
 
+        # Notice banner above Step 3 (collapses when unlocked)
+        self.lock_hint = ctk.CTkLabel(
+            self.cards_container,
+            text=f"🔒 {LOCKED_HINT}",
+            font=ctk.CTkFont(size=12, weight="bold"),
+            text_color=WARNING,
+            anchor="w"
+        )
+        self.lock_hint.grid(row=2, column=0, sticky="w", padx=6, pady=(0, 8))
+
         # ---------------- STEP 3: Sync Actions ----------------
         card3 = self.create_step_card(
             step_num="STEP 3",
             title="Synchronize",
             subtitle="Start speech alignment and output synced subtitle files"
         )
-        card3.grid(row=2, column=0, sticky="ew", pady=(0, 12))
+        card3.grid(row=3, column=0, sticky="ew", pady=(0, 12))
         card3.grid_columnconfigure(1, weight=1)
 
+        opts = ctk.CTkFrame(card3, fg_color="transparent")
+        opts.grid(row=1, column=0, columnspan=2, sticky="ew", padx=16, pady=(0, 8))
+        opts.grid_columnconfigure(0, weight=1)
+
+        # Audio track picker: shown when movie has more than one audio track
+        self.extra_row = ctk.CTkFrame(opts, fg_color="transparent")
+        self.extra_row.grid(row=0, column=0, sticky="w")
+
+        ctk.CTkLabel(
+            self.extra_row,
+            text="Audio track",
+            font=ctk.CTkFont(size=11),
+            text_color=MUTED_TEXT
+        ).pack(side="left", padx=(0, 6))
+
+        self.audio_menu = ctk.CTkOptionMenu(
+            self.extra_row,
+            values=["Track 1"],
+            width=430,
+            height=26,
+            dynamic_resizing=False,
+            font=ctk.CTkFont(size=11),
+            dropdown_font=ctk.CTkFont(size=11),
+            fg_color=INSET_BG,
+            button_color=BADGE_BG,
+            button_hover_color=CARD_BORDER,
+            text_color=("gray10", "gray90")
+        )
+        self.audio_menu.pack(side="left")
+        self.extra_row.grid_remove()
+
         action_row = ctk.CTkFrame(card3, fg_color="transparent")
-        action_row.grid(row=1, column=0, columnspan=2, sticky="ew", padx=16, pady=(0, 16))
+        action_row.grid(row=2, column=0, columnspan=2, sticky="ew", padx=16, pady=(0, 16))
         action_row.grid_columnconfigure(1, weight=1)
 
         self.start_btn = ctk.CTkButton(
@@ -399,6 +443,7 @@ class App(ctk.CTk):
         )
         github_link.grid(row=0, column=1, sticky="e")
 
+        self.update_sync_state()
         self.write("Pick your movie and subtitle file(s), then press 'Start Syncing'.\n"
                    "Fixed files will be saved next to originals as NAME.synced.srt\n")
 
@@ -543,31 +588,84 @@ class App(ctk.CTk):
                 text=short(path, 70),
                 text_color=("gray10", "gray90")
             )
+            # Forget previous tracks, probe in background
+            self.audio_tracks = []
+            self.extra_row.grid_remove()
+            threading.Thread(target=self._probe_worker, args=(path,), daemon=True).start()
+            self.update_sync_state()
+
+    def _probe_worker(self, path):
+        labels = list_audio_tracks(path)
+        try:
+            self.after(0, self.on_tracks_found, path, labels)
+        except Exception:
+            pass
+
+    def on_tracks_found(self, path, labels):
+        if path != self.video_path:
+            return
+        self.audio_tracks = labels
+        if len(labels) > 1:
+            self.audio_menu.configure(values=labels)
+            self.audio_menu.set(labels[0])
+            self.extra_row.grid()
+            self.write(f"This movie has {len(labels)} audio tracks. Pick the one that matches "
+                       f"your subtitle (see 'Audio track' in Step 3).\n")
+        else:
+            self.extra_row.grid_remove()
+        self.update_sync_state()
 
     def add_subs(self):
         for p in filedialog.askopenfilenames(title="Choose subtitle file(s)", filetypes=SUB_TYPES):
             if p not in self.subs:
                 self.subs.append(p)
         self.refresh_sub_list()
+        self.update_sync_state()
 
     def remove_sub(self, path):
         if path in self.subs:
             self.subs.remove(path)
         self.refresh_sub_list()
+        self.update_sync_state()
 
     def clear_subs(self):
         self.subs.clear()
         self.refresh_sub_list()
+        self.update_sync_state()
+
+    def update_sync_state(self):
+        """Step 3 stays grayed out until a movie and at least one subtitle are chosen."""
+        if not hasattr(self, "start_btn"):
+            return
+        ready = bool(self.video_path) and os.path.isfile(self.video_path) and bool(self.subs)
+        state = "normal" if (ready and not self.running) else "disabled"
+        if hasattr(self, "audio_menu"):
+            self.audio_menu.configure(state=state)
+        self.start_btn.configure(state=state)
+        if hasattr(self, "lock_hint"):
+            if ready:
+                self.lock_hint.grid_remove()
+            else:
+                self.lock_hint.grid()
+
+    def get_track(self):
+        """0-based audio track chosen by the person, or None when the movie has just one."""
+        if len(self.audio_tracks) < 2:
+            return None
+        try:
+            return self.audio_tracks.index(self.audio_menu.get())
+        except ValueError:
+            return None
 
     def set_running(self, running):
         self.running = running
-        self.start_btn.configure(state="disabled" if running else "normal")
         self.cancel_btn.configure(state="normal" if running else "disabled")
         if running:
             self.progress.start()
         else:
             self.progress.stop()
             self.progress.set(0)
+        self.update_sync_state()
 
     def update_ffmpeg_status(self):
         found = find_ffmpeg()
@@ -647,7 +745,8 @@ class App(ctk.CTk):
         self.cancelled = False
         self.open_btn.configure(state="disabled")
         self.set_running(True)
-        threading.Thread(target=self.worker, args=(self.video_path, list(self.subs)),
+        track = self.get_track()
+        threading.Thread(target=self.worker, args=(self.video_path, list(self.subs), track),
                          daemon=True).start()
 
     def cancel(self):
@@ -656,9 +755,10 @@ class App(ctk.CTk):
             self.proc.terminate()
         self.set_status("Cancelling...", DANGER)
 
-    def worker(self, video, subs):
+    def worker(self, video, subs, track=None):
         env = dict(os.environ, PYTHONIOENCODING="utf-8")
         flags = subprocess.CREATE_NO_WINDOW if os.name == "nt" else 0
+        extra = ["--reference-stream", f"a:{track}"] if track is not None else None
         ok = 0
         for n, sub in enumerate(subs, 1):
             if self.cancelled:
@@ -669,7 +769,7 @@ class App(ctk.CTk):
             self.after(0, self.write, f"\n=== [{n}/{len(subs)}] {os.path.basename(sub)} ===\n")
             try:
                 self.proc = subprocess.Popen(
-                    build_command(video, sub, out),
+                    build_command(video, sub, out, extra),
                     stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
                     text=True, encoding="utf-8", errors="replace",
                     env=env, creationflags=flags,
@@ -721,4 +821,3 @@ class App(ctk.CTk):
                 subprocess.Popen(["open", self.last_output_dir])
             else:
                 subprocess.Popen(["xdg-open", self.last_output_dir])
-

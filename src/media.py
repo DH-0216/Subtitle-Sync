@@ -1,6 +1,8 @@
-"""FFmpeg detection, PATH environment reloading, and command builder."""
+"""FFmpeg / ffprobe detection, audio track probing, and command builder."""
+import json
 import os
 import shutil
+import subprocess
 import sys
 
 def refresh_environment_path():
@@ -67,7 +69,67 @@ def find_ffmpeg():
                     return full_p
     return None
 
-def build_command(video, sub, out):
+def find_ffprobe():
+    """ffprobe ships in the same folder as ffmpeg."""
+    ff = find_ffmpeg()
+    if ff:
+        folder = os.path.dirname(ff)
+        for name in ("ffprobe.exe", "ffprobe"):
+            candidate = os.path.join(folder, name)
+            if os.path.isfile(candidate):
+                return candidate
+    return shutil.which("ffprobe")
+
+LANG_NAMES = {
+    "eng": "English", "sin": "Sinhala", "tam": "Tamil", "hin": "Hindi", "jpn": "Japanese",
+    "kor": "Korean", "fre": "French", "fra": "French", "ger": "German", "deu": "German",
+    "spa": "Spanish", "ita": "Italian", "rus": "Russian", "chi": "Chinese", "zho": "Chinese",
+    "ara": "Arabic", "por": "Portuguese", "tur": "Turkish", "tha": "Thai", "ind": "Indonesian",
+    "may": "Malay", "msa": "Malay", "dut": "Dutch", "nld": "Dutch", "pol": "Polish",
+    "swe": "Swedish", "nor": "Norwegian", "dan": "Danish", "fin": "Finnish", "gre": "Greek",
+    "ell": "Greek", "heb": "Hebrew", "vie": "Vietnamese", "ben": "Bengali", "urd": "Urdu",
+    "tel": "Telugu", "mal": "Malayalam", "kan": "Kannada", "mar": "Marathi", "pan": "Punjabi",
+}
+CHANNEL_NAMES = {1: "Mono", 2: "Stereo", 6: "5.1", 8: "7.1"}
+
+def list_audio_tracks(video):
+    """Readable label for every audio track in the video, e.g. 'Track 2: English - Commentary (AC3, 5.1)'.
+    Returns an empty list when the tracks cannot be read."""
+    probe = find_ffprobe()
+    if not probe:
+        return []
+    flags = subprocess.CREATE_NO_WINDOW if os.name == "nt" else 0
+    try:
+        result = subprocess.run(
+            [probe, "-v", "error", "-select_streams", "a",
+             "-show_entries", "stream=codec_name,channels:stream_tags=language,title",
+             "-of", "json", video],
+            capture_output=True, text=True, encoding="utf-8", errors="replace",
+            timeout=30, creationflags=flags,
+        )
+        streams = json.loads(result.stdout or "{}").get("streams", [])
+    except Exception:
+        return []
+    labels = []
+    for i, s in enumerate(streams, 1):
+        tags = {str(k).lower(): str(v) for k, v in (s.get("tags") or {}).items()}
+        code = tags.get("language", "").strip().lower()
+        lang = "" if code in ("", "und") else LANG_NAMES.get(code, code.upper())
+        title = tags.get("title", "").strip()
+        if title and lang and title.lower() != lang.lower():
+            name = f"{lang} - {title}"
+        else:
+            name = title or lang or "Unknown language"
+        details = []
+        if s.get("codec_name"):
+            details.append(str(s["codec_name"]).upper())
+        ch = s.get("channels")
+        if ch:
+            details.append(CHANNEL_NAMES.get(ch, f"{ch}ch"))
+        labels.append(f"Track {i}: {name}" + (f" ({', '.join(details)})" if details else ""))
+    return labels
+
+def build_command(video, sub, out, extra=None):
     exe = shutil.which("ffs") or shutil.which("ffsubsync")
     base = [exe] if exe else [sys.executable, "-m", "ffsubsync"]
-    return base + [video, "-i", sub, "-o", out]
+    return base + [video, "-i", sub, "-o", out] + list(extra or [])

@@ -16,7 +16,7 @@ from src.constants import (
     SUCCESS, CARD_BG, CARD_BORDER, INSET_BG, MUTED_TEXT
 )
 from src.settings import load_settings, save_settings
-from src.utils import set_windows_titlebar_color
+from src.utils import set_windows_titlebar_color, get_gear_icon, resource_path
 from src.media import find_ffmpeg, refresh_environment_path
 
 class FFmpegSetupDialog(ctk.CTkToplevel):
@@ -44,6 +44,15 @@ class FFmpegSetupDialog(ctk.CTkToplevel):
         y = py + max(0, (ph - 420) // 2)
         self.geometry(f"+{x}+{y}")
 
+        is_dark = (self.parent.settings.get("theme", "dark") == "dark") if hasattr(self.parent, "settings") else (ctk.get_appearance_mode() == "Dark")
+        self.after(20, lambda: set_windows_titlebar_color(self, is_dark))
+        self.after(100, lambda: set_windows_titlebar_color(self, is_dark))
+        icon_file = resource_path("app_icon.ico")
+        if os.path.isfile(icon_file):
+            try:
+                self.iconbitmap(icon_file)
+            except Exception:
+                pass
         self.is_running = False
         self.build_ui()
 
@@ -273,6 +282,15 @@ class UpdateDialog(ctk.CTkToplevel):
         y = py + max(0, (ph - 480) // 2)
         self.geometry(f"+{x}+{y}")
 
+        is_dark = (self.parent.settings.get("theme", "dark") == "dark") if hasattr(self.parent, "settings") else (ctk.get_appearance_mode() == "Dark")
+        self.after(20, lambda: set_windows_titlebar_color(self, is_dark))
+        self.after(100, lambda: set_windows_titlebar_color(self, is_dark))
+        icon_file = resource_path("app_icon.ico")
+        if os.path.isfile(icon_file):
+            try:
+                self.iconbitmap(icon_file)
+            except Exception:
+                pass
         self.build_ui()
 
     def build_ui(self):
@@ -497,6 +515,15 @@ class SettingsDialog(ctk.CTkToplevel):
         y = py + max(0, (ph - 460) // 2)
         self.geometry(f"+{x}+{y}")
 
+        is_dark = (self.parent.settings.get("theme", "dark") == "dark") if hasattr(self.parent, "settings") else (ctk.get_appearance_mode() == "Dark")
+        self.after(20, lambda: set_windows_titlebar_color(self, is_dark))
+        self.after(100, lambda: set_windows_titlebar_color(self, is_dark))
+        icon_file = resource_path("app_icon.ico")
+        if os.path.isfile(icon_file):
+            try:
+                self.iconbitmap(icon_file)
+            except Exception:
+                pass
         self.build_ui()
 
     def build_ui(self):
@@ -507,7 +534,7 @@ class SettingsDialog(ctk.CTkToplevel):
         header_row = ctk.CTkFrame(container, fg_color="transparent")
         header_row.pack(fill="x", pady=(0, 16))
 
-        icon_lbl = ctk.CTkLabel(header_row, text="⚙️", font=ctk.CTkFont(size=24))
+        icon_lbl = ctk.CTkLabel(header_row, text="", image=get_gear_icon(26))
         icon_lbl.pack(side="left", padx=(0, 10))
 
         title_lbl = ctk.CTkLabel(

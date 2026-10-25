@@ -28,3 +28,5 @@ MUTED_TEXT = ("#334155", "#94A3B8")
 
 VIDEO_TYPES = [("Video files", "*.mkv *.mp4 *.avi *.mov *.m4v *.webm"), ("All files", "*.*")]
 SUB_TYPES = [("Subtitle files", "*.srt *.ass *.ssa *.vtt"), ("All files", "*.*")]
+
+LOCKED_HINT = "Step 3 unlocks after you choose a movie (Step 1) and at least one subtitle (Step 2)."
