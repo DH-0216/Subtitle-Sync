@@ -9,7 +9,7 @@ echo.
 
 set "APP_VERSION="
 for /f "usebackq tokens=*" %%v in (`python -c "import re; m = re.search(r'APP_VERSION\s*=\s*[\x22\x27]([^\x22\x27]+)', open('src/constants.py', encoding='utf-8').read()); print(m.group(1))" 2^>nul`) do set "APP_VERSION=%%v"
-if not defined APP_VERSION set "APP_VERSION=1.2.0"
+if not defined APP_VERSION set "APP_VERSION=1.2.1"
 echo Detected Version: v!APP_VERSION!
 echo.
 

@@ -96,14 +96,16 @@ def fetch_github_release(repo, timeout=10):
     """Fetches the latest release info from GitHub API with SSL resilience and fallback."""
     import json
     import ssl
+    import socket
     import urllib.request
     import urllib.error
+    from src.constants import APP_VERSION
 
     url = f"https://api.github.com/repos/{repo}/releases/latest"
     req = urllib.request.Request(
         url,
         headers={
-            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) SubtitleSync/1.2.0",
+            "User-Agent": f"Mozilla/5.0 (Windows NT 10.0; Win64; x64) SubtitleSync/{APP_VERSION}",
             "Accept": "application/vnd.github.v3+json",
         }
     )
@@ -118,6 +120,27 @@ def fetch_github_release(repo, timeout=10):
         except Exception:
             pass
 
+    def _resolve_error_message(err):
+        reason = getattr(err, "reason", None)
+        sub_err = reason if reason is not None else err
+
+        if isinstance(sub_err, (socket.gaierror, socket.herror)):
+            return "No internet connection. Please check your network and try again."
+        if isinstance(sub_err, (socket.timeout, TimeoutError)):
+            return "Connection timed out. Please check your internet connection."
+        if isinstance(sub_err, (ConnectionRefusedError, ConnectionResetError)):
+            return "Connection failed. Please check your internet connection."
+        if isinstance(sub_err, ssl.SSLError):
+            return "SSL secure connection failed. Please check your network."
+
+        err_str = f"{err} {sub_err}".lower()
+        if any(term in err_str for term in ("getaddrinfo", "11001", "unreachable", "no route", "not connected", "offline", "network is down")):
+            return "No internet connection. Please check your network and try again."
+        if "timed out" in err_str:
+            return "Connection timed out. Please check your internet connection."
+
+        return "Could not connect to GitHub. Please check your internet connection."
+
     try:
         with urllib.request.urlopen(req, timeout=timeout, context=ctx) as resp:
             if resp.status == 200:
@@ -127,19 +150,27 @@ def fetch_github_release(repo, timeout=10):
             return None, "GitHub API rate limit exceeded. Please try again later."
         if e.code == 404:
             return None, "No releases published yet on GitHub."
-        return None, f"GitHub error (HTTP {e.code})"
+        return None, f"GitHub server returned error (HTTP {e.code})."
     except Exception as primary_err:
-        try:
-            unverified_ctx = ssl._create_unverified_context()
-            with urllib.request.urlopen(req, timeout=timeout, context=unverified_ctx) as resp:
-                if resp.status == 200:
-                    return json.loads(resp.read().decode("utf-8")), None
-        except urllib.error.HTTPError as e:
-            if e.code == 403:
-                return None, "GitHub API rate limit exceeded. Please try again later."
-            return None, f"GitHub error (HTTP {e.code})"
-        except Exception:
-            pass
-        return None, f"Could not connect to GitHub ({primary_err.__class__.__name__})."
+        # If the primary error is an offline/network failure, do not waste time retrying SSL
+        reason = getattr(primary_err, "reason", None)
+        is_net_error = isinstance(reason or primary_err, (socket.gaierror, socket.herror, socket.timeout, TimeoutError, ConnectionRefusedError, ConnectionResetError))
+        err_str = f"{primary_err} {reason}".lower()
+        if not is_net_error and not any(t in err_str for t in ("getaddrinfo", "11001", "unreachable", "timed out")):
+            try:
+                unverified_ctx = ssl._create_unverified_context()
+                with urllib.request.urlopen(req, timeout=timeout, context=unverified_ctx) as resp:
+                    if resp.status == 200:
+                        return json.loads(resp.read().decode("utf-8")), None
+            except urllib.error.HTTPError as e:
+                if e.code == 403:
+                    return None, "GitHub API rate limit exceeded. Please try again later."
+                if e.code == 404:
+                    return None, "No releases published yet on GitHub."
+                return None, f"GitHub server returned error (HTTP {e.code})."
+            except Exception:
+                pass
 
-    return None, "Could not connect to GitHub."
+        return None, _resolve_error_message(primary_err)
+
+    return None, "Could not connect to GitHub. Please check your internet connection."

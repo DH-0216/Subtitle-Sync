@@ -307,7 +307,18 @@ def build_main_ui(app):
         anchor="w",
         wraplength=660
     )
-    app.fps_rec_label.grid(row=1, column=0, sticky="w", padx=12, pady=(0, 5))
+    app.fps_rec_label.grid(row=1, column=0, sticky="w", padx=12, pady=(0, 3))
+
+    app.fps_auto_label = ctk.CTkLabel(
+        app.fps_box,
+        text="",
+        font=ctk.CTkFont(size=11),
+        justify="left",
+        anchor="w",
+        wraplength=660,
+        text_color=MUTED_TEXT
+    )
+    app.fps_auto_label.grid(row=2, column=0, sticky="w", padx=12, pady=(0, 6))
     app.fps_box.grid_remove()
 
     # ---------------- STEP 3: Sync Actions ----------------
@@ -488,13 +499,13 @@ def build_main_ui(app):
         status_container,
         text="●",
         font=ctk.CTkFont(size=14),
-        text_color=SUCCESS
+        text_color=("gray60", "gray50")
     )
     app.status_dot.pack(side="left", padx=(0, 6))
 
     app.status = ctk.CTkLabel(
         status_container,
-        text="Ready to sync",
+        text="Select movie and subtitle(s)",
         anchor="w",
         font=ctk.CTkFont(size=12),
         text_color=MUTED_TEXT

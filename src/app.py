@@ -59,6 +59,7 @@ class App(ctk.CTk):
         self.last_output_dir = None
         self.last_output_file = None
         self.user_selected_mode = False
+        self.current_rec = None
 
         self.latest_release_data = None
         self.build_ui()
@@ -201,9 +202,12 @@ class App(ctk.CTk):
         if text.strip().lower() == "ready to sync":
             dot_color = SUCCESS
             status_color = MUTED_TEXT
+        elif color in (None, MUTED_TEXT):
+            status_color = MUTED_TEXT
+            dot_color = ("gray60", "gray50")
         else:
-            status_color = color or MUTED_TEXT
-            dot_color = status_color
+            status_color = color
+            dot_color = color
         self.status.configure(text=text, text_color=status_color)
         if hasattr(self, "status_dot"):
             self.status_dot.configure(text_color=dot_color)
@@ -229,6 +233,7 @@ class App(ctk.CTk):
         if path:
             self.video_path = path
             self.user_selected_mode = False
+            self.current_rec = None
             self.video_label.configure(
                 text=short(path, 70),
                 text_color=("gray10", "gray90")
@@ -321,6 +326,7 @@ class App(ctk.CTk):
             files_to_log = new_files
 
         self.user_selected_mode = False
+        self.current_rec = None
         self.refresh_sub_list()
         self.update_sub_meta()
         for p in files_to_log:
@@ -333,6 +339,7 @@ class App(ctk.CTk):
         if path in self.subs:
             self.subs.remove(path)
         self.user_selected_mode = False
+        self.current_rec = None
         self.refresh_sub_list()
         self.update_sub_meta()
         self.update_sync_state()
@@ -353,6 +360,7 @@ class App(ctk.CTk):
         self.subs.clear()
         self.sub_fps = None
         self.user_selected_mode = False
+        self.current_rec = None
         self.refresh_sub_list()
         self.update_sync_state()
 
@@ -364,12 +372,16 @@ class App(ctk.CTk):
         if save and mode:
             self.settings["sync_mode"] = mode
             save_settings(self.settings)
+        if hasattr(self, "fps_box") and self.fps_box.winfo_ismapped():
+            self._update_rec_auto_label()
 
-    def update_sync_state(self):
+    def update_sync_state(self, update_status=True):
         """Step 3 stays grayed out until a movie and at least one subtitle are chosen."""
         if not hasattr(self, "start_btn"):
             return
-        ready = bool(self.video_path) and os.path.isfile(self.video_path) and bool(self.subs)
+        has_video = bool(self.video_path) and os.path.isfile(self.video_path)
+        has_subs = bool(self.subs)
+        ready = has_video and has_subs
         state = "normal" if (ready and not self.running) else "disabled"
         if hasattr(self, "mode_btn"):
             self.mode_btn.configure(state=state)
@@ -385,9 +397,21 @@ class App(ctk.CTk):
             cur_mode = self.mode_btn.get()
             self.mode_hint.configure(text=MODE_HINTS.get(cur_mode, ""), text_color=MUTED_TEXT)
 
+        # Update status message and dot indicator when not actively running a sync job
+        if update_status and not self.running and not getattr(self, "cancelled", False):
+            if ready:
+                self.set_status("Ready to sync", SUCCESS)
+            elif not has_video and not has_subs:
+                self.set_status("Select movie and subtitle(s)")
+            elif not has_video:
+                self.set_status("Select movie to sync")
+            else:
+                self.set_status("Add subtitle(s) to sync")
+
         if hasattr(self, "fps_box"):
             if ready and (self.video_fps or self.sub_fps or self.subs):
                 rec = analyze_recommendation(self.video_path, self.video_fps, self.subs)
+                self.current_rec = rec
                 if rec:
                     self.fps_label.configure(text=rec.title, text_color=rec.color)
                     self.fps_rec_label.configure(text=rec.hint)
@@ -398,11 +422,52 @@ class App(ctk.CTk):
                         if hasattr(self, "mode_hint"):
                             self.mode_hint.configure(text=MODE_HINTS.get(rec.mode, ""), text_color=MUTED_TEXT)
 
+                    self._update_rec_auto_label(rec)
                     self.fps_box.grid()
                 else:
                     self.fps_box.grid_remove()
             else:
+                self.current_rec = None
                 self.fps_box.grid_remove()
+
+    def _update_rec_auto_label(self, rec=None):
+        if not hasattr(self, "fps_auto_label"):
+            return
+        rec = rec or getattr(self, "current_rec", None)
+        if not rec:
+            self.fps_auto_label.grid_remove()
+            return
+
+        cur_mode = self.mode_btn.get() if hasattr(self, "mode_btn") else (rec.mode or MODE_STANDARD)
+        user_chose = getattr(self, "user_selected_mode", False)
+
+        if not user_chose:
+            chosen_type = rec.mode or cur_mode
+            if chosen_type == MODE_SPLIT:
+                msg = (
+                    f'🎯 Automatically selected "{chosen_type}" according to recommendation. '
+                    f'If it does not fix the subtitle, try "Smart" mode or check if the audio track matches.'
+                )
+            else:
+                msg = (
+                    f'🎯 Automatically selected "{chosen_type}" according to recommendation. '
+                    f'If it does not fix the subtitle, try again and select the \'Split sync\' option.'
+                )
+        else:
+            if cur_mode == MODE_SPLIT:
+                msg = (
+                    f'🎯 Selected "{cur_mode}". '
+                    f'If it does not fix the subtitle, try "Smart" mode or verify the audio track.'
+                )
+            else:
+                rec_hint = f' (Recommended: "{rec.mode}")' if (rec.mode and rec.mode != cur_mode) else ''
+                msg = (
+                    f'🎯 Selected "{cur_mode}"{rec_hint}. '
+                    f'If it does not fix the subtitle, try again and select the \'Split sync\' option.'
+                )
+
+        self.fps_auto_label.configure(text=msg)
+        self.fps_auto_label.grid()
 
     def get_track(self):
         """0-based audio track chosen by the person, or None when the movie has just one."""
@@ -413,7 +478,7 @@ class App(ctk.CTk):
         except ValueError:
             return None
 
-    def set_running(self, running):
+    def set_running(self, running, update_status=True):
         self.running = running
         self.cancel_btn.configure(state="normal" if running else "disabled")
         if running:
@@ -421,7 +486,7 @@ class App(ctk.CTk):
         else:
             self.progress.stop()
             self.progress.set(0)
-        self.update_sync_state()
+        self.update_sync_state(update_status=update_status)
 
     def update_ffmpeg_status(self):
         found = find_ffmpeg()
@@ -552,11 +617,12 @@ class App(ctk.CTk):
         self.after(0, self.finish, ok, len(subs))
 
     def finish(self, ok, total):
-        self.set_running(False)
+        self.set_running(False, update_status=False)
         if hasattr(self, "open_btn"):
             self.open_btn.configure(state="normal")
         if self.cancelled:
             self.set_status("Cancelled", DANGER)
+            self.cancelled = False
             messagebox.showinfo("Sync Cancelled", "Subtitle synchronization was cancelled.")
         elif ok == total:
             self.set_status(f"Done - {ok} of {total} synced successfully", SUCCESS)
