@@ -607,7 +607,10 @@ class SettingsDialog(ctk.CTkToplevel):
             manual_row,
             text=f"Current Version: v{APP_VERSION}",
             font=ctk.CTkFont(size=11),
-            text_color=MUTED_TEXT
+            text_color=MUTED_TEXT,
+            anchor="w",
+            justify="left",
+            wraplength=310
         )
         self.check_status_lbl.grid(row=0, column=0, sticky="w")
 
@@ -692,7 +695,7 @@ class SettingsDialog(ctk.CTkToplevel):
 
     def manual_check_update(self):
         self.check_now_btn.configure(state="disabled", text="Checking...")
-        self.check_status_lbl.configure(text="Checking GitHub Releases...")
+        self.check_status_lbl.configure(text="Checking GitHub Releases...", text_color=MUTED_TEXT)
         threading.Thread(target=self._manual_worker, daemon=True).start()
 
     def _manual_worker(self):
@@ -705,7 +708,7 @@ class SettingsDialog(ctk.CTkToplevel):
             else:
                 self.after(0, self._on_manual_up_to_date)
                 return
-        self.after(0, self._on_manual_error, err or "Could not connect to GitHub.")
+        self.after(0, self._on_manual_error, err or "No internet connection. Please check your network and try again.")
 
     def _on_manual_found(self, data):
         self.check_now_btn.configure(state="normal", text="🔍 Check Now")
@@ -718,8 +721,9 @@ class SettingsDialog(ctk.CTkToplevel):
         self.check_now_btn.configure(state="normal", text="🔍 Check Now")
         self.check_status_lbl.configure(text=f"✅ You're on the latest version (v{APP_VERSION})", text_color=SUCCESS)
 
-    def _on_manual_error(self, err_msg="Could not connect to GitHub."):
+    def _on_manual_error(self, err_msg="No internet connection. Please check your network and try again."):
         self.check_now_btn.configure(state="normal", text="🔍 Check Now")
-        self.check_status_lbl.configure(text=err_msg, text_color=DANGER)
+        display_msg = err_msg if err_msg.startswith("⚠️") else f"⚠️ {err_msg}"
+        self.check_status_lbl.configure(text=display_msg, text_color=DANGER)
 
 
