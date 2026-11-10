@@ -174,3 +174,90 @@ def fetch_github_release(repo, timeout=10):
         return None, _resolve_error_message(primary_err)
 
     return None, "Could not connect to GitHub. Please check your internet connection."
+
+
+def format_release_notes(text: str) -> str:
+    """Cleans raw GitHub Markdown release notes into readable, elegant plain text for the updater dialog."""
+    import re
+
+    if not text or not text.strip():
+        return "Bug fixes and performance improvements."
+
+    lines = text.replace("\r\n", "\n").split("\n")
+    cleaned = []
+
+    for line in lines:
+        s = line.strip()
+
+        # Omit redundant main release title (e.g. ## Subtitle Sync Studio v1.2.1)
+        if re.match(r"^#+\s*(Subtitle\s*Sync.*|v?\d+\.\d+.*)$", s, re.IGNORECASE):
+            continue
+
+        # Drop markdown horizontal dividers (---, ***, ___)
+        if re.match(r"^-{3,}$|^\*{3,}$|^_{3,}$", s):
+            continue
+
+        # Drop markdown table divider rows (e.g. | :--- | :--- |)
+        if re.match(r"^\|?\s*:?-+:?\s*(\|\s*:?-+:?\s*)+\|?$", s):
+            continue
+
+        # Parse and format markdown table content rows (e.g. | File | Type | Description |)
+        if s.startswith("|") and s.endswith("|"):
+            cells = [c.strip() for c in s.strip("|").split("|")]
+            if any(h in cells[0].lower() for h in ["file", "asset", "package", "name"]):
+                continue
+            cells_clean = [re.sub(r"\[([^\]]+)\]\([^)]+\)", r"\1", c) for c in cells]
+            cells_clean = [re.sub(r"[*`_]", "", c).strip() for c in cells_clean]
+            if len(cells_clean) >= 3:
+                line = f"• {cells_clean[0]} ({cells_clean[1]}): {cells_clean[2]}"
+            elif len(cells_clean) == 2:
+                line = f"• {cells_clean[0]}: {cells_clean[1]}"
+            else:
+                line = f"• {cells_clean[0]}"
+            cleaned.append(line)
+            continue
+
+        # Section headers (### Header -> Header)
+        m_head = re.match(r"^(#{1,6})\s+(.*)$", s)
+        if m_head:
+            header_text = m_head.group(2).strip()
+            header_text = re.sub(r"[*`_]", "", header_text)
+            if cleaned and cleaned[-1] != "":
+                cleaned.append("")
+            cleaned.append(header_text)
+            continue
+
+        # Top-level list item (- **Item**: -> • Item:)
+        m_top_item = re.match(r"^\s*[-*+]\s+\*\*(.*?)\*\*:(.*)$", line)
+        if m_top_item:
+            title = m_top_item.group(1).strip()
+            rest = m_top_item.group(2).strip()
+            cleaned.append(f"• {title}:{(' ' + rest) if rest else ''}")
+            continue
+
+        # Top-level list item (- Item)
+        m_top_bullet = re.match(r"^[-*+]\s+(.*)$", line)
+        if m_top_bullet:
+            cleaned.append(f"• {m_top_bullet.group(1).strip()}")
+            continue
+
+        # Nested list item (  - Sub item)
+        m_nest_bullet = re.match(r"^(\s+)[-*+]\s+(.*)$", line)
+        if m_nest_bullet:
+            cleaned.append(f"{m_nest_bullet.group(1)}- {m_nest_bullet.group(2).strip()}")
+            continue
+
+        cleaned.append(line)
+
+    result = "\n".join(cleaned)
+    # Strip markdown links: [text](url) -> text
+    result = re.sub(r"\[([^\]]+)\]\([^)]+\)", r"\1", result)
+    # Strip bold and italic markdown tags
+    result = re.sub(r"\*\*(.*?)\*\*", r"\1", result)
+    result = re.sub(r"\*(.*?)\*", r"\1", result)
+    result = re.sub(r"__(.*?)__", r"\1", result)
+    # Strip backticks
+    result = re.sub(r"`(.*?)`", r"\1", result)
+    # Collapse multiple blank lines
+    result = re.sub(r"\n{3,}", "\n\n", result).strip()
+    return result

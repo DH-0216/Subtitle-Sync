@@ -16,7 +16,7 @@ from src.constants import (
     SUCCESS, CARD_BG, CARD_BORDER, INSET_BG, BADGE_BG, BADGE_FG, MUTED_TEXT
 )
 from src.settings import load_settings, save_settings
-from src.utils import set_windows_titlebar_color, get_gear_icon, resource_path, fetch_github_release
+from src.utils import set_windows_titlebar_color, get_gear_icon, resource_path, fetch_github_release, format_release_notes
 from src.media import find_ffmpeg, refresh_environment_path
 
 class FFmpegSetupDialog(ctk.CTkToplevel):
@@ -261,7 +261,8 @@ class UpdateDialog(ctk.CTkToplevel):
         self.is_downloading = False
 
         self.new_version = release_data.get("tag_name", "Latest")
-        self.release_notes = release_data.get("body", "Bug fixes and performance improvements.").strip()
+        raw_notes = release_data.get("body", "Bug fixes and performance improvements.").strip()
+        self.release_notes = format_release_notes(raw_notes)
         self.html_url = release_data.get("html_url", f"https://github.com/{GITHUB_REPO}/releases/latest")
 
         self._deactivate_windows_window_header_manipulation = True
@@ -477,10 +478,35 @@ class UpdateDialog(ctk.CTkToplevel):
         self.after(1200, lambda: self._launch_and_exit(dest_path))
 
     def _launch_and_exit(self, dest_path):
+        # Prevent PyInstaller onefile child process from inheriting parent's temporary extraction folder (_MEIPASS2),
+        # which gets deleted upon parent exit and causes "Failed to load Python DLL ... python314.dll" error.
+        clean_env = os.environ.copy()
+        clean_env.pop("_MEIPASS2", None)
+        clean_env.pop("_MEIPASS", None)
+        os.environ.pop("_MEIPASS2", None)
+        os.environ.pop("_MEIPASS", None)
+
+        meipass = getattr(sys, "_MEIPASS", None)
+        if meipass:
+            paths = [p for p in clean_env.get("PATH", "").split(os.pathsep) if os.path.abspath(p) != os.path.abspath(meipass)]
+            clean_env["PATH"] = os.pathsep.join(paths)
+            os.environ["PATH"] = clean_env["PATH"]
+
         try:
-            subprocess.Popen([dest_path])
+            if os.name == "nt" and hasattr(os, "startfile"):
+                os.startfile(dest_path)
+            else:
+                subprocess.Popen([dest_path], env=clean_env)
         except Exception:
-            pass
+            try:
+                subprocess.Popen(
+                    [dest_path],
+                    env=clean_env,
+                    creationflags=getattr(subprocess, "DETACHED_PROCESS", 0x00000008)
+                )
+            except Exception:
+                pass
+
         self.parent.destroy()
         sys.exit(0)
 
