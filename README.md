@@ -112,8 +112,8 @@ You can build both the standalone portable `.exe` and the standard Windows setup
 
 ### 🛠️ Offline vs. Automated FFmpeg Setup for Installer:
 The setup installer bundles FFmpeg so end users don't need to configure PATH manually. For developers compiling the installer from source:
-- **100% Offline Build:** Place your own `ffmpeg.exe` into the `bin/` directory (or have FFmpeg installed on your system). `build.bat` will detect and bundle it without touching the internet.
-- **Automated Setup:** If `bin/ffmpeg.exe` is missing, `build.bat` will ask if you'd like to download it automatically. You can also run **`get_ffmpeg.bat`** at any time to automatically fetch and place `ffmpeg.exe` into `bin/`.
+- **100% Offline Build:** Place your own `ffmpeg.exe` and `ffsubsync.exe` into the `bin/` directory (or have them on your system). `build.bat` will detect and bundle them without touching the internet.
+- **Automated Setup:** If either binary is missing, `build.bat` will automatically fetch `ffmpeg.exe` and compile `ffsubsync.exe` for you into `bin/`. You can also run `build.bat --binaries` to only prepare engine binaries without building the app.
 
 Or build the portable `.exe` manually in your terminal:
 
@@ -142,9 +142,8 @@ pyinstaller --noconsole --onefile --clean --name "SubtitleSync" --icon "app_icon
 ├── app_icon.png             # High-resolution icon preview
 ├── app_preview.png          # Desktop application preview screenshot
 ├── LICENSE                  # GNU General Public License v3.0
-├── build.bat                # 1-click builder script (Portable & Installer)
-├── get_ffmpeg.bat           # Helper to fetch/copy ffmpeg.exe into bin/
-├── bin/                     # Local binaries folder (offline ffmpeg.exe)
+├── build.bat                # All-in-One builder (auto-fetches ffmpeg, compiles ffsubsync, builds app & installer)
+├── bin/                     # Local engine binaries (ffmpeg.exe, ffsubsync.exe)
 ├── dist/                    # Compiled distribution output folder
 │   ├── SubtitleSync-Setup.exe            # Standard Windows Setup Installer
 │   └── SubtitleSync-Portable.exe         # Standalone portable application

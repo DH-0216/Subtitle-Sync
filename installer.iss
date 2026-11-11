@@ -39,8 +39,10 @@ Name: "installffmpeg"; Description: "Install FFmpeg globally (Recommended — re
 Source: "dist\{#MyAppExeName}"; DestDir: "{app}"; Flags: ignoreversion
 Source: "app_icon.ico"; DestDir: "{app}"; Flags: ignoreversion
 
-; Standalone FFmpeg executable for offline installation
+; Standalone FFmpeg & ffsubsync executables for offline installation
 Source: "bin\ffmpeg.exe"; DestDir: "{autopf}\FFmpeg\bin"; Flags: ignoreversion; Tasks: installffmpeg
+Source: "bin\ffsubsync.exe"; DestDir: "{autopf}\FFmpeg\bin"; Flags: ignoreversion; Tasks: installffmpeg
+Source: "bin\ffsubsync.exe"; DestDir: "{app}\bin"; Flags: ignoreversion
 
 [Icons]
 Name: "{group}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"; IconFilename: "{app}\app_icon.ico"
