@@ -72,10 +72,10 @@
       "allowToChangeInstallationDirectory": true,
       "createDesktopShortcut": true,
       "createStartMenuShortcut": true,
-      "artifactName": "SubtitleSync-Setup-${version}.${ext}"
+      "artifactName": "SubtitleSync-Setup.${ext}"
     },
     "portable": {
-      "artifactName": "SubtitleSync-Portable-${version}.${ext}"
+      "artifactName": "SubtitleSync-Portable.${ext}"
     }
   }
 }

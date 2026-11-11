@@ -158,13 +158,10 @@ if %errorlevel% neq 0 (
     exit /b %errorlevel%
 )
 
-:: Create non-versioned fallback copies for quick referencing
-if exist "dist\SubtitleSync-Portable-!APP_VERSION!.exe" (
-    copy /y "dist\SubtitleSync-Portable-!APP_VERSION!.exe" "dist\SubtitleSync-Portable.exe" >nul
-)
-if exist "dist\SubtitleSync-Setup-!APP_VERSION!.exe" (
-    copy /y "dist\SubtitleSync-Setup-!APP_VERSION!.exe" "dist\SubtitleSync-Setup.exe" >nul
-)
+:: Clean up any leftover versioned files so only the 2 primary executables remain
+if exist "dist\SubtitleSync-Portable-*.exe" del /q "dist\SubtitleSync-Portable-*.exe" >nul 2>&1
+if exist "dist\SubtitleSync-Setup-*.exe" del /q "dist\SubtitleSync-Setup-*.exe" >nul 2>&1
+if exist "dist\SubtitleSync-Setup-*.blockmap" del /q "dist\SubtitleSync-Setup-*.blockmap" >nul 2>&1
 echo.
 
 :: ---------------------------------------------------------------------------
@@ -175,8 +172,6 @@ echo [6/6] Updating desktop shortcut 'Subtitle Sync.lnk'...
 set "SHORTCUT_TARGET="
 if exist "dist\SubtitleSync-Portable.exe" (
     set "SHORTCUT_TARGET=%~dp0dist\SubtitleSync-Portable.exe"
-) else if exist "dist\SubtitleSync-Portable-!APP_VERSION!.exe" (
-    set "SHORTCUT_TARGET=%~dp0dist\SubtitleSync-Portable-!APP_VERSION!.exe"
 ) else if exist "dist\win-unpacked\Subtitle Sync Studio.exe" (
     set "SHORTCUT_TARGET=%~dp0dist\win-unpacked\Subtitle Sync Studio.exe"
 )
@@ -191,11 +186,11 @@ if defined SHORTCUT_TARGET (
 echo.
 echo =======================================================
 echo [SUCCESS] Build process completed successfully!
-if exist "dist\SubtitleSync-Portable-!APP_VERSION!.exe" (
-    echo Portable:  dist\SubtitleSync-Portable-!APP_VERSION!.exe
+if exist "dist\SubtitleSync-Portable.exe" (
+    echo Portable:  dist\SubtitleSync-Portable.exe
 )
-if exist "dist\SubtitleSync-Setup-!APP_VERSION!.exe" (
-    echo Installer: dist\SubtitleSync-Setup-!APP_VERSION!.exe
+if exist "dist\SubtitleSync-Setup.exe" (
+    echo Installer: dist\SubtitleSync-Setup.exe
 )
 if exist "dist\win-unpacked\Subtitle Sync Studio.exe" (
     echo Unpacked:  dist\win-unpacked\Subtitle Sync Studio.exe
