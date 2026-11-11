@@ -76,6 +76,46 @@
     },
     "portable": {
       "artifactName": "SubtitleSync-Portable.${ext}"
+    },
+    "mac": {
+      "target": [
+        {
+          "target": "dmg",
+          "arch": [
+            "x64",
+            "arm64"
+          ]
+        },
+        {
+          "target": "zip",
+          "arch": [
+            "x64",
+            "arm64"
+          ]
+        }
+      ],
+      "icon": "app_icon.png",
+      "category": "public.app-category.video",
+      "artifactName": "SubtitleSync-mac-${arch}.${ext}"
+    },
+    "linux": {
+      "target": [
+        {
+          "target": "AppImage",
+          "arch": [
+            "x64"
+          ]
+        },
+        {
+          "target": "deb",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "icon": "app_icon.png",
+      "category": "AudioVideo",
+      "artifactName": "SubtitleSync-linux-${arch}.${ext}"
     }
   }
 }
