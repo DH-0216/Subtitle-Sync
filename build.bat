@@ -2,210 +2,202 @@
 setlocal enabledelayedexpansion
 cd /d "%~dp0"
 
+:: ---------------------------------------------------------------------------
+:: Auto-Elevation: Automatically request Administrator privileges if not elevated
+:: ---------------------------------------------------------------------------
+net session >nul 2>&1
+if %errorlevel% neq 0 (
+    echo [INFO] Requesting Administrator privileges to build and package...
+    powershell -NoProfile -Command "Start-Process cmd.exe -ArgumentList '/k \""""%~f0"""" %*' -Verb RunAs"
+    exit /b
+)
+
 echo =======================================================
-echo          Subtitle Sync Studio - All-in-One Builder
+echo     Subtitle Sync Studio - Electron Edition Builder
 echo =======================================================
 echo.
+
+:: ---------------------------------------------------------------------------
+:: STEP 1: Version & Environment Verification
+:: ---------------------------------------------------------------------------
+echo [1/6] Verifying Node.js environment...
+
+where node >nul 2>nul
+if %errorlevel% neq 0 (
+    echo.
+    echo [ERROR] Node.js is not installed or not found on PATH.
+    echo Please install Node.js v18 or higher from https://nodejs.org/
+    if "%1"=="" pause
+    exit /b 1
+)
+
+where npm >nul 2>nul
+if %errorlevel% neq 0 (
+    echo.
+    echo [ERROR] npm is not found on PATH.
+    echo Please ensure npm is installed and added to PATH.
+    if "%1"=="" pause
+    exit /b 1
+)
 
 set "APP_VERSION="
-for /f "usebackq tokens=*" %%v in (`python -c "import re; m = re.search(r'APP_VERSION\s*=\s*[\x22\x27]([^\x22\x27]+)', open('src/constants.py', encoding='utf-8').read()); print(m.group(1))" 2^>nul`) do set "APP_VERSION=%%v"
-if not defined APP_VERSION set "APP_VERSION=1.2.2"
-echo Detected Version: v!APP_VERSION!
+for /f %%v in ('node -e "console.log(require('./package.json').version)" 2^>nul') do set "APP_VERSION=%%v"
+if not defined APP_VERSION set "APP_VERSION=2.0.0"
+echo [INFO] Detected Version: v!APP_VERSION!
 echo.
 
+:: ---------------------------------------------------------------------------
+:: STEP 2: Project Dependencies
+:: ---------------------------------------------------------------------------
+echo [2/6] Checking project dependencies...
+if not exist "node_modules" (
+    echo [INFO] node_modules not found. Installing dependencies...
+    call npm install
+    if %errorlevel% neq 0 (
+        echo.
+        echo [ERROR] npm install failed.
+        if "%1"=="" pause
+        exit /b %errorlevel%
+    )
+) else (
+    echo [INFO] Project dependencies are installed.
+)
+echo.
+
+:: ---------------------------------------------------------------------------
+:: STEP 3: Ensure bin\ Directory and Engine Binaries
+:: ---------------------------------------------------------------------------
+echo [3/6] Checking engine binaries in bin\...
 if not exist "bin" mkdir "bin"
 
-:: ---------------------------------------------------------------------------
-:: STEP 1: Verify & install Python dependencies
-:: ---------------------------------------------------------------------------
-echo [1/7] Checking required Python packages...
-python -m pip install customtkinter ffsubsync pyinstaller pillow auditok --no-warn-script-location
-if %errorlevel% neq 0 (
-    echo.
-    echo [ERROR] Failed to install required Python packages.
-    echo Please make sure Python and pip are installed and added to PATH.
-    if "%1"=="" pause
-    exit /b %errorlevel%
-)
-
-:: ---------------------------------------------------------------------------
-:: STEP 2: App Icon Verification
-:: ---------------------------------------------------------------------------
-echo.
-echo [2/7] Verifying application icon...
-if not exist "app_icon.ico" (
-    echo Generating app_icon.ico...
-    python create_icon.py
-)
-
-:: ---------------------------------------------------------------------------
-:: STEP 3: Ensure bin\ffmpeg.exe
-:: ---------------------------------------------------------------------------
-echo.
-echo [3/7] Checking bin\ffmpeg.exe...
+:: 3.1 FFmpeg Check / Auto-acquisition
 if exist "bin\ffmpeg.exe" (
-    echo [INFO] bin\ffmpeg.exe is already present!
-) else (
-    echo [INFO] bin\ffmpeg.exe not found in workspace. Searching local system...
-    for /f "delims=" %%F in ('where.exe ffmpeg.exe 2^>nul') do (
-        copy /y "%%F" "bin\ffmpeg.exe" >nul
-        echo [SUCCESS] Auto-copied ffmpeg.exe from: %%F
-    )
+    echo [INFO] bin\ffmpeg.exe is ready!
+    goto :check_ffsubsync
 )
+
+echo [INFO] bin\ffmpeg.exe not found in workspace. Checking system PATH...
+for /f "delims=" %%F in ('where.exe ffmpeg.exe 2^>nul') do (
+    copy /y "%%F" "bin\ffmpeg.exe" >nul
+    echo [SUCCESS] Auto-copied ffmpeg.exe from: %%F
+)
+
+if exist "bin\ffmpeg.exe" goto :check_ffsubsync
+
+echo [INFO] Local FFmpeg not found on system PATH.
+echo Downloading official FFmpeg build from gyan.dev...
+powershell -NoProfile -Command "$ProgressPreference = 'SilentlyContinue'; $url = 'https://www.gyan.dev/ffmpeg/builds/ffmpeg-release-essentials.zip'; $zip = '%~dp0bin\ffmpeg_temp.zip'; $extDir = '%~dp0bin\temp_extract'; try { Write-Host 'Connecting to gyan.dev...'; [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12; Invoke-WebRequest -Uri $url -OutFile $zip -UseBasicParsing; Write-Host 'Extracting ffmpeg.exe...'; Expand-Archive -Path $zip -DestinationPath $extDir -Force; $ff = Get-ChildItem -Path $extDir -Filter 'ffmpeg.exe' -Recurse | Select-Object -First 1; if ($ff) { Copy-Item -Path $ff.FullName -Destination '%~dp0bin\ffmpeg.exe' -Force; Write-Host '[SUCCESS] ffmpeg.exe placed in bin\ folder.'; } else { Write-Host '[ERROR] ffmpeg.exe not found in archive.'; } } catch { Write-Host ('[ERROR] Download failed: ' + $_.Exception.Message); } finally { if (Test-Path $extDir) { Remove-Item -Path $extDir -Recurse -Force -ErrorAction SilentlyContinue }; if (Test-Path $zip) { Remove-Item -Path $zip -Force -ErrorAction SilentlyContinue }; }"
 
 if not exist "bin\ffmpeg.exe" (
-    echo [INFO] Local FFmpeg not found on system PATH.
-    echo Downloading official FFmpeg build from gyan.dev...
-    powershell -NoProfile -Command ^
-        "$ProgressPreference = 'SilentlyContinue';" ^
-        "$url = 'https://www.gyan.dev/ffmpeg/builds/ffmpeg-release-essentials.zip';" ^
-        "$zip = '%~dp0bin\ffmpeg_temp.zip';" ^
-        "$extDir = '%~dp0bin\temp_extract';" ^
-        "try {" ^
-        "    Write-Host 'Connecting to gyan.dev...';" ^
-        "    [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12;" ^
-        "    Invoke-WebRequest -Uri $url -OutFile $zip -UseBasicParsing;" ^
-        "    Write-Host 'Extracting ffmpeg.exe...';" ^
-        "    Expand-Archive -Path $zip -DestinationPath $extDir -Force;" ^
-        "    $ff = Get-ChildItem -Path $extDir -Filter 'ffmpeg.exe' -Recurse | Select-Object -First 1;" ^
-        "    if ($ff) {" ^
-        "        Copy-Item -Path $ff.FullName -Destination '%~dp0bin\ffmpeg.exe' -Force;" ^
-        "        Write-Host '[SUCCESS] ffmpeg.exe successfully placed in bin\ folder.';" ^
-        "    } else {" ^
-        "        Write-Host '[ERROR] ffmpeg.exe not found in archive.';" ^
-        "    }" ^
-        "} catch {" ^
-        "    Write-Host ('[ERROR] Download failed: ' + $_.Exception.Message);" ^
-        "} finally {" ^
-        "    if (Test-Path $extDir) { Remove-Item -Path $extDir -Recurse -Force -ErrorAction SilentlyContinue }" ^
-        "    if (Test-Path $zip) { Remove-Item -Path $zip -Force -ErrorAction SilentlyContinue }" ^
-        "}"
+    echo [WARNING] bin\ffmpeg.exe is missing. Audio extraction might fail at runtime.
 )
 
-if exist "bin\ffmpeg.exe" (
-    echo [SUCCESS] bin\ffmpeg.exe is ready!
-) else (
-    echo [WARNING] bin\ffmpeg.exe could not be acquired automatically.
-)
-
-:: ---------------------------------------------------------------------------
-:: STEP 4: Ensure bin\ffsubsync.exe
-:: ---------------------------------------------------------------------------
-echo.
-echo [4/7] Checking bin\ffsubsync.exe...
+:check_ffsubsync
+:: 3.2 FFSubSync Check / Auto-acquisition
 if exist "bin\ffsubsync.exe" (
-    echo [INFO] bin\ffsubsync.exe is already present!
-) else (
-    echo [INFO] bin\ffsubsync.exe not found. Compiling standalone binary on the fly...
-    if not exist "pyinstaller_hooks" mkdir "pyinstaller_hooks"
-    (
-        echo from PyInstaller.utils.hooks import copy_metadata
-        echo try:
-        echo     datas = copy_metadata('webrtcvad'^)
-        echo except Exception:
-        echo     datas = copy_metadata('webrtcvad-wheels'^)
-    ) > "pyinstaller_hooks\hook-webrtcvad.py"
-
-    (
-        echo import sys
-        echo from ffsubsync import main
-        echo if __name__ == '__main__':
-        echo     sys.exit(main(^)^)
-    ) > "build_entry_ffsubsync.py"
-
-    pyinstaller --onefile --clean --name ffsubsync --additional-hooks-dir pyinstaller_hooks --collect-all ffsubsync --collect-all auditok build_entry_ffsubsync.py >nul 2>&1
-
-    if exist "dist\ffsubsync.exe" (
-        copy /y "dist\ffsubsync.exe" "bin\ffsubsync.exe" >nul
-        echo [SUCCESS] bin\ffsubsync.exe compiled successfully!
-    ) else (
-        echo [ERROR] Failed to compile bin\ffsubsync.exe automatically.
-    )
-
-    if exist "build" rmdir /s /q "build"
-    if exist "dist\ffsubsync.exe" del /q "dist\ffsubsync.exe"
-    if exist "build_entry_ffsubsync.py" del /q "build_entry_ffsubsync.py"
-    if exist "ffsubsync.spec" del /q "ffsubsync.spec"
-    if exist "pyinstaller_hooks" rmdir /s /q "pyinstaller_hooks"
+    echo [INFO] bin\ffsubsync.exe is ready!
+    goto :binaries_done
 )
 
-if exist "bin\ffsubsync.exe" (
-    echo [SUCCESS] bin\ffsubsync.exe is ready!
+echo [INFO] bin\ffsubsync.exe not found in workspace. Checking system PATH...
+for /f "delims=" %%F in ('where.exe ffsubsync.exe 2^>nul') do (
+    copy /y "%%F" "bin\ffsubsync.exe" >nul
+    echo [SUCCESS] Auto-copied ffsubsync.exe from: %%F
 )
 
-:: If user only passed flag --binaries, stop here
+if not exist "bin\ffsubsync.exe" (
+    echo [WARNING] bin\ffsubsync.exe is missing. Synchronization engine requires bin\ffsubsync.exe.
+)
+
+:binaries_done
+:: If user passed flag --binaries, stop here
 if "%1"=="--binaries" (
     echo.
-    echo [SUCCESS] All engine binaries verified and ready in bin\ folder!
+    echo [SUCCESS] Engine binaries checked in bin\ folder!
     exit /b 0
 )
+echo.
 
 :: ---------------------------------------------------------------------------
-:: STEP 5: Packaging SubtitleSync.exe with PyInstaller
+:: STEP 4: Build Application Bundles (Vite + Electron)
 :: ---------------------------------------------------------------------------
-echo.
-echo [5/7] Packaging SubtitleSync.exe with PyInstaller...
-pyinstaller --noconsole --onefile --clean --name "SubtitleSync" --icon "app_icon.ico" --add-data "app_icon.ico;." --add-binary "bin\ffsubsync.exe;bin" --collect-all customtkinter --collect-all certifi subsync_modern.py
+echo [4/6] Building application (Vite + React + Electron)...
+call npm run build
 if %errorlevel% neq 0 (
     echo.
-    echo [ERROR] PyInstaller build failed.
+    echo [ERROR] Application build failed.
+    if "%1"=="" pause
+    exit /b %errorlevel%
+)
+echo [SUCCESS] Build output generated in out\ directory.
+echo.
+
+:: ---------------------------------------------------------------------------
+:: STEP 5: Package Executables with Electron Builder
+:: ---------------------------------------------------------------------------
+echo [5/6] Packaging desktop application with Electron Builder...
+
+if "%1"=="--dir" (
+    echo Target: Unpacked Directory - Fast Mode
+    call npx electron-builder --win --dir
+) else if "%1"=="--portable" (
+    echo Target: Portable Executable only
+    call npx electron-builder --win portable
+) else if "%1"=="--installer" (
+    echo Target: NSIS Setup Installer only
+    call npx electron-builder --win nsis
+) else (
+    echo Target: Windows Setup Installer + Portable Executable
+    call npx electron-builder --win
+)
+
+if %errorlevel% neq 0 (
+    echo.
+    echo [ERROR] Electron Builder packaging failed.
     if "%1"=="" pause
     exit /b %errorlevel%
 )
 
-:: Cleaning temporary build files
-if exist "build" rmdir /s /q "build"
-if exist "SubtitleSync.spec" del /q "SubtitleSync.spec"
-
-echo Generating portable version: dist\SubtitleSync-Portable.exe...
-copy /y "dist\SubtitleSync.exe" "dist\SubtitleSync-Portable.exe" >nul
-
-:: ---------------------------------------------------------------------------
-:: STEP 6: Updating Shortcut
-:: ---------------------------------------------------------------------------
+:: Clean up any leftover versioned files so only the 2 primary executables remain
+if exist "dist\SubtitleSync-Portable-*.exe" del /q "dist\SubtitleSync-Portable-*.exe" >nul 2>&1
+if exist "dist\SubtitleSync-Setup-*.exe" del /q "dist\SubtitleSync-Setup-*.exe" >nul 2>&1
+if exist "dist\SubtitleSync-Setup-*.blockmap" del /q "dist\SubtitleSync-Setup-*.blockmap" >nul 2>&1
 echo.
-echo [6/7] Updating double-click shortcut 'Subtitle Sync.lnk'...
-powershell -NoProfile -Command "$WshShell = New-Object -ComObject WScript.Shell; $s = $WshShell.CreateShortcut('%~dp0Subtitle Sync.lnk'); $s.TargetPath = '%~dp0dist\SubtitleSync-Portable.exe'; $s.WorkingDirectory = '%~dp0dist'; $s.IconLocation = '%~dp0app_icon.ico, 0'; $s.Save()"
 
 :: ---------------------------------------------------------------------------
-:: STEP 7: Building Windows Setup Installer with Inno Setup
+:: STEP 6: Update Double-Click Windows Shortcut
 :: ---------------------------------------------------------------------------
-echo.
-echo [7/7] Checking for Inno Setup compiler...
-set "ISCC_PATH="
-if exist "C:\Program Files\Inno Setup 7\ISCC.exe" set "ISCC_PATH=C:\Program Files\Inno Setup 7\ISCC.exe"
-if exist "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" set "ISCC_PATH=C:\Program Files (x86)\Inno Setup 6\ISCC.exe"
-if exist "C:\Program Files\Inno Setup 6\ISCC.exe" set "ISCC_PATH=C:\Program Files\Inno Setup 6\ISCC.exe"
+echo [6/6] Updating desktop shortcut 'Subtitle Sync.lnk'...
 
-if "!ISCC_PATH!"=="" (
-    echo [INFO] Inno Setup compiler not found. Skipped Setup.exe creation.
-    goto :step_finish
+set "SHORTCUT_TARGET="
+if exist "dist\SubtitleSync-Portable.exe" (
+    set "SHORTCUT_TARGET=%~dp0dist\SubtitleSync-Portable.exe"
+) else if exist "dist\win-unpacked\Subtitle Sync Studio.exe" (
+    set "SHORTCUT_TARGET=%~dp0dist\win-unpacked\Subtitle Sync Studio.exe"
 )
 
-if not exist "bin\ffmpeg.exe" (
-    echo [INFO] Skipped installer creation - ffmpeg.exe not present in bin folder.
-    goto :step_finish
-)
-
-echo Compiling installer with Inno Setup...
-"!ISCC_PATH!" "installer.iss"
-if %errorlevel% neq 0 (
-    echo [WARNING] Installer compilation encountered an issue.
+if defined SHORTCUT_TARGET (
+    powershell -NoProfile -Command "$WshShell = New-Object -ComObject WScript.Shell; $s = $WshShell.CreateShortcut('%~dp0Subtitle Sync.lnk'); $s.TargetPath = '!SHORTCUT_TARGET!'; $s.WorkingDirectory = '%~dp0dist'; $s.IconLocation = '%~dp0app_icon.ico, 0'; $s.Save()"
+    echo [SUCCESS] Shortcut updated: Subtitle Sync.lnk
 ) else (
-    echo [SUCCESS] Installer: dist\SubtitleSync-Setup.exe
+    echo [INFO] Shortcut target not found in dist. Skipping shortcut creation.
 )
-
-:step_finish
-if exist "dist\SubtitleSync.exe" del /q "dist\SubtitleSync.exe"
 
 echo.
 echo =======================================================
-echo [SUCCESS] Build process completed!
-echo Portable App: dist\SubtitleSync-Portable.exe
-if exist "dist\SubtitleSync-Setup.exe" (
-    echo Installer:    dist\SubtitleSync-Setup.exe
+echo [SUCCESS] Build process completed successfully!
+if exist "dist\SubtitleSync-Portable.exe" (
+    echo Portable:  dist\SubtitleSync-Portable.exe
 )
-echo Shortcut:     Subtitle Sync.lnk
+if exist "dist\SubtitleSync-Setup.exe" (
+    echo Installer: dist\SubtitleSync-Setup.exe
+)
+if exist "dist\win-unpacked\Subtitle Sync Studio.exe" (
+    echo Unpacked:  dist\win-unpacked\Subtitle Sync Studio.exe
+)
+if exist "Subtitle Sync.lnk" (
+    echo Shortcut:  Subtitle Sync.lnk
+)
 echo =======================================================
 echo.
 if "%1"=="" pause
