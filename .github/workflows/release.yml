@@ -44,83 +44,47 @@ jobs:
         with:
           python-version: '3.11'
 
-      # Windows Engine Binaries
-      - name: Prepare Windows Engine Binaries (FFmpeg + FFSubSync)
+      # Setup FFmpeg via official GitHub CDN action (never fails with 503)
+      - name: Setup FFmpeg
+        uses: FedericoCarboni/setup-ffmpeg@v3
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      # Linux OS build dependencies
+      - name: Install Linux build dependencies
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libarchive-tools libsecret-1-dev
+
+      # Bundle FFmpeg into bin/
+      - name: Copy FFmpeg into bin/ (Windows)
         if: runner.os == 'Windows'
         shell: pwsh
         run: |
           New-Item -ItemType Directory -Force -Path bin
-          
-          # 1. Download official static FFmpeg
-          Write-Host "Downloading FFmpeg for Windows..."
-          $url = "https://www.gyan.dev/ffmpeg/builds/ffmpeg-release-essentials.zip"
-          $zip = "bin/ffmpeg_temp.zip"
-          $extract = "bin/ffmpeg_temp"
-          Invoke-WebRequest -Uri $url -OutFile $zip
-          Expand-Archive -Path $zip -DestinationPath $extract -Force
-          $ff = Get-ChildItem -Path $extract -Filter "ffmpeg.exe" -Recurse | Select-Object -First 1
-          Copy-Item $ff.FullName -Destination "bin/ffmpeg.exe" -Force
-          Remove-Item $extract -Recurse -Force -ErrorAction SilentlyContinue
-          Remove-Item $zip -Force -ErrorAction SilentlyContinue
-          
-          # 2. Compile standalone FFSubSync
-          Write-Host "Compiling standalone FFSubSync for Windows..."
+          $ff = (Get-Command ffmpeg).Source
+          Copy-Item $ff -Destination "bin/ffmpeg.exe" -Force
+          Write-Host "[SUCCESS] FFmpeg placed in bin/ffmpeg.exe"
+
+      - name: Copy FFmpeg into bin/ (macOS & Linux)
+        if: runner.os != 'Windows'
+        run: |
+          mkdir -p bin
+          cp $(which ffmpeg) bin/ffmpeg
+          chmod +x bin/ffmpeg
+          echo "[SUCCESS] FFmpeg placed in bin/ffmpeg"
+
+      # Compile standalone FFSubSync binary using custom hook script
+      - name: Compile Standalone FFSubSync
+        run: |
           python -m pip install --upgrade pip
           python -m pip install ffsubsync pyinstaller auditok webrtcvad-wheels
-          pyinstaller --onefile --clean --name ffsubsync --collect-all ffsubsync --collect-all auditok -c "import sys; from ffsubsync import main; sys.exit(main())"
-          Copy-Item "dist/ffsubsync.exe" "bin/ffsubsync.exe" -Force
-          Remove-Item dist -Recurse -Force -ErrorAction SilentlyContinue
-          Remove-Item build -Recurse -Force -ErrorAction SilentlyContinue
-          Remove-Item ffsubsync.spec -Force -ErrorAction SilentlyContinue
-          
-          Write-Host "Windows engine binaries ready in bin/:"
-          Get-ChildItem -Path bin
+          python scripts/build_ffsubsync.py
 
-      # macOS Engine Binaries
-      - name: Prepare macOS Engine Binaries (FFmpeg + FFSubSync)
-        if: runner.os == 'macOS'
+      - name: Verify Engine Binaries
+        shell: bash
         run: |
-          mkdir -p bin
-          
-          # 1. FFmpeg
-          echo "Installing FFmpeg via Homebrew..."
-          brew install ffmpeg
-          cp $(which ffmpeg) bin/ffmpeg
-          
-          # 2. Compile standalone FFSubSync
-          echo "Compiling standalone FFSubSync for macOS..."
-          python3 -m pip install --upgrade pip
-          python3 -m pip install ffsubsync pyinstaller auditok webrtcvad-wheels
-          pyinstaller --onefile --clean --name ffsubsync --collect-all ffsubsync --collect-all auditok -c "import sys; from ffsubsync import main; sys.exit(main())"
-          cp dist/ffsubsync bin/ffsubsync
-          chmod +x bin/*
-          rm -rf dist build ffsubsync.spec
-          
-          echo "macOS engine binaries ready in bin/:"
-          ls -la bin/
-
-      # Linux Engine Binaries
-      - name: Prepare Linux Engine Binaries (FFmpeg + FFSubSync)
-        if: runner.os == 'Linux'
-        run: |
-          echo "Installing build and engine dependencies..."
-          sudo apt-get update
-          sudo apt-get install -y ffmpeg libarchive-tools libsecret-1-dev
-          mkdir -p bin
-          
-          # 1. FFmpeg
-          cp $(which ffmpeg) bin/ffmpeg
-          
-          # 2. Compile standalone FFSubSync
-          echo "Compiling standalone FFSubSync for Linux..."
-          python3 -m pip install --upgrade pip
-          python3 -m pip install ffsubsync pyinstaller auditok webrtcvad-wheels
-          pyinstaller --onefile --clean --name ffsubsync --collect-all ffsubsync --collect-all auditok -c "import sys; from ffsubsync import main; sys.exit(main())"
-          cp dist/ffsubsync bin/ffsubsync
-          chmod +x bin/*
-          rm -rf dist build ffsubsync.spec
-          
-          echo "Linux engine binaries ready in bin/:"
           ls -la bin/
 
       - name: Install Node Dependencies
