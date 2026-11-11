@@ -189,7 +189,7 @@ def format_release_notes(text: str) -> str:
     for line in lines:
         s = line.strip()
 
-        # Omit redundant main release title (e.g. ## Subtitle Sync Studio v1.2.1)
+        # Omit redundant main release title (e.g. ## Subtitle Sync Studio v1.2.2)
         if re.match(r"^#+\s*(Subtitle\s*Sync.*|v?\d+\.\d+.*)$", s, re.IGNORECASE):
             continue
 

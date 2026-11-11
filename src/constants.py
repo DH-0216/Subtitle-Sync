@@ -6,7 +6,7 @@ import customtkinter as ctk
 ctk.CTk._deactivate_windows_window_header_manipulation = True
 ctk.CTkToplevel._deactivate_windows_window_header_manipulation = True
 
-APP_VERSION = "1.2.1"
+APP_VERSION = "1.2.2"
 GITHUB_REPO = "DH-0216/Subtitle-Sync"
 
 # Color palette & themes
