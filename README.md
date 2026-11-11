@@ -11,8 +11,9 @@
 <p align="center">
   <a href="https://github.com/DH-0216/Subtitle-Sync/releases"><img src="https://img.shields.io/github/downloads/DH-0216/Subtitle-Sync/total?color=2ea44f&logo=github" alt="Total Downloads"></a>
   <a href="https://github.com/DH-0216/Subtitle-Sync/releases"><img src="https://img.shields.io/github/v/release/DH-0216/Subtitle-Sync?logo=github" alt="Latest Release"></a>
-  <img src="https://img.shields.io/badge/Python-3.9+-3776AB?logo=python&logoColor=white" alt="Python Version">
-  <img src="https://img.shields.io/badge/UI-CustomTkinter-blue" alt="CustomTkinter">
+  <img src="https://img.shields.io/badge/Version-v2.0.0-2563EB?logo=github&logoColor=white" alt="Version 2.0.0">
+  <img src="https://img.shields.io/badge/Framework-Electron--Vite-2563EB?logo=electron&logoColor=white" alt="Electron">
+  <img src="https://img.shields.io/badge/UI-React_18_%2B_Tailwind-06B6D4?logo=react&logoColor=white" alt="React 18 + Tailwind">
   <img src="https://img.shields.io/badge/Engine-ffsubsync-6C5CE7" alt="ffsubsync">
   <img src="https://img.shields.io/badge/Platform-Windows-0078D6?logo=windows&logoColor=white" alt="Windows">
   <a href="LICENSE"><img src="https://img.shields.io/badge/License-GPLv3-blue.svg" alt="License: GPL v3"></a>
@@ -91,10 +92,10 @@ git clone https://github.com/DH-0216/Subtitle-Sync.git
 cd Subtitle-Sync
 
 # 2. Install dependencies
-pip install customtkinter ffsubsync pillow
+npm install
 
-# 3. Launch the app
-python subsync_modern.py
+# 3. Launch the app in development mode
+npm run dev
 ```
 
 ---
@@ -105,20 +106,21 @@ You can build both the standalone portable `.exe` and the standard Windows setup
 
 1. Double-click **`build.bat`**.
 2. It will automatically:
-   - Check and verify required build dependencies.
-   - Package the portable **`dist/SubtitleSync-Portable.exe`** with PyInstaller.
-   - Compile **`dist/SubtitleSync-Setup.exe`** (requires `ffmpeg.exe` to bundle for offline end-user installation).
-   - Create a double-click shortcut (`Subtitle Sync.lnk`).
+   - Check Node.js and verify project dependencies.
+   - Verify local engine binaries (`bin/ffmpeg.exe` and `bin/ffsubsync.exe`).
+   - Bundle frontend assets with Vite & Electron.
+   - Package the portable **`dist/SubtitleSync-Portable.exe`** and installer **`dist/SubtitleSync-Setup.exe`** with Electron Builder.
+   - Create/update double-click desktop shortcut (`Subtitle Sync.lnk`).
 
-### 🛠️ Offline vs. Automated FFmpeg Setup for Installer:
-The setup installer bundles FFmpeg so end users don't need to configure PATH manually. For developers compiling the installer from source:
-- **100% Offline Build:** Place your own `ffmpeg.exe` and `ffsubsync.exe` into the `bin/` directory (or have them on your system). `build.bat` will detect and bundle them without touching the internet.
-- **Automated Setup:** If either binary is missing, `build.bat` will automatically fetch `ffmpeg.exe` and compile `ffsubsync.exe` for you into `bin/`. You can also run `build.bat --binaries` to only prepare engine binaries without building the app.
+### 🛠️ Offline vs. Automated Engine Setup:
+The application bundles FFmpeg and FFSubSync in `bin/` so end users have zero external dependencies or PATH configuration requirements:
+- **100% Offline Build:** Place your own `ffmpeg.exe` and `ffsubsync.exe` into the `bin/` directory. `build.bat` will detect and bundle them without touching the internet.
+- **Automated Setup:** If either binary is missing, `build.bat` will automatically fetch `ffmpeg.exe` for you into `bin/`. You can also run `build.bat --binaries` to only prepare engine binaries without building the app.
 
-Or build the portable `.exe` manually in your terminal:
+Or package manually via npm:
 
 ```bash
-pyinstaller --noconsole --onefile --clean --name "SubtitleSync" --icon "app_icon.ico" --add-data "app_icon.ico;." --collect-all customtkinter subsync_modern.py
+npm run package
 ```
 
 ---
@@ -126,24 +128,21 @@ pyinstaller --noconsole --onefile --clean --name "SubtitleSync" --icon "app_icon
 ## 📂 File Structure
 
 ```text
-├── subsync_modern.py        # Application entry point launcher
-├── src/                     # Modular core package
-│   ├── app.py               # Main UI window, step cards & batch queue
-│   ├── constants.py         # Version, color themes & sync mode settings
-│   ├── dialogs.py           # FFmpeg setup, Update & Settings dialogs
-│   ├── engine.py            # Standard, Smart & Split sync execution engines
-│   ├── media.py             # FFmpeg/ffprobe detection & audio track probing
-│   ├── settings.py          # User settings persistence
-│   ├── srt_tools.py         # Subtitle parsing, math & audio windowing
-│   └── utils.py             # Titlebar dark theming, icons & paths
-├── installer.iss            # Inno Setup Windows installer script
-├── create_icon.py           # Icon generation script
+├── src/                     # Electron + React source code
+│   ├── main/                # Electron main process (IPC, child processes, window management)
+│   ├── preload/             # Electron preload context bridge
+│   └── renderer/            # React 18 + Tailwind CSS frontend UI
+│       ├── components/      # Step cards, modals, ActivityConsole, etc.
+│       ├── types/           # Subtitle & synchronization type definitions
+│       └── utils/           # Analysis, formatters & recommendation engine
+├── electron.vite.config.ts  # Vite configuration for main, preload and renderer
+├── package.json             # App manifest, dependencies & electron-builder targets
 ├── app_icon.ico             # Windows multi-resolution icon
 ├── app_icon.png             # High-resolution icon preview
 ├── app_preview.png          # Desktop application preview screenshot
 ├── LICENSE                  # GNU General Public License v3.0
-├── build.bat                # All-in-One builder (auto-fetches ffmpeg, compiles ffsubsync, builds app & installer)
-├── bin/                     # Local engine binaries (ffmpeg.exe, ffsubsync.exe)
+├── build.bat                # All-in-One builder (Electron Builder + engine binary management)
+├── bin/                     # Standalone engine binaries (ffmpeg.exe, ffsubsync.exe)
 ├── dist/                    # Compiled distribution output folder
 │   ├── SubtitleSync-Setup.exe            # Standard Windows Setup Installer
 │   └── SubtitleSync-Portable.exe         # Standalone portable application

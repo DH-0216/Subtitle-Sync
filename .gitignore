@@ -13,6 +13,13 @@ bin/
 Output/
 *.spec
 
+# Node & Electron
+node_modules/
+out/
+dist-electron/
+electron.vite.config.*.mjs
+*.log
+
 # Windows Shortcuts & Metadata
 *.lnk
 Thumbs.db
