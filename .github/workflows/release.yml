@@ -1,0 +1,167 @@
+name: Build & Release Multiplatform
+
+on:
+  release:
+    types: [published]
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    name: Build on ${{ matrix.name }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-latest
+            platform: win
+            name: Windows
+          - os: macos-latest
+            platform: mac
+            name: macOS
+          - os: ubuntu-22.04
+            platform: linux
+            name: Linux
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+
+      - name: Setup Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      # Windows Engine Binaries
+      - name: Prepare Windows Engine Binaries (FFmpeg + FFSubSync)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path bin
+          
+          # 1. Download official static FFmpeg
+          Write-Host "Downloading FFmpeg for Windows..."
+          $url = "https://www.gyan.dev/ffmpeg/builds/ffmpeg-release-essentials.zip"
+          $zip = "bin/ffmpeg_temp.zip"
+          $extract = "bin/ffmpeg_temp"
+          Invoke-WebRequest -Uri $url -OutFile $zip
+          Expand-Archive -Path $zip -DestinationPath $extract -Force
+          $ff = Get-ChildItem -Path $extract -Filter "ffmpeg.exe" -Recurse | Select-Object -First 1
+          Copy-Item $ff.FullName -Destination "bin/ffmpeg.exe" -Force
+          Remove-Item $extract -Recurse -Force -ErrorAction SilentlyContinue
+          Remove-Item $zip -Force -ErrorAction SilentlyContinue
+          
+          # 2. Compile standalone FFSubSync
+          Write-Host "Compiling standalone FFSubSync for Windows..."
+          python -m pip install --upgrade pip
+          python -m pip install ffsubsync pyinstaller auditok webrtcvad-wheels
+          pyinstaller --onefile --clean --name ffsubsync --collect-all ffsubsync --collect-all auditok -c "import sys; from ffsubsync import main; sys.exit(main())"
+          Copy-Item "dist/ffsubsync.exe" "bin/ffsubsync.exe" -Force
+          Remove-Item dist -Recurse -Force -ErrorAction SilentlyContinue
+          Remove-Item build -Recurse -Force -ErrorAction SilentlyContinue
+          Remove-Item ffsubsync.spec -Force -ErrorAction SilentlyContinue
+          
+          Write-Host "Windows engine binaries ready in bin/:"
+          Get-ChildItem -Path bin
+
+      # macOS Engine Binaries
+      - name: Prepare macOS Engine Binaries (FFmpeg + FFSubSync)
+        if: runner.os == 'macOS'
+        run: |
+          mkdir -p bin
+          
+          # 1. FFmpeg
+          echo "Installing FFmpeg via Homebrew..."
+          brew install ffmpeg
+          cp $(which ffmpeg) bin/ffmpeg
+          
+          # 2. Compile standalone FFSubSync
+          echo "Compiling standalone FFSubSync for macOS..."
+          python3 -m pip install --upgrade pip
+          python3 -m pip install ffsubsync pyinstaller auditok webrtcvad-wheels
+          pyinstaller --onefile --clean --name ffsubsync --collect-all ffsubsync --collect-all auditok -c "import sys; from ffsubsync import main; sys.exit(main())"
+          cp dist/ffsubsync bin/ffsubsync
+          chmod +x bin/*
+          rm -rf dist build ffsubsync.spec
+          
+          echo "macOS engine binaries ready in bin/:"
+          ls -la bin/
+
+      # Linux Engine Binaries
+      - name: Prepare Linux Engine Binaries (FFmpeg + FFSubSync)
+        if: runner.os == 'Linux'
+        run: |
+          echo "Installing build and engine dependencies..."
+          sudo apt-get update
+          sudo apt-get install -y ffmpeg libarchive-tools libsecret-1-dev
+          mkdir -p bin
+          
+          # 1. FFmpeg
+          cp $(which ffmpeg) bin/ffmpeg
+          
+          # 2. Compile standalone FFSubSync
+          echo "Compiling standalone FFSubSync for Linux..."
+          python3 -m pip install --upgrade pip
+          python3 -m pip install ffsubsync pyinstaller auditok webrtcvad-wheels
+          pyinstaller --onefile --clean --name ffsubsync --collect-all ffsubsync --collect-all auditok -c "import sys; from ffsubsync import main; sys.exit(main())"
+          cp dist/ffsubsync bin/ffsubsync
+          chmod +x bin/*
+          rm -rf dist build ffsubsync.spec
+          
+          echo "Linux engine binaries ready in bin/:"
+          ls -la bin/
+
+      - name: Install Node Dependencies
+        run: npm ci
+
+      - name: Build Web Application
+        run: npm run build
+
+      - name: Package Desktop Application
+        env:
+          CSC_IDENTITY_AUTO_DISCOVERY: false
+        run: npx electron-builder --${{ matrix.platform }}
+
+      - name: Clean up temporary dist files
+        shell: bash
+        run: |
+          rm -f dist/builder-debug.yml dist/builder-effective-config.yaml dist/*.blockmap
+
+      # Save artifacts in the Actions tab for review/testing
+      - name: Upload Build Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: SubtitleSync-${{ matrix.name }}
+          path: |
+            dist/*.exe
+            dist/*.dmg
+            dist/*.zip
+            dist/*.AppImage
+            dist/*.deb
+          if-no-files-found: warn
+
+      # Automatically attach files to GitHub Release
+      - name: Upload to GitHub Release
+        uses: softprops/action-gh-release@v2
+        if: startsWith(github.ref, 'refs/tags/') || github.event_name == 'release'
+        with:
+          files: |
+            dist/*.exe
+            dist/*.dmg
+            dist/*.zip
+            dist/*.AppImage
+            dist/*.deb
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
