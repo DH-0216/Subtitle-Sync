@@ -2,7 +2,7 @@
 ; Generates a professional, standard Windows offline installer (SubtitleSync-Setup.exe)
 
 #define MyAppName "Subtitle Sync Studio"
-#define MyAppVersion "1.2.1"
+#define MyAppVersion "1.2.2"
 #define MyAppPublisher "DH-0216"
 #define MyAppURL "https://github.com/DH-0216/Subtitle-Sync"
 #define MyAppExeName "SubtitleSync.exe"
@@ -39,8 +39,10 @@ Name: "installffmpeg"; Description: "Install FFmpeg globally (Recommended — re
 Source: "dist\{#MyAppExeName}"; DestDir: "{app}"; Flags: ignoreversion
 Source: "app_icon.ico"; DestDir: "{app}"; Flags: ignoreversion
 
-; Standalone FFmpeg executable for offline installation
+; Standalone FFmpeg & ffsubsync executables for offline installation
 Source: "bin\ffmpeg.exe"; DestDir: "{autopf}\FFmpeg\bin"; Flags: ignoreversion; Tasks: installffmpeg
+Source: "bin\ffsubsync.exe"; DestDir: "{autopf}\FFmpeg\bin"; Flags: ignoreversion; Tasks: installffmpeg
+Source: "bin\ffsubsync.exe"; DestDir: "{app}\bin"; Flags: ignoreversion
 
 [Icons]
 Name: "{group}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"; IconFilename: "{app}\app_icon.ico"

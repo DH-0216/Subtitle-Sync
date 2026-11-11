@@ -40,6 +40,14 @@ def refresh_environment_path():
 def find_ffmpeg():
     """Locate ffmpeg executable from PATH, local directories, or standard locations."""
     refresh_environment_path()
+
+    # 0. Check PyInstaller _MEIPASS bundle (if running as a frozen onefile app)
+    if hasattr(sys, "_MEIPASS"):
+        for sub in ("bin/ffmpeg.exe", "ffmpeg.exe"):
+            candidate = os.path.join(sys._MEIPASS, sub)
+            if os.path.isfile(candidate):
+                return candidate
+
     found = shutil.which("ffmpeg")
     if found:
         return found
@@ -80,6 +88,46 @@ def find_ffprobe():
             if os.path.isfile(candidate):
                 return candidate
     return shutil.which("ffprobe")
+
+def find_ffsubsync():
+    """Locate standalone ffsubsync executable from bin directory, app root, standard locations, or PATH."""
+    refresh_environment_path()
+
+    # 0. Check PyInstaller _MEIPASS bundle (if running as a frozen onefile app)
+    if hasattr(sys, "_MEIPASS"):
+        for sub in ("bin/ffsubsync.exe", "ffsubsync.exe"):
+            candidate = os.path.join(sys._MEIPASS, sub)
+            if os.path.isfile(candidate):
+                return candidate
+
+    # 1. Check next to executable or script
+    app_dir = os.path.dirname(os.path.abspath(sys.argv[0]))
+    candidates = [
+        os.path.join(app_dir, "bin", "ffsubsync.exe"),
+        os.path.join(app_dir, "ffsubsync.exe"),
+        r"C:\Program Files\FFmpeg\bin\ffsubsync.exe",
+        r"C:\ffmpeg\bin\ffsubsync.exe",
+    ]
+    for c in candidates:
+        if os.path.isfile(c):
+            parent = os.path.dirname(c)
+            os.environ["PATH"] = parent + os.pathsep + os.environ.get("PATH", "")
+            return c
+
+    # 2. Check next to ffmpeg if found
+    ff = find_ffmpeg()
+    if ff:
+        folder = os.path.dirname(ff)
+        candidate = os.path.join(folder, "ffsubsync.exe")
+        if os.path.isfile(candidate):
+            return candidate
+
+    # 3. Check system PATH
+    found = shutil.which("ffsubsync") or shutil.which("ffs")
+    if found:
+        return found
+
+    return None
 
 LANG_NAMES = {
     "eng": "English", "sin": "Sinhala", "tam": "Tamil", "hin": "Hindi", "jpn": "Japanese",
@@ -324,6 +372,6 @@ def get_subtitle_sync_details(sub_path):
     }
 
 def build_command(video, sub, out, extra=None):
-    exe = shutil.which("ffs") or shutil.which("ffsubsync")
+    exe = find_ffsubsync() or shutil.which("ffs") or shutil.which("ffsubsync")
     base = [exe] if exe else [sys.executable, "-m", "ffsubsync"]
     return base + [video, "-i", sub, "-o", out] + list(extra or [])

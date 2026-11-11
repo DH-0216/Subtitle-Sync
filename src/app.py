@@ -10,12 +10,12 @@ import customtkinter as ctk
 from src.constants import (
     APP_VERSION, GITHUB_REPO, ACCENT, ACCENT_HOVER, DANGER, SUCCESS, WARNING,
     BADGE_BG, BADGE_FG, MUTED_TEXT, VIDEO_TYPES, SUB_TYPES,
-    MODE_SMART, MODE_SPLIT, MODE_HINTS, MAX_SUBTITLES
+    MODE_STANDARD, MODE_SMART, MODE_SPLIT, MODE_HINTS, MAX_SUBTITLES
 )
 from src.settings import load_settings, save_settings
 from src.utils import set_windows_titlebar_color, resource_path, short, fetch_github_release
 from src.media import (
-    find_ffmpeg, list_audio_tracks, get_video_sync_details, detect_subtitle_fps,
+    find_ffmpeg, find_ffsubsync, list_audio_tracks, get_video_sync_details, detect_subtitle_fps,
     get_subtitle_sync_details
 )
 from src.dialogs import FFmpegSetupDialog, UpdateDialog, SettingsDialog, parse_version
@@ -489,10 +489,11 @@ class App(ctk.CTk):
         self.update_sync_state(update_status=update_status)
 
     def update_ffmpeg_status(self):
-        found = find_ffmpeg()
-        if found:
+        found_ff = find_ffmpeg()
+        found_sub = find_ffsubsync()
+        if found_ff:
             self.ffmpeg_btn.configure(
-                text="● FFmpeg Ready",
+                text="● Engine Ready" if found_sub else "● FFmpeg Ready",
                 fg_color=BADGE_BG,
                 text_color=SUCCESS,
                 hover=False,
