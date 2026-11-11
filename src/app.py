@@ -10,7 +10,7 @@ import customtkinter as ctk
 from src.constants import (
     APP_VERSION, GITHUB_REPO, ACCENT, ACCENT_HOVER, DANGER, SUCCESS, WARNING,
     BADGE_BG, BADGE_FG, MUTED_TEXT, VIDEO_TYPES, SUB_TYPES,
-    MODE_SMART, MODE_SPLIT, MODE_HINTS, MAX_SUBTITLES
+    MODE_STANDARD, MODE_SMART, MODE_SPLIT, MODE_HINTS, MAX_SUBTITLES
 )
 from src.settings import load_settings, save_settings
 from src.utils import set_windows_titlebar_color, resource_path, short, fetch_github_release
