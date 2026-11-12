@@ -6,6 +6,7 @@ import * as http from 'http'
 import { spawn } from 'child_process'
 import { findBinary } from './media'
 import { parseSrt, SrtCue, writeSrt } from './srtTools'
+import { getWhisperModelDownloadUrl, getGeminiGenerateUrl } from '@shared/links'
 
 export interface GenerateParams {
   video: string
@@ -73,7 +74,7 @@ export function downloadWhisperModel(
     const modelName = `ggml-${quality}.bin`
     const targetPath = join(getModelsDir(), modelName)
     const tempPath = `${targetPath}.part`
-    const url = `https://huggingface.co/ggerganov/whisper.cpp/resolve/main/${modelName}`
+    const url = getWhisperModelDownloadUrl(modelName)
 
     let fileStream: fs.WriteStream | null = null
     let downloadedBytes = 0
@@ -199,7 +200,7 @@ ${promptText}`
     }
 
     const response = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`,
+      getGeminiGenerateUrl(apiKey),
       {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },

@@ -14,6 +14,7 @@ import { SettingsModal, DEFAULT_AI_PROMPT } from './components/SettingsModal'
 import { AboutModal } from './components/AboutModal'
 import { SubtitlePreviewModal } from './components/SubtitlePreviewModal'
 import { ModelDownloadModal } from './components/ModelDownloadModal'
+import { EXTERNAL_LINKS } from '@shared/links'
 
 export default function App() {
   // Theme & Preferences
@@ -720,7 +721,7 @@ export default function App() {
           <span className="font-medium text-slate-600 dark:text-slate-400">Developed by DH-0216</span>
           <button
             onClick={() => {
-              const url = 'https://github.com/DH-0216/Subtitle-Sync'
+              const url = EXTERNAL_LINKS.GITHUB_REPO
               if (window.api?.shell?.openExternal) {
                 window.api.shell.openExternal(url)
               } else {

@@ -18,6 +18,7 @@ import {
   Loader2
 } from 'lucide-react'
 import toast from 'react-hot-toast'
+import { EXTERNAL_LINKS, getGeminiVerifyUrl } from '@shared/links'
 
 export const DEFAULT_AI_PROMPT = `You are an expert subtitle translator specializing in natural, authentic spoken colloquial Sinhala (ස්වාභාවික කථාබහ සිංහල) for cinema and movies.
 Translate the following movie subtitle lines into natural, spoken Sinhala as people actually speak in day-to-day life.
@@ -48,7 +49,7 @@ interface SettingsModalProps {
 }
 
 const APP_VERSION = '2.0.0'
-const GITHUB_REPO = 'DH-0216/Subtitle-Sync'
+const GITHUB_REPO = EXTERNAL_LINKS.REPO_SLUG
 
 export const SettingsModal: React.FC<SettingsModalProps> = ({
   isOpen,
@@ -171,9 +172,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
       } else {
         // Direct browser fetch fallback (works even if Electron process hasn't been restarted yet)
         if (draftProvider === 'gemini') {
-          const response = await fetch(
-            `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash?key=${cleanKey}`
-          )
+          const response = await fetch(getGeminiVerifyUrl(cleanKey))
           if (response.ok) {
             res = { valid: true, message: 'Gemini API Key is valid and active!' }
           } else {
@@ -182,7 +181,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
             res = { valid: false, message: `Invalid Gemini Key: ${errMsg}` }
           }
         } else {
-          const response = await fetch('https://api.openai.com/v1/models', {
+          const response = await fetch(EXTERNAL_LINKS.OPENAI_MODELS_API, {
             headers: { Authorization: `Bearer ${cleanKey}` }
           })
           if (response.ok) {
@@ -255,7 +254,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
     setUpdateStatusType('normal')
 
     try {
-      const res = await fetch(`https://api.github.com/repos/${GITHUB_REPO}/releases/latest`, {
+      const res = await fetch(EXTERNAL_LINKS.GITHUB_LATEST_RELEASE_API, {
         headers: { Accept: 'application/vnd.github.v3+json' }
       })
 
@@ -271,7 +270,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
       if (cleanLatest && cleanLatest !== cleanCurrent) {
         setUpdateStatus(`Update available: ${latestTag}`)
         setUpdateStatusType('success')
-        setUpdateUrl(data.html_url || `https://github.com/${GITHUB_REPO}/releases`)
+        setUpdateUrl(data.html_url || EXTERNAL_LINKS.GITHUB_RELEASES_PAGE)
       } else {
         setUpdateStatus(`✅ You're on the latest version (v${APP_VERSION})`)
         setUpdateStatusType('success')
@@ -286,7 +285,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   }
 
   const handleOpenGitHub = () => {
-    const url = `https://github.com/${GITHUB_REPO}`
+    const url = EXTERNAL_LINKS.GITHUB_REPO
     if (window.api?.shell?.openExternal) {
       window.api.shell.openExternal(url)
     } else {
@@ -295,7 +294,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   }
 
   const handleOpenGeminiKey = () => {
-    const url = 'https://aistudio.google.com/app/apikey'
+    const url = EXTERNAL_LINKS.GEMINI_API_KEY_PORTAL
     if (window.api?.shell?.openExternal) {
       window.api.shell.openExternal(url)
     } else {

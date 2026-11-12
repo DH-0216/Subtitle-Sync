@@ -19,8 +19,9 @@
     "noUnusedParameters": false,
     "noFallthroughCasesInSwitch": true,
     "paths": {
-      "@renderer/*": ["./src/renderer/src/*"]
+      "@renderer/*": ["./src/renderer/src/*"],
+      "@shared/*": ["./src/shared/*"]
     }
   },
-  "include": ["src/renderer/src/**/*", "src/preload/index.d.ts"]
+  "include": ["src/renderer/src/**/*", "src/preload/index.d.ts", "src/shared/**/*"]
 }

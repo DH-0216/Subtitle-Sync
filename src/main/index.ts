@@ -13,6 +13,7 @@ import {
   executeSubtitleGeneration,
   cancelSubtitleGeneration
 } from './generatorEngine'
+import { EXTERNAL_LINKS, getGeminiVerifyUrl } from '@shared/links'
 
 let mainWindow: BrowserWindow | null = null
 let activeSyncEngine: SyncEngine | null = null
@@ -224,7 +225,7 @@ app.whenReady().then(() => {
 
     try {
       if (provider === 'gemini') {
-        const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash?key=${cleanKey}`
+        const url = getGeminiVerifyUrl(cleanKey)
         const res = await fetch(url)
         if (res.ok) {
           return { valid: true, message: 'Gemini API Key is valid and active!' }
@@ -233,7 +234,7 @@ app.whenReady().then(() => {
         const errMsg = data?.error?.message || `HTTP ${res.status}`
         return { valid: false, message: `Invalid Gemini Key: ${errMsg}` }
       } else {
-        const url = 'https://api.openai.com/v1/models'
+        const url = EXTERNAL_LINKS.OPENAI_MODELS_API
         const res = await fetch(url, {
           headers: { Authorization: `Bearer ${cleanKey}` }
         })
