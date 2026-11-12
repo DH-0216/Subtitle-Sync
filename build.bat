@@ -93,17 +93,61 @@ if not exist "bin\ffmpeg.exe" (
 )
 
 :check_ffsubsync
-:: 3.2 FFSubSync Check / Auto-acquisition
+:: 3.2 FFSubSync Check / Auto-compilation
 if exist "bin\ffsubsync.exe" (
-    echo [INFO] bin\ffsubsync.exe is ready!
+    for %%A in ("bin\ffsubsync.exe") do (
+        if %%~zA GTR 5000000 (
+            echo [INFO] bin\ffsubsync.exe is ready!
+            goto :binaries_done
+        ) else (
+            echo [WARNING] Found pip stub in bin\ffsubsync.exe (%%~zA bytes). Rebuilding standalone binary...
+            del /q "bin\ffsubsync.exe"
+        )
+    )
+)
+
+echo [INFO] bin\ffsubsync.exe not found. Checking Python environment to build standalone binary...
+where python >nul 2>nul
+if %errorlevel% neq 0 (
+    echo [WARNING] Python is not found on PATH. Cannot automatically compile ffsubsync.exe.
+    echo Please install Python with ffsubsync or place the standalone ffsubsync.exe (~43 MB) into bin\
     goto :binaries_done
 )
 
-echo [INFO] bin\ffsubsync.exe not found in workspace. Checking system PATH...
-for /f "delims=" %%F in ('where.exe ffsubsync.exe 2^>nul') do (
-    copy /y "%%F" "bin\ffsubsync.exe" >nul
-    echo [SUCCESS] Auto-copied ffsubsync.exe from: %%F
+echo [INFO] Compiling standalone ffsubsync.exe with PyInstaller...
+python -m pip install ffsubsync pyinstaller auditok webrtcvad-wheels --quiet --no-warn-script-location
+
+if not exist "pyinstaller_hooks" mkdir "pyinstaller_hooks"
+(
+    echo from PyInstaller.utils.hooks import copy_metadata
+    echo try:
+    echo     datas = copy_metadata('webrtcvad'^)
+    echo except Exception:
+    echo     datas = copy_metadata('webrtcvad-wheels'^)
+) > "pyinstaller_hooks\hook-webrtcvad.py"
+
+(
+    echo import sys
+    echo from ffsubsync import main
+    echo if __name__ == '__main__':
+    echo     sys.exit(main(^)^)
+) > "build_entry_ffsubsync.py"
+
+pyinstaller --onefile --clean --name ffsubsync --additional-hooks-dir pyinstaller_hooks --collect-all ffsubsync --collect-all auditok build_entry_ffsubsync.py >nul 2>&1
+
+if exist "dist\ffsubsync.exe" (
+    copy /y "dist\ffsubsync.exe" "bin\ffsubsync.exe" >nul
+    echo [SUCCESS] bin\ffsubsync.exe (standalone) compiled successfully!
+) else (
+    echo [ERROR] Failed to compile bin\ffsubsync.exe.
 )
+
+:: Clean up temporary build files
+if exist "build" rmdir /s /q "build"
+if exist "dist\ffsubsync.exe" del /q "dist\ffsubsync.exe"
+if exist "build_entry_ffsubsync.py" del /q "build_entry_ffsubsync.py"
+if exist "ffsubsync.spec" del /q "ffsubsync.spec"
+if exist "pyinstaller_hooks" rmdir /s /q "pyinstaller_hooks"
 
 if not exist "bin\ffsubsync.exe" (
     echo [WARNING] bin\ffsubsync.exe is missing. Synchronization engine requires bin\ffsubsync.exe.
