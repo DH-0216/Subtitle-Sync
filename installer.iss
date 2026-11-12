@@ -5,7 +5,7 @@
 #define MyAppVersion "2.0.0"
 #define MyAppPublisher "DH-0216"
 #define MyAppURL "https://github.com/DH-0216/Subtitle-Sync"
-#define MyAppExeName "SubtitleSync.exe"
+#define MyAppExeName "Subtitle Sync Studio.exe"
 
 [Setup]
 AppId={{E5D9183B-764D-4E10-9118-E7BE9C4524BA}
@@ -35,8 +35,8 @@ Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{
 Name: "installffmpeg"; Description: "Install FFmpeg globally (Recommended — required for subtitle synchronization)"; GroupDescription: "FFmpeg Audio Engine:"; Check: ShouldOfferFFmpeg
 
 [Files]
-; Main application executable and icon
-Source: "dist\{#MyAppExeName}"; DestDir: "{app}"; Flags: ignoreversion
+; Main application files and icon
+Source: "dist\win-unpacked\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
 Source: "app_icon.ico"; DestDir: "{app}"; Flags: ignoreversion
 
 ; Standalone FFmpeg & ffsubsync executables for offline installation
