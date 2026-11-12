@@ -39,9 +39,10 @@ export function getGeminiVerifyUrl(apiKey: string): string {
 }
 
 /**
- * Construct Google Gemini generate content URL for AI translation
- * Defaults to Gemini 3.8 Flash with automatic multi-model fallback support
+ * Construct Google Gemini generate content URL for AI translation.
+ * Uses the requested model, or dynamically falls back to Google's dynamic alias 'gemini-flash'.
  */
-export function getGeminiGenerateUrl(apiKey: string, model: string = 'gemini-3.8-flash'): string {
-  return `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`
+export function getGeminiGenerateUrl(apiKey: string, model?: string): string {
+  const target = model && model !== 'auto' ? model : 'gemini-flash'
+  return `https://generativelanguage.googleapis.com/v1beta/models/${target}:generateContent?key=${apiKey}`
 }

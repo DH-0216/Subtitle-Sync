@@ -139,7 +139,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
       }
       setDraftApiKey(aiApiKey)
       setDraftProvider(aiProvider)
-      setDraftModel(aiModel || (aiProvider === 'openai' ? 'gpt-4o-mini' : 'gemini-3.8-flash'))
+      setDraftModel(aiModel || 'auto')
       setDraftPrompt(aiPrompt)
       setSavedSuccess(false)
       setVerifyStatus(null)
@@ -641,11 +641,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                         setDraftProvider(newProvider)
                         setVerifyStatus(null)
                         setAvailableModels([])
-                        if (newProvider === 'gemini') {
-                          setDraftModel('gemini-3.8-flash')
-                        } else {
-                          setDraftModel('gpt-4o-mini')
-                        }
+                        setDraftModel('auto')
                         if (draftApiKey.trim()) {
                           handleFetchModels(newProvider, draftApiKey.trim(), true)
                         }
@@ -780,7 +776,11 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                             <span>{isLoadingModels ? 'Fetching...' : 'Fetch Models'}</span>
                           </button>
                           <span className="text-[11px] text-slate-400 font-normal">
-                            {draftProvider === 'gemini' ? 'Gemini 3.8 Flash recommended' : 'GPT-4o mini recommended'}
+                            {availableModels.length > 0
+                              ? `${availableModels[0]?.id || ''} recommended`
+                              : draftModel && draftModel !== 'auto'
+                              ? `${draftModel} selected`
+                              : 'Auto-detected from provider'}
                           </span>
                         </div>
                       </div>
@@ -801,20 +801,12 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                               </option>
                             ))}
                           </>
-                        ) : draftProvider === 'gemini' ? (
-                          <>
-                            <option value="gemini-3.8-flash">Gemini 3.8 Flash (Recommended — Fastest & Best Quality)</option>
-                            <option value="gemini-3.5-flash">Gemini 3.5 Flash</option>
-                            <option value="gemini-2.5-flash">Gemini 2.5 Flash</option>
-                            <option value="gemini-2.0-flash">Gemini 2.0 Flash</option>
-                            <option value="gemini-1.5-flash">Gemini 1.5 Flash</option>
-                            <option value="auto">Auto-detect best available model</option>
-                          </>
                         ) : (
                           <>
-                            <option value="gpt-4o-mini">GPT-4o mini (Recommended — Fast & Cost-effective)</option>
-                            <option value="gpt-4o">GPT-4o (High precision)</option>
-                            <option value="gpt-3.5-turbo">GPT-3.5 Turbo</option>
+                            {draftModel && draftModel !== 'auto' && (
+                              <option value={draftModel}>{draftModel} (Current selection)</option>
+                            )}
+                            <option value="auto">Auto-detect latest active model from provider</option>
                           </>
                         )}
                       </select>

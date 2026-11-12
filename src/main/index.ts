@@ -280,20 +280,13 @@ app.whenReady().then(() => {
           }
         })
 
-        // Sort: prioritize high-capacity stable flash models at the top
-        const stablePriority = ['gemini-2.5-flash', 'gemini-2.0-flash', 'gemini-1.5-flash', 'gemini-2.5-flash-lite']
+        // Sort dynamically: prioritize 'flash' models (fast & high quota), newer versions first
         formatted.sort((a, b) => {
-          const aPrio = stablePriority.indexOf(a.id)
-          const bPrio = stablePriority.indexOf(b.id)
-          if (aPrio !== -1 && bPrio !== -1) return aPrio - bPrio
-          if (aPrio !== -1) return -1
-          if (bPrio !== -1) return 1
-
           const aFlash = a.id.toLowerCase().includes('flash')
           const bFlash = b.id.toLowerCase().includes('flash')
           if (aFlash && !bFlash) return -1
           if (!aFlash && bFlash) return 1
-          return b.id.localeCompare(a.id)
+          return b.id.localeCompare(a.id, undefined, { numeric: true, sensitivity: 'base' })
         })
 
         return { success: true, models: formatted }
@@ -331,7 +324,7 @@ app.whenReady().then(() => {
             const bMini = b.id.includes('mini')
             if (aMini && !bMini) return -1
             if (!aMini && bMini) return 1
-            return b.id.localeCompare(a.id)
+            return b.id.localeCompare(a.id, undefined, { numeric: true, sensitivity: 'base' })
           })
 
         return { success: true, models: formatted }

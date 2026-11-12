@@ -25,7 +25,7 @@ export default function App() {
   const [engineReady, setEngineReady] = useState(false)
   const [aiApiKey, setAiApiKey] = useState('')
   const [aiProvider, setAiProvider] = useState<'gemini' | 'openai'>('gemini')
-  const [aiModel, setAiModel] = useState('gemini-3.8-flash')
+  const [aiModel, setAiModel] = useState('auto')
   const [aiPrompt, setAiPrompt] = useState(DEFAULT_AI_PROMPT)
 
   // Modals

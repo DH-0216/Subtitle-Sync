@@ -222,103 +222,104 @@ function formatTime(totalSeconds: number): string {
 }
 
 /**
- * Detects available Gemini models for this API key.
- * Prioritizes high-availability stable models (gemini-2.5-flash, gemini-2.0-flash, gemini-1.5-flash).
- */
-async function resolveGeminiModel(apiKey: string, onLog: (msg: string) => void): Promise<string> {
-  const defaultModel = 'gemini-2.5-flash'
-  try {
-    const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${apiKey}`)
-    if (res.ok) {
-      const data = await res.json()
-      const availableModels: string[] = (data?.models || [])
-        .filter((m: any) => m.supportedGenerationMethods?.includes('generateContent'))
-        .map((m: any) => (m.name || '').replace(/^models\//, ''))
-        .filter((name: string) => name.length > 0)
-
-      const prioritizedCandidates = [
-        'gemini-2.5-flash',
-        'gemini-2.0-flash',
-        'gemini-1.5-flash',
-        'gemini-2.5-flash-lite',
-        'gemini-2.0-flash-lite',
-        'gemini-1.5-flash-8b',
-        'gemini-3.8-flash',
-        'gemini-3.5-flash',
-        'gemini-3.5-flash-lite',
-        'gemini-3.0-flash',
-        'gemini-flash'
-      ]
-
-      for (const candidate of prioritizedCandidates) {
-        if (availableModels.includes(candidate)) {
-          onLog(`[AI TRANSLATION] Selected model: ${candidate}`)
-          return candidate
-        }
-      }
-
-      const anyFlash = availableModels.find((m) => m.includes('flash'))
-      if (anyFlash) {
-        onLog(`[AI TRANSLATION] Selected model: ${anyFlash}`)
-        return anyFlash
-      }
-
-      if (availableModels[0]) {
-        onLog(`[AI TRANSLATION] Selected model: ${availableModels[0]}`)
-        return availableModels[0]
-      }
-    }
-  } catch (err: any) {
-    onLog(`[AI TRANSLATION] Model check notice: ${err.message}`)
-  }
-
-  onLog(`[AI TRANSLATION] Using Gemini model: ${defaultModel}`)
-  return defaultModel
-}
-
-/**
- * Returns an ordered list of fallback Gemini models to try if the active model
- * encounters high demand (HTTP 503) or rate limits (HTTP 429).
+ * Dynamically queries Google Gemini API to discover all currently active models
+ * supporting text generation for this API key. Zero hardcoded model names.
  */
 async function getGeminiCandidateModels(apiKey: string, preferredModel?: string): Promise<string[]> {
-  const staticFallbacks = [
-    preferredModel,
-    'gemini-2.5-flash',
-    'gemini-2.0-flash',
-    'gemini-1.5-flash',
-    'gemini-2.5-flash-lite',
-    'gemini-2.0-flash-lite',
-    'gemini-1.5-flash-8b',
-    'gemini-3.8-flash',
-    'gemini-3.5-flash',
-    'gemini-3.5-flash-lite',
-    'gemini-3.0-flash',
-    'gemini-flash'
-  ].filter(Boolean) as string[]
-
   try {
     const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${apiKey}`)
     if (res.ok) {
       const data = await res.json()
       const live = (data?.models || [])
-        .filter((m: any) => m.supportedGenerationMethods?.includes('generateContent'))
+        .filter((m: any) => {
+          const methods = Array.isArray(m?.supportedGenerationMethods) ? m.supportedGenerationMethods : []
+          return methods.includes('generateContent')
+        })
         .map((m: any) => (m.name || '').replace(/^models\//, ''))
         .filter((n: string) => n.length > 0)
 
+      // Sort live models dynamically:
+      // 1. Models containing 'flash' (fastest & high quota), newer versions first
+      // 2. All other generation models, newer versions first
+      const flashModels = live
+        .filter((m) => m.toLowerCase().includes('flash'))
+        .sort((a, b) => b.localeCompare(a, undefined, { numeric: true, sensitivity: 'base' }))
+
+      const otherModels = live
+        .filter((m) => !m.toLowerCase().includes('flash'))
+        .sort((a, b) => b.localeCompare(a, undefined, { numeric: true, sensitivity: 'base' }))
+
       const ordered = [
         ...(preferredModel && preferredModel !== 'auto' ? [preferredModel] : []),
-        ...live.filter((m: string) => m.includes('2.5-flash') || m.includes('2.0-flash') || m.includes('1.5-flash')),
-        ...live.filter((m: string) => m.includes('flash')),
-        ...live,
-        ...staticFallbacks
+        ...flashModels,
+        ...otherModels
       ]
-      return Array.from(new Set(ordered))
+
+      const unique = Array.from(new Set(ordered))
+      if (unique.length > 0) {
+        return unique
+      }
     }
   } catch {
     // fallback
   }
 
-  return Array.from(new Set(staticFallbacks))
+  return preferredModel && preferredModel !== 'auto' ? [preferredModel] : ['gemini-flash']
+}
+
+/**
+ * Dynamically detects the optimal active Gemini model from the provider at runtime.
+ */
+async function resolveGeminiModel(apiKey: string, onLog: (msg: string) => void): Promise<string> {
+  const candidates = await getGeminiCandidateModels(apiKey)
+  if (candidates.length > 0 && candidates[0] !== 'auto') {
+    onLog(`[AI TRANSLATION] Auto-detected active model from Google: ${candidates[0]}`)
+    return candidates[0]
+  }
+  return candidates[0] || 'gemini-flash'
+}
+
+/**
+ * Dynamically queries OpenAI API to discover active chat completion models for this API key.
+ * Zero hardcoded model names.
+ */
+async function getOpenAiCandidateModels(apiKey: string, preferredModel?: string): Promise<string[]> {
+  try {
+    const res = await fetch('https://api.openai.com/v1/models', {
+      headers: { Authorization: `Bearer ${apiKey}` }
+    })
+    if (res.ok) {
+      const data = await res.json()
+      const rawList = Array.isArray(data?.data) ? data.data : []
+      const exclude = ['realtime', 'audio', 'tts', 'transcription', 'whisper', 'embedding', 'dall-e', 'moderation', 'instruct']
+      const chatModels = rawList
+        .map((m: any) => m.id || '')
+        .filter((id: string) => {
+          const lower = id.toLowerCase()
+          return (
+            (lower.startsWith('gpt-') || lower.startsWith('o1') || lower.startsWith('o3') || lower.startsWith('chatgpt-')) &&
+            !exclude.some((e) => lower.includes(e))
+          )
+        })
+        .sort((a: string, b: string) => {
+          const aMini = a.includes('mini')
+          const bMini = b.includes('mini')
+          if (aMini && !bMini) return -1
+          if (!aMini && bMini) return 1
+          return b.localeCompare(a, undefined, { numeric: true, sensitivity: 'base' })
+        })
+
+      const ordered = [
+        ...(preferredModel && preferredModel !== 'auto' ? [preferredModel] : []),
+        ...chatModels
+      ]
+      const unique = Array.from(new Set(ordered))
+      if (unique.length > 0) return unique
+    }
+  } catch {
+    // fallback
+  }
+  return preferredModel && preferredModel !== 'auto' ? [preferredModel] : ['gpt-4o-mini']
 }
 
 /**
@@ -495,8 +496,12 @@ async function translateCuesWithOpenAI(
   onLog: (msg: string) => void,
   onProgress?: (batchIdx: number, totalBatches: number) => void
 ): Promise<SrtCue[]> {
-  const model = modelChoice || 'gpt-4o-mini'
-  onLog(`[AI TRANSLATION] Initiating OpenAI (${model}) translation...`)
+  const candidateModels = await getOpenAiCandidateModels(apiKey, modelChoice)
+  let currentModel = (modelChoice && modelChoice !== 'auto')
+    ? modelChoice
+    : (candidateModels[0] || 'gpt-4o-mini')
+
+  onLog(`[AI TRANSLATION] Initiating OpenAI (${currentModel}) translation...`)
   const batchSize = 75
   const translatedCues: SrtCue[] = []
   const instruction = customPrompt && customPrompt.trim().length > 0 ? customPrompt.trim() : DEFAULT_AI_PROMPT
@@ -525,47 +530,64 @@ async function translateCuesWithOpenAI(
         throw new Error('Subtitle generation cancelled by user.')
       }
 
-      try {
-        const response = await fetch('https://api.openai.com/v1/chat/completions', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${apiKey}`
-          },
-          body: JSON.stringify({
-            model,
-            messages: [
-              { role: 'system', content: instruction },
-              { role: 'user', content: promptText }
-            ],
-            temperature: 0.3
+      const activeCandidates = [
+        currentModel,
+        ...candidateModels.filter((m) => m !== currentModel)
+      ]
+
+      for (const model of activeCandidates) {
+        if (isGenerationCancelled) {
+          throw new Error('Subtitle generation cancelled by user.')
+        }
+
+        try {
+          const response = await fetch('https://api.openai.com/v1/chat/completions', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              Authorization: `Bearer ${apiKey}`
+            },
+            body: JSON.stringify({
+              model,
+              messages: [
+                { role: 'system', content: instruction },
+                { role: 'user', content: promptText }
+              ],
+              temperature: 0.3
+            })
           })
-        })
 
-        if (response.ok) {
-          const data = await response.json()
-          content = data?.choices?.[0]?.message?.content || ''
-          batchSuccess = true
+          if (response.ok) {
+            if (model !== currentModel) {
+              currentModel = model
+              onLog(`[AI TRANSLATION] Switched to active OpenAI model: ${model}`)
+            }
+            const data = await response.json()
+            content = data?.choices?.[0]?.message?.content || ''
+            batchSuccess = true
+            break
+          }
+
+          const status = response.status
+          const errText = await response.text()
+          lastErrDetail = errText
+
+          const isRetryable = [429, 500, 502, 503, 504].includes(status)
+          if (isRetryable) {
+            onLog(`[AI TRANSLATION] OpenAI model '${model}' busy (${status}). Trying alternative...`)
+            continue
+          }
           break
+        } catch (e: any) {
+          lastErrDetail = e.message
         }
+      }
 
-        const status = response.status
-        const errText = await response.text()
-        lastErrDetail = errText
+      if (batchSuccess) break
 
-        const isRetryable = [429, 500, 502, 503, 504].includes(status)
-        if (isRetryable && attempt < maxRetries) {
-          const delayMs = attempt * 2500
-          onLog(`[AI TRANSLATION] OpenAI returned HTTP ${status}. Retrying in ${delayMs / 1000}s...`)
-          await new Promise((resolve) => setTimeout(resolve, delayMs))
-          continue
-        }
-        break
-      } catch (e: any) {
-        lastErrDetail = e.message
-        if (attempt < maxRetries) {
-          await new Promise((resolve) => setTimeout(resolve, 2000))
-        }
+      if (attempt < maxRetries && !isGenerationCancelled) {
+        const delayMs = attempt * 2500
+        await new Promise((resolve) => setTimeout(resolve, delayMs))
       }
     }
 
