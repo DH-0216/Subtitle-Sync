@@ -32,9 +32,9 @@ export const Step2Generate: React.FC<Step2GenerateProps> = ({
   const currentTrackLang = currentTrack?.language ? currentTrack.language.toUpperCase() : 'Audio'
 
   const subtitleLanguages = [
-    { code: 'original', name: `Movie's Language (${currentTrackLang})` },
-    { code: 'en', name: 'English' },
-    { code: 'si', name: 'Spoken Sinhala (කථන සිංහල)' }
+    { code: 'original', name: `Movie's Language (${currentTrackLang}) — Offline (No internet needed)` },
+    { code: 'en', name: 'English — Offline (No internet needed)' },
+    { code: 'si', name: 'Spoken Sinhala (කථන සිංහල) — AI Online Translation' }
   ]
 
   return (
@@ -110,9 +110,15 @@ export const Step2Generate: React.FC<Step2GenerateProps> = ({
               </option>
             ))}
           </select>
-          <p className="text-[11px] text-slate-500 dark:text-slate-400">
-            Choose what language you want the generated subtitles in.
-          </p>
+          {config.language === 'si' ? (
+            <p className="text-[11px] text-purple-600 dark:text-purple-400 font-medium">
+              Requires an active internet connection &amp; AI API Key (configured in Settings).
+            </p>
+          ) : (
+            <p className="text-[11px] text-slate-500 dark:text-slate-400">
+              Generated 100% offline using local Whisper AI model on your computer.
+            </p>
+          )}
         </div>
       </div>
 
@@ -166,13 +172,13 @@ export const Step2Generate: React.FC<Step2GenerateProps> = ({
                 onChange={(e) => onChangeConfig({ modelQuality: e.target.value as any })}
                 className="w-full text-xs font-medium px-3 py-2 rounded-xl border border-blue-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 focus:outline-hidden focus:ring-2 focus:ring-blue-500/30 transition-all cursor-pointer"
               >
-                <option value="small">Small (High Precision for Movies, ~460 MB)</option>
-                <option value="base">Base (Fast & Balanced, ~140 MB)</option>
-                <option value="tiny">Tiny (Ultra Fast, Lowest RAM, ~75 MB)</option>
-                <option value="medium">Medium (Maximum Accuracy, ~1.5 GB)</option>
+                <option value="base">Base (⚡ Recommended — 3x to 4x Faster, ~140 MB)</option>
+                <option value="small">Small (High Precision for Complex Accents, ~460 MB)</option>
+                <option value="tiny">Tiny (⚡⚡ Blazing Fast, Lowest RAM, ~75 MB)</option>
+                <option value="medium">Medium (Maximum Accuracy, Heavy ~1.5 GB)</option>
               </select>
               <p className="text-[11px] text-slate-500 dark:text-slate-400">
-                Small is tailored for movie dialogue and speech. You can also select Base for faster speed, or Medium for complex accents.
+                ⚡ <strong>Speed Tip:</strong> Selecting <strong>Base</strong> is 3x to 4x faster on your CPU while maintaining high speech accuracy for movie dialogue. Use <strong>Small</strong> for rare dialects or difficult background noise.
               </p>
             </div>
           </div>

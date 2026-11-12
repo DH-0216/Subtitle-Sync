@@ -1,5 +1,5 @@
 import React from 'react'
-import { Settings, Info, Sun, Moon, CheckCircle2, AlertTriangle } from 'lucide-react'
+import { Settings, Info, Sun, Moon, CheckCircle2, AlertTriangle, WifiOff } from 'lucide-react'
 import appIcon from '../assets/app_icon.png'
 
 interface HeaderProps {
@@ -8,6 +8,7 @@ interface HeaderProps {
   onOpenSettings: () => void
   onOpenAbout: () => void
   engineReady: boolean
+  isOnline?: boolean
 }
 
 export const Header: React.FC<HeaderProps> = ({
@@ -15,7 +16,8 @@ export const Header: React.FC<HeaderProps> = ({
   setTheme,
   onOpenSettings,
   onOpenAbout,
-  engineReady
+  engineReady,
+  isOnline = true
 }) => {
   return (
     <header className="bg-white/95 dark:bg-[#0B0F19]/90 backdrop-blur-md border-b border-blue-100 dark:border-slate-800/80 sticky top-0 z-30 shadow-xs shadow-blue-500/5 dark:shadow-none transition-colors">
@@ -38,6 +40,17 @@ export const Header: React.FC<HeaderProps> = ({
         </div>
 
       <div className="flex items-center gap-2">
+        {/* Offline Badge */}
+        {!isOnline && (
+          <div
+            className="flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold border bg-slate-100 text-slate-700 border-slate-300 dark:bg-slate-800/90 dark:text-slate-300 dark:border-slate-700 shadow-2xs"
+            title="You are currently offline. Movie speech transcription and subtitle synchronization work 100% locally."
+          >
+            <WifiOff className="w-3.5 h-3.5 text-amber-500 shrink-0" />
+            <span>Offline</span>
+          </div>
+        )}
+
         {/* Engine Ready Badge */}
         <div
           className={`flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold border transition-all ${

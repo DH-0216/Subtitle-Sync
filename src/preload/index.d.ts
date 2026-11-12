@@ -16,7 +16,16 @@ export interface IElectronAPI {
     writeText: (text: string) => Promise<void>
   }
   ai: {
-    verifyKey: (provider: 'gemini' | 'openai', apiKey: string) => Promise<{ valid: boolean; message: string }>
+    verifyKey: (provider: 'gemini' | 'openai', apiKey: string) => Promise<{
+      valid: boolean
+      message: string
+      models?: Array<{ id: string; name: string; description?: string }>
+    }>
+    fetchModels: (provider: 'gemini' | 'openai', apiKey: string) => Promise<{
+      success: boolean
+      models: Array<{ id: string; name: string; description?: string }>
+      error?: string
+    }>
   }
   engine: {
     checkBinaries: () => Promise<{
@@ -75,7 +84,7 @@ export interface IElectronAPI {
       mode: 'Standard' | 'Smart' | 'Split sync'
       trackIndex?: number | null
       subFps?: number | null
-    }) => Promise<{ success: boolean }>
+    }) => Promise<{ success: boolean; cancelled?: boolean }>
     cancelSync: () => Promise<boolean>
     onEvent: (callback: (data: any) => void) => () => void
   }

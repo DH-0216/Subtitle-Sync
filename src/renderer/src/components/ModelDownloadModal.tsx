@@ -1,5 +1,5 @@
 import React, { useEffect } from 'react'
-import { X, Cpu, Download, Loader2, AlertCircle, HardDrive } from 'lucide-react'
+import { X, Cpu, Download, Loader2, AlertCircle, HardDrive, WifiOff } from 'lucide-react'
 
 interface ModelDownloadModalProps {
   isOpen: boolean
@@ -111,6 +111,14 @@ export const ModelDownloadModal: React.FC<ModelDownloadModalProps> = ({
             <span>Saved permanently to local storage</span>
           </div>
         </div>
+
+        {/* Offline Warning Banner */}
+        {typeof navigator !== 'undefined' && !navigator.onLine && (
+          <div className="mb-4 p-3 rounded-xl bg-amber-50 border border-amber-200 dark:bg-amber-950/30 dark:border-amber-900/40 text-xs text-amber-800 dark:text-amber-300 flex items-center gap-2">
+            <WifiOff className="w-4 h-4 shrink-0 text-amber-600 dark:text-amber-400" />
+            <span>No internet connection detected. Connect to the internet to download this model.</span>
+          </div>
+        )}
 
         {/* Error message */}
         {errorMessage && (

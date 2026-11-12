@@ -19,7 +19,9 @@ const api = {
   },
   ai: {
     verifyKey: (provider: 'gemini' | 'openai', apiKey: string) =>
-      ipcRenderer.invoke('ai:verifyKey', { provider, apiKey })
+      ipcRenderer.invoke('ai:verifyKey', { provider, apiKey }),
+    fetchModels: (provider: 'gemini' | 'openai', apiKey: string) =>
+      ipcRenderer.invoke('ai:fetchModels', { provider, apiKey })
   },
   engine: {
     checkBinaries: () => ipcRenderer.invoke('engine:checkBinaries'),

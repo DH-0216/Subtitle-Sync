@@ -272,20 +272,20 @@ export const Step3Sync: React.FC<Step3SyncProps> = ({
           <button
             type="button"
             onClick={onPreview}
-            disabled={!lastOutputDir}
+            disabled={!lastOutputDir || isSyncing}
             className={`py-3 px-4 rounded-xl border-2 font-bold text-xs flex items-center gap-2 transition-all shrink-0 shadow-2xs ${
-              lastOutputDir
+              lastOutputDir && !isSyncing
                 ? 'border-emerald-400 bg-emerald-50 hover:bg-emerald-100 text-emerald-900 dark:border-emerald-700 dark:bg-emerald-950/40 dark:hover:bg-emerald-900/50 dark:text-emerald-200 cursor-pointer shadow-emerald-500/10 hover:scale-[1.01]'
                 : 'border-slate-200 bg-slate-50 text-slate-400 dark:border-slate-800 dark:bg-slate-900/40 dark:text-slate-600 cursor-not-allowed opacity-60'
             }`}
-            title={lastOutputDir ? 'Preview synchronized subtitle lines' : 'Preview will be available once synchronization completes'}
+            title={lastOutputDir && !isSyncing ? 'Preview synchronized subtitle lines' : 'Preview will be available once synchronization completes'}
           >
-            <Eye className={`w-4 h-4 ${lastOutputDir ? 'text-emerald-600 dark:text-emerald-400' : 'text-slate-400 dark:text-slate-600'}`} />
+            <Eye className={`w-4 h-4 ${lastOutputDir && !isSyncing ? 'text-emerald-600 dark:text-emerald-400' : 'text-slate-400 dark:text-slate-600'}`} />
             Preview Subtitle
           </button>
         )}
 
-        {lastOutputDir && (
+        {lastOutputDir && !isSyncing && (
           <button
             onClick={onOpenFolder}
             className="py-3 px-4 rounded-xl border-2 border-blue-300 bg-blue-50/80 hover:bg-blue-100 text-blue-800 dark:border-slate-800 dark:bg-[#0B0F19]/80 dark:hover:bg-slate-800 dark:text-slate-200 dark:hover:text-white font-bold text-xs flex items-center gap-2 transition-colors shrink-0 shadow-2xs"

@@ -15,6 +15,7 @@ import { AboutModal } from './components/AboutModal'
 import { SubtitlePreviewModal } from './components/SubtitlePreviewModal'
 import { ModelDownloadModal } from './components/ModelDownloadModal'
 import { EXTERNAL_LINKS } from '@shared/links'
+import { formatUserFriendlyError } from '@shared/errorUtils'
 
 export default function App() {
   // Theme & Preferences
@@ -24,6 +25,7 @@ export default function App() {
   const [engineReady, setEngineReady] = useState(false)
   const [aiApiKey, setAiApiKey] = useState('')
   const [aiProvider, setAiProvider] = useState<'gemini' | 'openai'>('gemini')
+  const [aiModel, setAiModel] = useState('gemini-2.5-flash')
   const [aiPrompt, setAiPrompt] = useState(DEFAULT_AI_PROMPT)
 
   // Modals
@@ -40,6 +42,29 @@ export default function App() {
   const [modelDownloadedBytes, setModelDownloadedBytes] = useState(0)
   const [modelTotalBytes, setModelTotalBytes] = useState(0)
   const [modelDownloadError, setModelDownloadError] = useState<string | null>(null)
+  const [isOnline, setIsOnline] = useState(typeof navigator !== 'undefined' ? navigator.onLine : true)
+
+  // Track online/offline network connectivity
+  useEffect(() => {
+    const handleOnline = () => {
+      setIsOnline(true)
+      toast.success('Internet connection restored!', { duration: 3500, icon: '🌐' })
+    }
+    const handleOffline = () => {
+      setIsOnline(false)
+      toast('You are now in Offline Mode. Subtitle sync and movie transcription run 100% locally!', {
+        duration: 5500,
+        icon: '📡'
+      })
+    }
+
+    window.addEventListener('online', handleOnline)
+    window.addEventListener('offline', handleOffline)
+    return () => {
+      window.removeEventListener('online', handleOnline)
+      window.removeEventListener('offline', handleOffline)
+    }
+  }, [])
 
   const isAnyModalOpen =
     audioModalOpen ||
@@ -75,7 +100,7 @@ export default function App() {
   // Step 2 (Generate Mode): Generation Settings
   const [generateConfig, setGenerateConfig] = useState<GenerateConfig>({
     language: 'original',
-    modelQuality: 'small',
+    modelQuality: 'base',
     format: 'srt'
   })
   const [isGenerating, setIsGenerating] = useState(false)
@@ -86,6 +111,7 @@ export default function App() {
   const [subtitles, setSubtitles] = useState<SubtitleItem[]>([])
   const subtitlesRef = React.useRef<SubtitleItem[]>([])
   const currentSubIndexRef = React.useRef(0)
+  const syncCancelledRef = React.useRef(false)
 
   useEffect(() => {
     subtitlesRef.current = subtitles
@@ -136,6 +162,7 @@ export default function App() {
         if (s.checkUpdates !== undefined) setCheckUpdates(s.checkUpdates)
         if (s.aiApiKey) setAiApiKey(s.aiApiKey)
         if (s.aiProvider) setAiProvider(s.aiProvider)
+        if (s.aiModel) setAiModel(s.aiModel)
         if (s.aiPrompt) setAiPrompt(s.aiPrompt)
       }
     })
@@ -181,10 +208,15 @@ export default function App() {
         setLogs((prev) => [...prev, event.message])
       } else if (event.type === 'status') {
         setStatusMessage(event.message)
+        setGenerateStatusMessage(event.message)
       } else if (event.type === 'progress') {
+        const filePct = typeof event.percent === 'number' ? event.percent : 0
+        setGenerateProgress(filePct)
+        if (event.message) {
+          setGenerateStatusMessage(event.message)
+        }
         const subIdx = currentSubIndexRef.current
         const total = subtitlesRef.current.length || 1
-        const filePct = typeof event.percent === 'number' ? event.percent : 0
         const overallPct = Math.min(100, Math.max(0, Math.round(((subIdx * 100) + filePct) / total)))
         setProgress(overallPct)
         if (event.message) {
@@ -196,6 +228,8 @@ export default function App() {
         }
       } else if (event.type === 'done') {
         if (event.success) {
+          setGenerateProgress(100)
+          setGenerateStatusMessage('Subtitle generation complete!')
           setLogs((prev) => [
             ...prev,
             `[SUCCESS] Output generated: ${event.output} (Score: ${event.score !== null ? event.score : 'N/A'})`
@@ -318,8 +352,11 @@ export default function App() {
   const handleStartSync = async () => {
     if (!videoPath || subtitles.length === 0) return
 
+    syncCancelledRef.current = false
     setIsSyncing(true)
     setProgress(0)
+    setLastOutputDir(null)
+    setLastOutputFile(null)
     setLogs((prev) => [
       ...prev,
       `=== Starting ${syncMode} synchronization session ===`,
@@ -331,6 +368,7 @@ export default function App() {
     let successCount = 0
 
     for (let i = 0; i < subtitles.length; i++) {
+      if (syncCancelledRef.current) break
       currentSubIndexRef.current = i
       const sub = subtitles[i]
       const ext = sub.path.substring(sub.path.lastIndexOf('.'))
@@ -345,10 +383,26 @@ export default function App() {
         mode: syncMode,
         trackIndex: selectedTrack
       })
+      if (syncCancelledRef.current || res?.cancelled) {
+        break
+      }
       if (res?.success) {
         successCount++
         setLastOutputFile(outPath)
+        const folder = outPath.substring(
+          0,
+          Math.max(outPath.lastIndexOf('/'), outPath.lastIndexOf('\\'))
+        )
+        setLastOutputDir(folder)
       }
+    }
+
+    if (syncCancelledRef.current) {
+      setIsSyncing(false)
+      setProgress(0)
+      setLastOutputDir(null)
+      setLastOutputFile(null)
+      return
     }
 
     setProgress(100)
@@ -368,14 +422,27 @@ export default function App() {
   }
 
   const handleCancelSync = async () => {
+    syncCancelledRef.current = true
     await window.api.engine.cancelSync()
     setIsSyncing(false)
+    setProgress(0)
+    setLastOutputDir(null)
+    setLastOutputFile(null)
     setStatusMessage('Cancelled by user')
     toast('Synchronization cancelled', { icon: '⏹️', duration: 2500 })
     setLogs((prev) => [...prev, '[USER] Synchronization cancelled.'])
   }
 
   const handleStartDownloadModel = async () => {
+    if (!navigator.onLine) {
+      toast.error('No internet connection. Please connect to the internet to download this Whisper model.', {
+        duration: 5500,
+        icon: '📡'
+      })
+      setModelDownloadError('No internet connection detected. An active internet connection is required to download models.')
+      return
+    }
+
     if (!window.api?.generator?.downloadModel) {
       toast.error('Please restart the application (stop terminal and re-run npm run dev) to load backend!')
       return
@@ -393,11 +460,15 @@ export default function App() {
         setDownloadModalOpen(false)
         handleStartGenerate()
       } else {
-        setModelDownloadError(res?.error || 'Failed to download model.')
+        const friendly = formatUserFriendlyError(res?.error || 'Failed to download model.')
+        setModelDownloadError(friendly)
+        toast.error(friendly)
       }
     } catch (err: any) {
       setIsDownloadingModel(false)
-      setModelDownloadError(err.message || 'Download error occurred.')
+      const friendly = formatUserFriendlyError(err)
+      setModelDownloadError(friendly)
+      toast.error(friendly)
     }
   }
 
@@ -429,15 +500,29 @@ export default function App() {
       return
     }
 
-    // Guard: Check AI API Key if target language is Spoken Sinhala
-    if (generateConfig.language === 'si' && !aiApiKey.trim()) {
-      toast.error('Please enter your AI API Key in Settings to translate subtitles into Spoken Sinhala!', {
-        duration: 5000,
-        icon: '🔑'
-      })
-      setSettingsInitialTab('ai')
-      setSettingsModalOpen(true)
-      return
+    // Guard: Check internet connection & AI API Key if target language is Spoken Sinhala
+    if (generateConfig.language === 'si') {
+      if (!navigator.onLine) {
+        toast.error(
+          'Internet connection required for AI Spoken Sinhala translation. You can still generate subtitles offline by selecting "Movie\'s Language"!',
+          { duration: 6000, icon: '📡' }
+        )
+        setLogs((prev) => [
+          ...prev,
+          '[NETWORK] Offline: Internet connection required for AI Spoken Sinhala translation. You can still generate subtitles in "Movie\'s Language" 100% offline.'
+        ])
+        return
+      }
+
+      if (!aiApiKey.trim()) {
+        toast.error('Please enter your AI API Key in Settings to translate subtitles into Spoken Sinhala!', {
+          duration: 5000,
+          icon: '🔑'
+        })
+        setSettingsInitialTab('ai')
+        setSettingsModalOpen(true)
+        return
+      }
     }
 
     // Check if Whisper model exists
@@ -471,6 +556,8 @@ export default function App() {
 
     setIsGenerating(true)
     setGenerateProgress(5)
+    setLastOutputDir(null)
+    setLastOutputFile(null)
     setGenerateStatusMessage('Starting subtitle generation...')
     setLogs((prev) => [
       ...prev,
@@ -482,13 +569,19 @@ export default function App() {
       `Output Format: .${generateConfig.format}`
     ])
 
+    const activeTrack = audioTracks.find((t) => t.index === selectedTrack)
+    const trackLanguage = activeTrack?.language || ''
+
     try {
       const res = await window.api.generator.startGenerate({
         video: videoPath,
         trackIndex: selectedTrack,
+        trackLanguage,
+        durationSec: videoDetails?.durationSec,
         ...generateConfig,
         aiApiKey,
         aiProvider,
+        aiModel,
         customPrompt: aiPrompt
       })
 
@@ -505,14 +598,30 @@ export default function App() {
           setLastOutputFile(res.output)
         }
       } else {
-        setGenerateStatusMessage('Generation failed.')
-        toast.error(`Generation failed: ${res?.message || 'Unknown error'}`)
-        setLogs((prev) => [...prev, `[ERROR] ${res?.message || 'Generation failed'}`])
+        setGenerateProgress(0)
+        setLastOutputDir(null)
+        setLastOutputFile(null)
+        const isCancelled = res?.message?.toLowerCase().includes('cancel')
+        const friendlyMsg = formatUserFriendlyError(res?.message || 'Generation failed')
+        setGenerateStatusMessage(isCancelled ? 'Generation cancelled by user' : friendlyMsg)
+        if (!isCancelled) {
+          toast.error(friendlyMsg, { duration: 5000 })
+          setLogs((prev) => [...prev, `[ERROR] ${res?.message || 'Generation failed'}`])
+        }
       }
     } catch (err: any) {
-      setLogs((prev) => [...prev, `[ERROR] ${err.message}`])
-      setGenerateStatusMessage('Error during subtitle generation.')
-      toast.error(`Error: ${err.message}`)
+      setGenerateProgress(0)
+      setLastOutputDir(null)
+      setLastOutputFile(null)
+      const isCancelled = err.message?.toLowerCase().includes('cancel')
+      if (isCancelled) {
+        setGenerateStatusMessage('Generation cancelled by user')
+      } else {
+        const friendlyMsg = formatUserFriendlyError(err)
+        setLogs((prev) => [...prev, `[ERROR] ${err.message}`])
+        setGenerateStatusMessage(friendlyMsg)
+        toast.error(friendlyMsg, { duration: 5000 })
+      }
     } finally {
       setIsGenerating(false)
     }
@@ -521,6 +630,9 @@ export default function App() {
   const handleCancelGenerate = async () => {
     await window.api.generator.cancelGenerate()
     setIsGenerating(false)
+    setGenerateProgress(0)
+    setLastOutputDir(null)
+    setLastOutputFile(null)
     setGenerateStatusMessage('Generation cancelled by user')
     toast('Subtitle generation cancelled', { icon: '⏹️' })
     setLogs((prev) => [...prev, '[USER] Subtitle generation cancelled.'])
@@ -549,6 +661,7 @@ export default function App() {
       checkUpdates,
       aiApiKey,
       aiProvider,
+      aiModel,
       aiPrompt
     })
   }
@@ -570,6 +683,7 @@ export default function App() {
         }}
         onOpenAbout={() => setAboutModalOpen(true)}
         engineReady={engineReady}
+        isOnline={isOnline}
       />
 
       <main className="flex-1 max-w-5xl xl:max-w-6xl 2xl:max-w-[1400px] w-full mx-auto p-6 space-y-5">
@@ -759,6 +873,8 @@ export default function App() {
         setAiApiKey={setAiApiKey}
         aiProvider={aiProvider}
         setAiProvider={setAiProvider}
+        aiModel={aiModel}
+        setAiModel={setAiModel}
         aiPrompt={aiPrompt}
         setAiPrompt={setAiPrompt}
         onSave={handleSaveSettings}

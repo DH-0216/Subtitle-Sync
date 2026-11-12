@@ -19,6 +19,7 @@ import {
 } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { EXTERNAL_LINKS, getGeminiVerifyUrl } from '@shared/links'
+import { formatUserFriendlyError } from '@shared/errorUtils'
 
 export const DEFAULT_AI_PROMPT = `You are an expert subtitle translator specializing in natural, authentic spoken colloquial Sinhala (ස්වාභාවික කථාබහ සිංහල) for cinema and movies.
 Translate the following movie subtitle lines into natural, spoken Sinhala as people actually speak in day-to-day life.
@@ -43,6 +44,8 @@ interface SettingsModalProps {
   setAiApiKey: (k: string) => void
   aiProvider: 'gemini' | 'openai'
   setAiProvider: (p: 'gemini' | 'openai') => void
+  aiModel?: string
+  setAiModel?: (m: string) => void
   aiPrompt: string
   setAiPrompt: (p: string) => void
   onSave?: () => void
@@ -63,6 +66,8 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   setAiApiKey,
   aiProvider,
   setAiProvider,
+  aiModel = 'gemini-3.8-flash',
+  setAiModel,
   aiPrompt,
   setAiPrompt,
   onSave
@@ -78,9 +83,53 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   // Local draft state for AI settings (only committed when user clicks "Save Changes")
   const [draftApiKey, setDraftApiKey] = useState(aiApiKey)
   const [draftProvider, setDraftProvider] = useState<'gemini' | 'openai'>(aiProvider)
+  const [draftModel, setDraftModel] = useState(aiModel)
   const [draftPrompt, setDraftPrompt] = useState(aiPrompt)
   const [isVerifyingKey, setIsVerifyingKey] = useState(false)
   const [verifyStatus, setVerifyStatus] = useState<{ valid: boolean; message: string } | null>(null)
+  const [availableModels, setAvailableModels] = useState<Array<{ id: string; name: string }>>([])
+  const [isLoadingModels, setIsLoadingModels] = useState(false)
+
+  const handleFetchModels = async (provider: 'gemini' | 'openai', key: string, silent: boolean = false) => {
+    if (!key.trim()) return
+    if (!navigator.onLine) {
+      if (!silent) {
+        toast.error('You are offline. Connect to the internet to fetch latest models.', { icon: '📡' })
+      }
+      return
+    }
+    setIsLoadingModels(true)
+    try {
+      if (window.api?.ai?.fetchModels) {
+        const res = await window.api.ai.fetchModels(provider, key.trim())
+        if (res.success && res.models && res.models.length > 0) {
+          setAvailableModels(res.models)
+          if (!silent) {
+            toast.success(`Loaded ${res.models.length} live models!`, { duration: 2500 })
+          }
+          // If current draftModel isn't in fetched models, select the top one
+          const exists = res.models.some((m) => m.id === draftModel)
+          if (!exists && res.models[0]) {
+            setDraftModel(res.models[0].id)
+          }
+          return
+        }
+      }
+    } catch (err: any) {
+      if (!silent) {
+        toast.error('Failed to fetch models: ' + formatUserFriendlyError(err))
+      }
+    } finally {
+      setIsLoadingModels(false)
+    }
+  }
+
+  // Fetch live models if API key exists whenever modal opens
+  useEffect(() => {
+    if (isOpen && aiApiKey.trim()) {
+      handleFetchModels(aiProvider, aiApiKey.trim(), true)
+    }
+  }, [isOpen])
 
   // Reset drafts and tab whenever modal opens
   useEffect(() => {
@@ -90,20 +139,23 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
       }
       setDraftApiKey(aiApiKey)
       setDraftProvider(aiProvider)
+      setDraftModel(aiModel || (aiProvider === 'openai' ? 'gpt-4o-mini' : 'gemini-3.8-flash'))
       setDraftPrompt(aiPrompt)
       setSavedSuccess(false)
       setVerifyStatus(null)
     }
-  }, [isOpen, initialTab, aiApiKey, aiProvider, aiPrompt])
+  }, [isOpen, initialTab, aiApiKey, aiProvider, aiModel, aiPrompt])
 
   const handleSaveAiSettings = () => {
     const keyChanged = draftApiKey !== aiApiKey
     const promptChanged = draftPrompt !== aiPrompt
     const providerChanged = draftProvider !== aiProvider
+    const modelChanged = draftModel !== aiModel
 
     // 1. Commit to parent state
     setAiApiKey(draftApiKey)
     setAiProvider(draftProvider)
+    if (setAiModel) setAiModel(draftModel)
     setAiPrompt(draftPrompt)
 
     // 2. Persist to encrypted local settings
@@ -112,6 +164,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
       check_updates_startup: checkUpdates,
       aiApiKey: draftApiKey,
       aiProvider: draftProvider,
+      aiModel: draftModel,
       aiPrompt: draftPrompt
     })
 
@@ -124,6 +177,8 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
       toast.success('Translation prompt updated successfully!')
     } else if (keyChanged) {
       toast.success('API key updated successfully!')
+    } else if (modelChanged) {
+      toast.success(`AI Model set to ${draftModel}!`)
     } else if (promptChanged) {
       toast.success('Translation prompt updated successfully!')
     } else if (providerChanged) {
@@ -160,21 +215,44 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
       return
     }
 
+    if (!navigator.onLine) {
+      toast.error('You are offline. Connect to the internet to verify your API key.', { icon: '📡' })
+      setVerifyStatus({ valid: false, message: 'Offline: Internet connection required to verify API key.' })
+      return
+    }
+
     const cleanKey = draftApiKey.trim()
     setIsVerifyingKey(true)
     setVerifyStatus(null)
 
     try {
-      let res: { valid: boolean; message: string }
+      let res: { valid: boolean; message: string; models?: Array<{ id: string; name: string }> }
 
       if (window.api?.ai?.verifyKey) {
         res = await window.api.ai.verifyKey(draftProvider, cleanKey)
+        if (res.valid && res.models && res.models.length > 0) {
+          setAvailableModels(res.models)
+          const exists = res.models.some((m) => m.id === draftModel)
+          if (!exists && res.models[0]) {
+            setDraftModel(res.models[0].id)
+          }
+        }
       } else {
         // Direct browser fetch fallback (works even if Electron process hasn't been restarted yet)
         if (draftProvider === 'gemini') {
           const response = await fetch(getGeminiVerifyUrl(cleanKey))
           if (response.ok) {
-            res = { valid: true, message: 'Gemini API Key is valid and active!' }
+            const data = await response.json().catch(() => null)
+            const models = (data?.models || [])
+              .filter((m: any) => m.supportedGenerationMethods?.includes('generateContent'))
+              .map((m: any) => ({
+                id: (m.name || '').replace(/^models\//, ''),
+                name: m.displayName ? `${m.displayName} (${(m.name || '').replace(/^models\//, '')})` : (m.name || '').replace(/^models\//, '')
+              }))
+            if (models.length > 0) {
+              setAvailableModels(models)
+            }
+            res = { valid: true, message: 'Gemini API Key is valid and active!', models }
           } else {
             const data = await response.json().catch(() => null)
             const errMsg = data?.error?.message || `HTTP ${response.status}`
@@ -185,7 +263,20 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
             headers: { Authorization: `Bearer ${cleanKey}` }
           })
           if (response.ok) {
-            res = { valid: true, message: 'OpenAI API Key is valid and active!' }
+            const data = await response.json().catch(() => null)
+            const models = (data?.data || [])
+              .filter((m: any) => {
+                const id = m.id || ''
+                return (id.startsWith('gpt-') || id.startsWith('o1-') || id.startsWith('o3-') || id.startsWith('chatgpt-')) &&
+                  !id.includes('instruct') &&
+                  !id.includes('realtime') &&
+                  !id.includes('audio')
+              })
+              .map((m: any) => ({ id: m.id, name: m.id }))
+            if (models.length > 0) {
+              setAvailableModels(models)
+            }
+            res = { valid: true, message: 'OpenAI API Key is valid and active!', models }
           } else {
             const data = await response.json().catch(() => null)
             const errMsg = data?.error?.message || `HTTP ${response.status}`
@@ -198,12 +289,14 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
       if (res.valid) {
         toast.success(res.message, { duration: 3500 })
       } else {
-        toast.error(res.message, { duration: 4500 })
+        const friendly = formatUserFriendlyError(res.message)
+        toast.error(friendly, { duration: 4500 })
       }
     } catch (err: any) {
       const msg = err.message || 'Verification failed'
-      setVerifyStatus({ valid: false, message: msg })
-      toast.error('Verification failed: ' + msg)
+      const friendly = formatUserFriendlyError(msg)
+      setVerifyStatus({ valid: false, message: friendly })
+      toast.error('Verification failed: ' + friendly)
     } finally {
       setIsVerifyingKey(false)
     }
@@ -249,6 +342,13 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
 
 
   const handleCheckNow = async () => {
+    if (!navigator.onLine) {
+      setUpdateStatus('⚠️ You are offline. Connect to the internet to check for updates.')
+      setUpdateStatusType('error')
+      toast.error('You are offline. Cannot check for updates.', { icon: '📡' })
+      return
+    }
+
     setCheckingUpdate(true)
     setUpdateStatus('Checking GitHub Releases...')
     setUpdateStatusType('normal')
@@ -537,13 +637,23 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                     <select
                       value={draftProvider}
                       onChange={(e) => {
-                        setDraftProvider(e.target.value as 'gemini' | 'openai')
+                        const newProvider = e.target.value as 'gemini' | 'openai'
+                        setDraftProvider(newProvider)
                         setVerifyStatus(null)
+                        setAvailableModels([])
+                        if (newProvider === 'gemini') {
+                          setDraftModel('gemini-2.5-flash')
+                        } else {
+                          setDraftModel('gpt-4o-mini')
+                        }
+                        if (draftApiKey.trim()) {
+                          handleFetchModels(newProvider, draftApiKey.trim(), true)
+                        }
                       }}
                       className="text-xs font-semibold px-2.5 py-1.5 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200 cursor-pointer"
                     >
-                      <option value="gemini">Google Gemini (Free tier)</option>
-                      <option value="openai">OpenAI (GPT-4o mini)</option>
+                      <option value="gemini">Google Gemini</option>
+                      <option value="openai">OpenAI</option>
                     </select>
                   </div>
 
@@ -646,8 +756,77 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                       </div>
                     )}
 
+                    {/* Choose AI Model */}
+                    <div className="space-y-1.5 pt-2 border-t border-slate-200/60 dark:border-slate-800/60">
+                      <div className="flex items-center justify-between text-xs font-semibold text-slate-700 dark:text-slate-300">
+                        <div className="flex items-center gap-1.5">
+                          <label>AI Model</label>
+                          {availableModels.length > 0 && (
+                            <span className="text-[10px] font-normal px-1.5 py-0.5 rounded bg-emerald-100 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300">
+                              Live ({availableModels.length})
+                            </span>
+                          )}
+                        </div>
+
+                        <div className="flex items-center gap-2">
+                          <button
+                            type="button"
+                            onClick={() => handleFetchModels(draftProvider, draftApiKey, false)}
+                            disabled={isLoadingModels || !draftApiKey.trim()}
+                            className="text-[11px] text-blue-600 dark:text-blue-400 hover:underline flex items-center gap-1 cursor-pointer disabled:opacity-40 disabled:no-underline"
+                            title="Fetch latest available models directly from provider API"
+                          >
+                            <RefreshCw className={`w-3 h-3 ${isLoadingModels ? 'animate-spin' : ''}`} />
+                            <span>{isLoadingModels ? 'Fetching...' : 'Fetch Models'}</span>
+                          </button>
+                          <span className="text-[11px] text-slate-400 font-normal">
+                            {draftProvider === 'gemini' ? 'Gemini 2.5 Flash recommended' : 'GPT-4o mini recommended'}
+                          </span>
+                        </div>
+                      </div>
+
+                      <select
+                        value={draftModel}
+                        onChange={(e) => setDraftModel(e.target.value)}
+                        className="w-full px-3 py-2 text-xs rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 cursor-pointer focus:outline-hidden focus:ring-2 focus:ring-blue-500/30 font-medium"
+                      >
+                        {availableModels.length > 0 ? (
+                          <>
+                            {draftModel && !availableModels.some((m) => m.id === draftModel) && (
+                              <option value={draftModel}>{draftModel} (Current selection)</option>
+                            )}
+                            {availableModels.map((m) => (
+                              <option key={m.id} value={m.id}>
+                                {m.name || m.id}
+                              </option>
+                            ))}
+                          </>
+                        ) : draftProvider === 'gemini' ? (
+                          <>
+                            <option value="gemini-2.5-flash">Gemini 2.5 Flash (Recommended — High Capacity & Reliable)</option>
+                            <option value="gemini-2.0-flash">Gemini 2.0 Flash (Fast & Stable)</option>
+                            <option value="gemini-1.5-flash">Gemini 1.5 Flash</option>
+                            <option value="gemini-3.8-flash">Gemini 3.8 Flash (High demand preview)</option>
+                            <option value="gemini-3.5-flash">Gemini 3.5 Flash</option>
+                            <option value="auto">Auto-detect best available model</option>
+                          </>
+                        ) : (
+                          <>
+                            <option value="gpt-4o-mini">GPT-4o mini (Recommended — Fast & Cost-effective)</option>
+                            <option value="gpt-4o">GPT-4o (High precision)</option>
+                            <option value="gpt-3.5-turbo">GPT-3.5 Turbo</option>
+                          </>
+                        )}
+                      </select>
+                      {availableModels.length === 0 && (
+                        <p className="text-[10px] text-slate-400">
+                          Tip: Click &quot;Fetch Models&quot; or &quot;Verify&quot; to auto-load all current models from {draftProvider === 'gemini' ? 'Google' : 'OpenAI'}.
+                        </p>
+                      )}
+                    </div>
+
                     <p className="text-[10px] text-slate-500 dark:text-slate-400">
-                      Stored securely on your local device only. Google Gemini API offers a free daily tier.
+                      Stored securely on your local device only. Google Gemini offers a free daily quota.
                     </p>
                   </div>
                 </div>

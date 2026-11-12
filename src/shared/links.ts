@@ -16,7 +16,8 @@ export const EXTERNAL_LINKS = {
   GEMINI_API_KEY_PORTAL: 'https://aistudio.google.com/app/apikey',
 
   // AI Service Endpoints
-  GEMINI_API_BASE: 'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash',
+  GEMINI_MODELS_API: 'https://generativelanguage.googleapis.com/v1beta/models',
+  GEMINI_API_BASE: 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash',
   OPENAI_MODELS_API: 'https://api.openai.com/v1/models',
 
   // Offline Whisper Model CDN / Mirror
@@ -31,15 +32,16 @@ export function getWhisperModelDownloadUrl(modelFileName: string): string {
 }
 
 /**
- * Construct Google Gemini model URL for key verification
+ * Construct Google Gemini model URL for key verification (checks models list)
  */
 export function getGeminiVerifyUrl(apiKey: string): string {
-  return `${EXTERNAL_LINKS.GEMINI_API_BASE}?key=${apiKey}`
+  return `${EXTERNAL_LINKS.GEMINI_MODELS_API}?key=${apiKey}`
 }
 
 /**
  * Construct Google Gemini generate content URL for AI translation
+ * Defaults to stable high-availability Gemini 2.5 Flash with automatic multi-model fallback support
  */
-export function getGeminiGenerateUrl(apiKey: string): string {
-  return `${EXTERNAL_LINKS.GEMINI_API_BASE}:generateContent?key=${apiKey}`
+export function getGeminiGenerateUrl(apiKey: string, model: string = 'gemini-2.5-flash'): string {
+  return `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`
 }

@@ -28,6 +28,7 @@ const PERCENT_REGEX = /(?:^|\D)(\d{1,3})%(?:\D|$)/
 export class SyncEngine {
   private currentProc: ChildProcess | null = null
   private cancelled = false
+  private currentOut: string | null = null
 
   constructor(
     private onLog: LogCallback,
@@ -42,6 +43,12 @@ export class SyncEngine {
         this.currentProc.kill()
       } catch (e) {}
       this.currentProc = null
+    }
+    // Delete any partial output file if it was created on disk
+    if (this.currentOut && fs.existsSync(this.currentOut)) {
+      try {
+        fs.unlinkSync(this.currentOut)
+      } catch (e) {}
     }
   }
 
@@ -159,6 +166,7 @@ export class SyncEngine {
    * 1. Standard Sync: Fast single pass alignment
    */
   public async runStandard(options: SyncOptions): Promise<{ success: boolean; score: number | null }> {
+    this.currentOut = options.out
     this.onStatus('Running Standard 1-pass synchronization...')
     this.onProgress(5, 'Initializing alignment engine...')
     const extra: string[] = []
@@ -181,14 +189,25 @@ export class SyncEngine {
       }
     )
 
+    // If cancelled or failed, remove partial output file
+    if (this.cancelled || code !== 0) {
+      if (fs.existsSync(options.out)) {
+        try {
+          fs.unlinkSync(options.out)
+        } catch (e) {}
+      }
+      return { success: false, score: null }
+    }
+
     this.onProgress(100, 'Synchronization complete!')
-    return { success: code === 0, score }
+    return { success: true, score }
   }
 
   /**
    * 2. Smart Sync: 4-Pass scoring algorithm
    */
   public async runSmart(options: SyncOptions): Promise<{ success: boolean; score: number | null }> {
+    this.currentOut = options.out
     const extraBase: string[] = []
     if (options.trackIndex !== undefined && options.trackIndex !== null) {
       extraBase.push('--reference-stream', `0:a:${options.trackIndex}`)
@@ -240,7 +259,7 @@ export class SyncEngine {
         }
       }
 
-      if (bestFile && fs.existsSync(bestFile)) {
+      if (!this.cancelled && bestFile && fs.existsSync(bestFile)) {
         fs.copyFileSync(bestFile, options.out)
         this.onProgress(100, 'Smart sync complete!')
         return { success: true, score: bestScore > -Infinity ? bestScore : null }
@@ -249,6 +268,11 @@ export class SyncEngine {
       try {
         fs.rmSync(tempDir, { recursive: true, force: true })
       } catch (e) {}
+      if (this.cancelled && fs.existsSync(options.out)) {
+        try {
+          fs.unlinkSync(options.out)
+        } catch (e) {}
+      }
     }
 
     return { success: false, score: null }
@@ -258,6 +282,7 @@ export class SyncEngine {
    * 3. Split Sync: Piecewise 2-minute chunk alignment
    */
   public async runSplit(options: SyncOptions): Promise<{ success: boolean; score: number | null }> {
+    this.currentOut = options.out
     this.onStatus('Split Sync: Slicing subtitles into 2-minute parts...')
     this.onProgress(10, 'Analyzing subtitle cues...')
     const content = fs.readFileSync(options.sub, 'utf-8')
@@ -284,7 +309,7 @@ export class SyncEngine {
         }
       )
 
-      if (baseRes.code === 0 && fs.existsSync(baseOut)) {
+      if (!this.cancelled && baseRes.code === 0 && fs.existsSync(baseOut)) {
         fs.copyFileSync(baseOut, options.out)
         this.onProgress(100, 'Split sync complete!')
         return { success: true, score: baseRes.score }
@@ -293,6 +318,11 @@ export class SyncEngine {
       try {
         fs.rmSync(tempDir, { recursive: true, force: true })
       } catch (e) {}
+      if (this.cancelled && fs.existsSync(options.out)) {
+        try {
+          fs.unlinkSync(options.out)
+        } catch (e) {}
+      }
     }
 
     return { success: false, score: null }

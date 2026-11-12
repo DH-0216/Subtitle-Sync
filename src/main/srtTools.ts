@@ -119,3 +119,81 @@ export function cleanAndSortCues(cues: SrtCue[]): SrtCue[] {
     index: i + 1
   }))
 }
+
+/**
+ * Removes runaway hallucination loops where Whisper repeats dialogue
+ * due to background music, ambient sound, or 30-second window context carryover.
+ */
+export function removeHallucinationLoops(cues: SrtCue[]): SrtCue[] {
+  if (!cues || cues.length === 0) return cues
+
+  const normalize = (text: string) =>
+    text.trim().toLowerCase().replace(/['".,!?;:\s\-_()[\]]/g, '')
+
+  // Pass 1: Remove immediate consecutive duplicates.
+  // Multi-word phrases (>= 2 words or > 6 chars) should never repeat identically immediately after.
+  // Short single words ("Yes", "No") are allowed at most 2 consecutive repeats.
+  const pass1: SrtCue[] = []
+  let prevNorm = ''
+  let consecutiveCount = 0
+
+  for (const c of cues) {
+    const norm = normalize(c.text)
+    if (!norm) continue
+
+    if (norm === prevNorm) {
+      consecutiveCount++
+      const words = c.text.trim().split(/\s+/).length
+      const maxAllowed = words >= 2 || norm.length > 6 ? 1 : 2
+      if (consecutiveCount <= maxAllowed) {
+        pass1.push(c)
+      }
+    } else {
+      prevNorm = norm
+      consecutiveCount = 1
+      pass1.push(c)
+    }
+  }
+
+  // Pass 2: Remove 30-second window periodic hallucination loops
+  // (e.g. "Door to door", "Stand up", "I'm happy", "Thank you" repeating every ~25-35 seconds
+  // across an ambient scene even when separated by another minor sound or line).
+  const pass2: SrtCue[] = []
+  const recentHistory = new Map<string, number[]>()
+
+  for (const c of pass1) {
+    const norm = normalize(c.text)
+    const history = recentHistory.get(norm) || []
+
+    let isPeriodicLoop = false
+    if (history.length > 0) {
+      const lastSeen = history[history.length - 1]
+      const deltaSec = (c.startMs - lastSeen) / 1000
+
+      // If identical phrase repeats within typical Whisper 30s chunk window (10-45s)
+      // and has already occurred 2+ times in the scene:
+      if (deltaSec >= 10 && deltaSec <= 45 && history.length >= 2) {
+        isPeriodicLoop = true
+      } else if (deltaSec < 10 && history.length >= 1) {
+        // Repeated within less than 10 seconds
+        isPeriodicLoop = true
+      }
+    }
+
+    if (!isPeriodicLoop) {
+      pass2.push(c)
+      history.push(c.startMs)
+      // Only keep timestamps within a 5-minute sliding window
+      const cutoff = c.startMs - 300000
+      recentHistory.set(
+        norm,
+        history.filter((t) => t >= cutoff)
+      )
+    }
+  }
+
+  return pass2.map((c, i) => ({
+    ...c,
+    index: i + 1
+  }))
+}

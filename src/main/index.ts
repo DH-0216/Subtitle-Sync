@@ -14,6 +14,7 @@ import {
   cancelSubtitleGeneration
 } from './generatorEngine'
 import { EXTERNAL_LINKS, getGeminiVerifyUrl } from '@shared/links'
+import { formatUserFriendlyError } from '@shared/errorUtils'
 
 let mainWindow: BrowserWindow | null = null
 let activeSyncEngine: SyncEngine | null = null
@@ -216,38 +217,134 @@ app.whenReady().then(() => {
   ipcMain.handle('clipboard:readText', () => clipboard.readText())
   ipcMain.handle('clipboard:writeText', (_event, text: string) => clipboard.writeText(text))
 
+  // Helper: Fetch available models from AI Provider
+  const fetchAvailableModels = async (
+    provider: 'gemini' | 'openai',
+    apiKey: string
+  ): Promise<{ success: boolean; models: Array<{ id: string; name: string; description?: string }>; error?: string }> => {
+    const cleanKey = apiKey.trim()
+    if (!cleanKey) {
+      return { success: false, models: [], error: 'Please enter an API Key first.' }
+    }
+
+    try {
+      if (provider === 'gemini') {
+        const url = getGeminiVerifyUrl(cleanKey)
+        const res = await fetch(url)
+        if (!res.ok) {
+          const errJson = await res.json().catch(() => null)
+          const errMsg = errJson?.error?.message || `HTTP ${res.status}`
+          return { success: false, models: [], error: errMsg }
+        }
+        const data = await res.json()
+        const rawList = Array.isArray(data?.models) ? data.models : []
+
+        // Filter for generation models that support generateContent
+        const filtered = rawList.filter((m: any) => {
+          const methods = Array.isArray(m?.supportedGenerationMethods) ? m.supportedGenerationMethods : []
+          return methods.includes('generateContent')
+        })
+
+        const formatted = filtered.map((m: any) => {
+          const rawId = (m.name || '').replace(/^models\//, '')
+          const displayName = m.displayName || rawId
+          return {
+            id: rawId,
+            name: displayName !== rawId ? `${displayName} (${rawId})` : rawId,
+            description: m.description || ''
+          }
+        })
+
+        // Sort: prioritize high-capacity stable flash models at the top
+        const stablePriority = ['gemini-2.5-flash', 'gemini-2.0-flash', 'gemini-1.5-flash', 'gemini-2.5-flash-lite']
+        formatted.sort((a, b) => {
+          const aPrio = stablePriority.indexOf(a.id)
+          const bPrio = stablePriority.indexOf(b.id)
+          if (aPrio !== -1 && bPrio !== -1) return aPrio - bPrio
+          if (aPrio !== -1) return -1
+          if (bPrio !== -1) return 1
+
+          const aFlash = a.id.toLowerCase().includes('flash')
+          const bFlash = b.id.toLowerCase().includes('flash')
+          if (aFlash && !bFlash) return -1
+          if (!aFlash && bFlash) return 1
+          return b.id.localeCompare(a.id)
+        })
+
+        return { success: true, models: formatted }
+      } else {
+        const url = EXTERNAL_LINKS.OPENAI_MODELS_API
+        const res = await fetch(url, {
+          headers: { Authorization: `Bearer ${cleanKey}` }
+        })
+        if (!res.ok) {
+          const errJson = await res.json().catch(() => null)
+          const errMsg = errJson?.error?.message || `HTTP ${res.status}`
+          return { success: false, models: [], error: errMsg }
+        }
+        const data = await res.json()
+        const rawList = Array.isArray(data?.data) ? data.data : []
+
+        // Filter for chat completion models (gpt-4, gpt-3.5, o1, o3, chatgpt-)
+        const validPrefixes = ['gpt-4', 'gpt-3.5', 'o1', 'o3', 'chatgpt-']
+        const exclude = ['realtime', 'audio', 'tts', 'transcription', 'whisper', 'embedding', 'dall-e']
+
+        const formatted = rawList
+          .filter((m: any) => {
+            const id = (m.id || '').toLowerCase()
+            const matchesPrefix = validPrefixes.some((p) => id.startsWith(p))
+            const isExcluded = exclude.some((e) => id.includes(e))
+            return matchesPrefix && !isExcluded
+          })
+          .map((m: any) => ({
+            id: m.id,
+            name: m.id,
+            description: ''
+          }))
+          .sort((a, b) => {
+            const aMini = a.id.includes('mini')
+            const bMini = b.id.includes('mini')
+            if (aMini && !bMini) return -1
+            if (!aMini && bMini) return 1
+            return b.id.localeCompare(a.id)
+          })
+
+        return { success: true, models: formatted }
+      }
+    } catch (err: any) {
+      const friendlyErr = formatUserFriendlyError(err)
+      return { success: false, models: [], error: friendlyErr }
+    }
+  }
+
   // IPC: Verify AI API Key
   ipcMain.handle('ai:verifyKey', async (_event, { provider, apiKey }: { provider: 'gemini' | 'openai'; apiKey: string }) => {
     if (!apiKey || !apiKey.trim()) {
       return { valid: false, message: 'Please enter an API Key first.' }
     }
     const cleanKey = apiKey.trim()
+    const result = await fetchAvailableModels(provider, cleanKey)
 
-    try {
-      if (provider === 'gemini') {
-        const url = getGeminiVerifyUrl(cleanKey)
-        const res = await fetch(url)
-        if (res.ok) {
-          return { valid: true, message: 'Gemini API Key is valid and active!' }
-        }
-        const data = await res.json().catch(() => null)
-        const errMsg = data?.error?.message || `HTTP ${res.status}`
-        return { valid: false, message: `Invalid Gemini Key: ${errMsg}` }
-      } else {
-        const url = EXTERNAL_LINKS.OPENAI_MODELS_API
-        const res = await fetch(url, {
-          headers: { Authorization: `Bearer ${cleanKey}` }
-        })
-        if (res.ok) {
-          return { valid: true, message: 'OpenAI API Key is valid and active!' }
-        }
-        const data = await res.json().catch(() => null)
-        const errMsg = data?.error?.message || `HTTP ${res.status}`
-        return { valid: false, message: `Invalid OpenAI Key: ${errMsg}` }
+    if (result.success) {
+      const providerName = provider === 'gemini' ? 'Gemini' : 'OpenAI'
+      return {
+        valid: true,
+        message: `${providerName} API Key is valid and active (${result.models.length} models detected)!`,
+        models: result.models
       }
-    } catch (err: any) {
-      return { valid: false, message: `Connection error: ${err.message}` }
+    } else {
+      const friendlyErr = formatUserFriendlyError(result.error)
+      return {
+        valid: false,
+        message: friendlyErr,
+        models: []
+      }
     }
+  })
+
+  // IPC: Fetch Available AI Models
+  ipcMain.handle('ai:fetchModels', async (_event, { provider, apiKey }: { provider: 'gemini' | 'openai'; apiKey: string }) => {
+    return fetchAvailableModels(provider, apiKey)
   })
 
   // IPC: Check Binaries Status
@@ -363,12 +460,30 @@ app.whenReady().then(() => {
         result = await activeSyncEngine.runStandard(params)
       }
 
-      event.sender.send('sync:event', {
-        type: 'done',
-        success: result.success,
-        score: result.score,
-        output: params.out
-      })
+      if (activeSyncEngine?.isCancelled()) {
+        if (params.out && fs.existsSync(params.out)) {
+          try {
+            fs.unlinkSync(params.out)
+          } catch (e) {}
+        }
+        activeSyncEngine = null
+        return { success: false, cancelled: true }
+      }
+
+      if (result.success) {
+        event.sender.send('sync:event', {
+          type: 'done',
+          success: true,
+          score: result.score,
+          output: params.out
+        })
+      } else {
+        event.sender.send('sync:event', {
+          type: 'done',
+          success: false,
+          score: null
+        })
+      }
       activeSyncEngine = null
       return { success: result.success }
     } catch (e: any) {
