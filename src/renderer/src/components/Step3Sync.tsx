@@ -268,14 +268,20 @@ export const Step3Sync: React.FC<Step3SyncProps> = ({
           </button>
         )}
 
-        {lastOutputDir && onPreview && (
+        {onPreview && (
           <button
             type="button"
             onClick={onPreview}
-            className="py-3 px-4 rounded-xl border-2 border-emerald-300 bg-emerald-50/80 hover:bg-emerald-100 text-emerald-800 dark:border-emerald-800/80 dark:bg-emerald-950/30 dark:hover:bg-emerald-900/40 dark:text-emerald-300 font-bold text-xs flex items-center gap-2 transition-colors shrink-0 shadow-2xs cursor-pointer"
-            title="Preview synchronized subtitle lines"
+            disabled={!lastOutputDir}
+            className={`py-3 px-4 rounded-xl border-2 font-bold text-xs flex items-center gap-2 transition-all shrink-0 shadow-2xs ${
+              lastOutputDir
+                ? 'border-emerald-400 bg-emerald-50 hover:bg-emerald-100 text-emerald-900 dark:border-emerald-700 dark:bg-emerald-950/40 dark:hover:bg-emerald-900/50 dark:text-emerald-200 cursor-pointer shadow-emerald-500/10 hover:scale-[1.01]'
+                : 'border-slate-200 bg-slate-50 text-slate-400 dark:border-slate-800 dark:bg-slate-900/40 dark:text-slate-600 cursor-not-allowed opacity-60'
+            }`}
+            title={lastOutputDir ? 'Preview synchronized subtitle lines' : 'Preview will be available once synchronization completes'}
           >
-            <Eye className="w-4 h-4 text-emerald-600 dark:text-emerald-400" /> Preview Subtitle
+            <Eye className={`w-4 h-4 ${lastOutputDir ? 'text-emerald-600 dark:text-emerald-400' : 'text-slate-400 dark:text-slate-600'}`} />
+            Preview Subtitle
           </button>
         )}
 

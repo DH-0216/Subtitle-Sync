@@ -149,14 +149,20 @@ export const Step3Generate: React.FC<Step3GenerateProps> = ({
           </button>
         )}
 
-        {lastOutputDir && onPreview && (
+        {onPreview && (
           <button
             type="button"
             onClick={onPreview}
-            className="py-3 px-4 rounded-xl border-2 border-purple-300 bg-purple-50/80 hover:bg-purple-100 text-purple-900 dark:border-purple-800/80 dark:bg-purple-950/30 dark:hover:bg-purple-900/40 dark:text-purple-300 font-bold text-xs flex items-center gap-2 transition-colors shrink-0 shadow-2xs cursor-pointer"
-            title="Preview generated subtitle lines"
+            disabled={!lastOutputDir}
+            className={`py-3 px-4 rounded-xl border-2 font-bold text-xs flex items-center gap-2 transition-all shrink-0 shadow-2xs ${
+              lastOutputDir
+                ? 'border-purple-400 bg-purple-50 hover:bg-purple-100 text-purple-900 dark:border-purple-700 dark:bg-purple-950/40 dark:hover:bg-purple-900/50 dark:text-purple-200 cursor-pointer shadow-purple-500/10 hover:scale-[1.01]'
+                : 'border-slate-200 bg-slate-50 text-slate-400 dark:border-slate-800 dark:bg-slate-900/40 dark:text-slate-600 cursor-not-allowed opacity-60'
+            }`}
+            title={lastOutputDir ? 'Preview generated subtitle lines' : 'Preview will be available once subtitles are generated'}
           >
-            <Eye className="w-4 h-4 text-purple-600 dark:text-purple-400" /> Preview Subtitle
+            <Eye className={`w-4 h-4 ${lastOutputDir ? 'text-purple-600 dark:text-purple-400' : 'text-slate-400 dark:text-slate-600'}`} />
+            Preview Subtitle
           </button>
         )}
 
