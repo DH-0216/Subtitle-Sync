@@ -195,8 +195,33 @@ app.whenReady().then(() => {
 
   ipcMain.handle('shell:showItemInFolder', async (_event, fullPath: string) => {
     if (fullPath && fs.existsSync(fullPath)) {
-      shell.showItemInFolder(fullPath)
-      return true
+      try {
+        const stat = fs.statSync(fullPath)
+        if (stat.isDirectory()) {
+          // Open directly INSIDE the directory
+          await shell.openPath(fullPath)
+          return true
+        }
+        shell.showItemInFolder(fullPath)
+        return true
+      } catch (e) {
+        shell.showItemInFolder(fullPath)
+        return true
+      }
+    }
+    return false
+  })
+
+  ipcMain.handle('shell:openPath', async (_event, targetPath: string) => {
+    if (targetPath && fs.existsSync(targetPath)) {
+      try {
+        const stat = fs.statSync(targetPath)
+        const folder = stat.isDirectory() ? targetPath : join(targetPath, '..')
+        await shell.openPath(folder)
+        return true
+      } catch (e) {
+        return false
+      }
     }
     return false
   })

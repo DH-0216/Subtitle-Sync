@@ -717,8 +717,23 @@ export async function executeSubtitleGeneration(
     onEvent({ type: 'status', message: 'Running Whisper AI transcription...' })
     onEvent({ type: 'progress', percent: 10, message: 'Starting Whisper AI transcription...' })
 
+    // Determine language label for output file naming (.english, .sinhala, .original)
+    const getLanguageSlug = (lang: string): string => {
+      if (lang === 'si') return 'sinhala'
+      if (lang === 'en') return 'english'
+      if (lang === 'original') return 'original'
+      return lang.toLowerCase()
+    }
+
+    const langSlug = getLanguageSlug(language)
+
     // Step 2: Run Whisper with maximum CPU threads and performance flags
-    const outBase = video.replace(/\.[^/.]+$/, `.generated`)
+    // For Sinhala, Whisper creates a temporary English translation bridge file first.
+    // For English or Original, Whisper outputs directly with the language name.
+    const outBase = language === 'si'
+      ? video.replace(/\.[^/.]+$/, `.temp_en.generated`)
+      : video.replace(/\.[^/.]+$/, `.${langSlug}.generated`)
+
     const generatedSrt = `${outBase}.srt`
     activeCreatedFiles.add(generatedSrt)
     const cpuThreads = Math.max(1, Math.min(os.cpus().length, 16))
@@ -944,6 +959,19 @@ export async function executeSubtitleGeneration(
         activeCreatedFiles.add(finalSrtPath)
         fs.writeFileSync(finalSrtPath, finalSinhalaSrt, 'utf-8')
         onEvent({ type: 'log', message: `[AI TRANSLATION] Translated subtitle saved: ${finalSrtPath}` })
+
+        // Clean up the temporary intermediate bridge file now that final Sinhala file is saved
+        if (fs.existsSync(generatedSrt)) {
+          try {
+            fs.unlinkSync(generatedSrt)
+          } catch (cleanupErr: any) {
+            onEvent({
+              type: 'log',
+              message: `[MEDIA] Notice: Could not remove temporary bridge file (${cleanupErr?.message || 'File in use by OS'})`
+            })
+          }
+        }
+        activeCreatedFiles.delete(generatedSrt)
       } catch (err: any) {
         if (isGenerationCancelled) {
           throw err

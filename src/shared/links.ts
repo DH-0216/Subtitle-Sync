@@ -40,8 +40,8 @@ export function getGeminiVerifyUrl(apiKey: string): string {
 
 /**
  * Construct Google Gemini generate content URL for AI translation
- * Defaults to stable high-availability Gemini 2.5 Flash with automatic multi-model fallback support
+ * Defaults to Gemini 3.8 Flash with automatic multi-model fallback support
  */
-export function getGeminiGenerateUrl(apiKey: string, model: string = 'gemini-2.5-flash'): string {
+export function getGeminiGenerateUrl(apiKey: string, model: string = 'gemini-3.8-flash'): string {
   return `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`
 }

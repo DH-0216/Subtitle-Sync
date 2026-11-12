@@ -642,7 +642,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                         setVerifyStatus(null)
                         setAvailableModels([])
                         if (newProvider === 'gemini') {
-                          setDraftModel('gemini-2.5-flash')
+                          setDraftModel('gemini-3.8-flash')
                         } else {
                           setDraftModel('gpt-4o-mini')
                         }
@@ -780,7 +780,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                             <span>{isLoadingModels ? 'Fetching...' : 'Fetch Models'}</span>
                           </button>
                           <span className="text-[11px] text-slate-400 font-normal">
-                            {draftProvider === 'gemini' ? 'Gemini 2.5 Flash recommended' : 'GPT-4o mini recommended'}
+                            {draftProvider === 'gemini' ? 'Gemini 3.8 Flash recommended' : 'GPT-4o mini recommended'}
                           </span>
                         </div>
                       </div>
@@ -803,11 +803,11 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                           </>
                         ) : draftProvider === 'gemini' ? (
                           <>
-                            <option value="gemini-2.5-flash">Gemini 2.5 Flash (Recommended — High Capacity & Reliable)</option>
-                            <option value="gemini-2.0-flash">Gemini 2.0 Flash (Fast & Stable)</option>
-                            <option value="gemini-1.5-flash">Gemini 1.5 Flash</option>
-                            <option value="gemini-3.8-flash">Gemini 3.8 Flash (High demand preview)</option>
+                            <option value="gemini-3.8-flash">Gemini 3.8 Flash (Recommended — Fastest & Best Quality)</option>
                             <option value="gemini-3.5-flash">Gemini 3.5 Flash</option>
+                            <option value="gemini-2.5-flash">Gemini 2.5 Flash</option>
+                            <option value="gemini-2.0-flash">Gemini 2.0 Flash</option>
+                            <option value="gemini-1.5-flash">Gemini 1.5 Flash</option>
                             <option value="auto">Auto-detect best available model</option>
                           </>
                         ) : (

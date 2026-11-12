@@ -7,6 +7,7 @@ const api = {
   },
   shell: {
     showItemInFolder: (path: string) => ipcRenderer.invoke('shell:showItemInFolder', path),
+    openPath: (path: string) => ipcRenderer.invoke('shell:openPath', path),
     openExternal: (url: string) => ipcRenderer.invoke('shell:openExternal', url)
   },
   settings: {

@@ -25,7 +25,7 @@ export default function App() {
   const [engineReady, setEngineReady] = useState(false)
   const [aiApiKey, setAiApiKey] = useState('')
   const [aiProvider, setAiProvider] = useState<'gemini' | 'openai'>('gemini')
-  const [aiModel, setAiModel] = useState('gemini-2.5-flash')
+  const [aiModel, setAiModel] = useState('gemini-3.8-flash')
   const [aiPrompt, setAiPrompt] = useState(DEFAULT_AI_PROMPT)
 
   // Modals
@@ -648,10 +648,57 @@ export default function App() {
     }
   }
 
-  const handleOpenFolder = () => {
-    if (lastOutputDir) {
-      window.api.shell.showItemInFolder(lastOutputDir)
+  const handleOpenFolder = async () => {
+    // 1. If generated / synced output file exists, open INSIDE containing folder and highlight it
+    if (lastOutputFile && window.api?.shell?.showItemInFolder) {
+      const opened = await window.api.shell.showItemInFolder(lastOutputFile)
+      if (opened) return
     }
+
+    // 2. If output directory is recorded, open directly INSIDE that folder
+    if (lastOutputDir) {
+      if (window.api?.shell?.openPath) {
+        const opened = await window.api.shell.openPath(lastOutputDir)
+        if (opened) return
+      } else if (window.api?.shell?.showItemInFolder) {
+        const opened = await window.api.shell.showItemInFolder(lastOutputDir)
+        if (opened) return
+      }
+    }
+
+    // 3. If user selected a subtitle in Step 2, open INSIDE the folder where that original subtitle is located
+    if (subtitles.length > 0 && subtitles[0]?.path) {
+      if (window.api?.shell?.showItemInFolder) {
+        const opened = await window.api.shell.showItemInFolder(subtitles[0].path)
+        if (opened) return
+      }
+      const subFolder = subtitles[0].path.substring(
+        0,
+        Math.max(subtitles[0].path.lastIndexOf('/'), subtitles[0].path.lastIndexOf('\\'))
+      )
+      if (subFolder && window.api?.shell?.openPath) {
+        const opened = await window.api.shell.openPath(subFolder)
+        if (opened) return
+      }
+    }
+
+    // 4. Fallback: If movie video exists, open INSIDE the folder where the movie is located
+    if (videoPath) {
+      if (window.api?.shell?.showItemInFolder) {
+        const opened = await window.api.shell.showItemInFolder(videoPath)
+        if (opened) return
+      }
+      const vidFolder = videoPath.substring(
+        0,
+        Math.max(videoPath.lastIndexOf('/'), videoPath.lastIndexOf('\\'))
+      )
+      if (vidFolder && window.api?.shell?.openPath) {
+        const opened = await window.api.shell.openPath(vidFolder)
+        if (opened) return
+      }
+    }
+
+    toast.error('No folder or subtitle selected yet.')
   }
 
   const handleSaveSettings = () => {
@@ -744,6 +791,7 @@ export default function App() {
             onChangeConfig={(newCfg) =>
               setGenerateConfig((prev) => ({ ...prev, ...newCfg }))
             }
+            isOnline={isOnline}
           />
         )}
 
@@ -811,17 +859,25 @@ export default function App() {
 
           <button
             onClick={handleOpenFolder}
-            disabled={!lastOutputDir}
+            disabled={!lastOutputDir && subtitles.length === 0 && !videoPath}
             className={`flex items-center gap-2 px-3.5 py-1.5 rounded-lg border font-semibold text-xs transition-all duration-200 ${
-              lastOutputDir
+              lastOutputDir || subtitles.length > 0 || videoPath
                 ? 'border-blue-600 bg-blue-600 hover:bg-blue-500 text-white shadow-sm shadow-blue-600/30 dark:bg-blue-600/25 dark:hover:bg-blue-600/35 dark:border-blue-500/50 dark:text-blue-300 dark:hover:text-blue-100 cursor-pointer active:scale-98'
                 : 'border-blue-200/70 bg-blue-50/50 text-blue-900/40 dark:border-slate-800/80 dark:bg-[#111625]/60 dark:text-slate-500 cursor-not-allowed shadow-none'
             }`}
-            title={lastOutputDir ? 'Open folder containing synced subtitles' : 'No output folder available yet'}
+            title={
+              lastOutputDir
+                ? 'Open folder containing generated / synced subtitles'
+                : subtitles.length > 0
+                ? 'Open folder containing original selected subtitle'
+                : videoPath
+                ? 'Open folder containing selected movie'
+                : 'No movie or subtitle selected yet'
+            }
           >
             <FolderOpen
               className={`w-3.5 h-3.5 ${
-                lastOutputDir
+                lastOutputDir || subtitles.length > 0 || videoPath
                   ? 'text-white dark:text-blue-400'
                   : 'text-blue-900/35 dark:text-slate-500'
               }`}

@@ -5,6 +5,7 @@ export interface IElectronAPI {
   }
   shell: {
     showItemInFolder: (path: string) => Promise<boolean>
+    openPath: (path: string) => Promise<boolean>
     openExternal: (url: string) => Promise<boolean>
   }
   settings: {

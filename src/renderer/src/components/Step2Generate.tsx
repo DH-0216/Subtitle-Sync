@@ -15,6 +15,7 @@ interface Step2GenerateProps {
   onSelectTrack: (trackIndex: number) => void
   config: GenerateConfig
   onChangeConfig: (newConfig: Partial<GenerateConfig>) => void
+  isOnline?: boolean
 }
 
 export const Step2Generate: React.FC<Step2GenerateProps> = ({
@@ -23,7 +24,8 @@ export const Step2Generate: React.FC<Step2GenerateProps> = ({
   audioTracks,
   onSelectTrack,
   config,
-  onChangeConfig
+  onChangeConfig,
+  isOnline = true
 }) => {
   const [showAdvanced, setShowAdvanced] = useState(false)
 
@@ -32,9 +34,9 @@ export const Step2Generate: React.FC<Step2GenerateProps> = ({
   const currentTrackLang = currentTrack?.language ? currentTrack.language.toUpperCase() : 'Audio'
 
   const subtitleLanguages = [
-    { code: 'original', name: `Movie's Language (${currentTrackLang}) — Offline (No internet needed)` },
-    { code: 'en', name: 'English — Offline (No internet needed)' },
-    { code: 'si', name: 'Spoken Sinhala (කථන සිංහල) — AI Online Translation' }
+    { code: 'original', name: `Movie's Language (${currentTrackLang})` },
+    { code: 'en', name: 'English' },
+    { code: 'si', name: 'Spoken Sinhala (කථන සිංහල)' }
   ]
 
   return (
@@ -110,13 +112,16 @@ export const Step2Generate: React.FC<Step2GenerateProps> = ({
               </option>
             ))}
           </select>
-          {config.language === 'si' ? (
-            <p className="text-[11px] text-purple-600 dark:text-purple-400 font-medium">
-              Requires an active internet connection &amp; AI API Key (configured in Settings).
+          {config.language === 'si' && !isOnline ? (
+            <p className="text-[11px] text-rose-600 dark:text-rose-400 font-semibold flex items-center gap-1.5 pt-0.5">
+              <AlertCircle className="w-3.5 h-3.5 shrink-0 text-rose-500" />
+              <span>Requires an active internet connection &amp; AI API Key (configured in Settings).</span>
             </p>
           ) : (
             <p className="text-[11px] text-slate-500 dark:text-slate-400">
-              Generated 100% offline using local Whisper AI model on your computer.
+              {config.language === 'si'
+                ? 'Translates speech dialogue into natural spoken Sinhala using your configured AI model.'
+                : 'Generated 100% offline using local Whisper AI model on your computer.'}
             </p>
           )}
         </div>
