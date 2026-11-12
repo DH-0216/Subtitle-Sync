@@ -369,11 +369,14 @@ app.whenReady().then(() => {
   ipcMain.handle('engine:checkBinaries', () => {
     const ffmpeg = findBinary('ffmpeg')
     const ffsubsync = findBinary('ffsubsync')
+    const whisper = getWhisperBinary()
     return {
       ffmpegReady: Boolean(ffmpeg),
       ffsubsyncReady: Boolean(ffsubsync),
+      whisperReady: Boolean(whisper),
       ffmpegPath: ffmpeg,
-      ffsubsyncPath: ffsubsync
+      ffsubsyncPath: ffsubsync,
+      whisperPath: whisper
     }
   })
 

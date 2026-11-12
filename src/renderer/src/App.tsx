@@ -169,17 +169,19 @@ export default function App() {
 
     window.api?.engine?.checkBinaries().then((res: any) => {
       if (res) {
-        const isReady = res.ffmpegReady && res.ffsubsyncReady
+        const isReady = res.ffmpegReady && res.ffsubsyncReady && res.whisperReady
         setEngineReady(isReady)
         if (isReady) {
           setLogs((prev) => [
             ...prev,
             `[ENGINE] FFmpeg detected: ${res.ffmpegPath}`,
-            `[ENGINE] ffsubsync detected: ${res.ffsubsyncPath}`
+            `[ENGINE] ffsubsync detected: ${res.ffsubsyncPath}`,
+            `[ENGINE] Whisper AI detected: ${res.whisperPath}`
           ])
         } else {
           if (!res.ffmpegReady) setLogs((prev) => [...prev, '[WARNING] ffmpeg.exe missing from bin/ folder.'])
           if (!res.ffsubsyncReady) setLogs((prev) => [...prev, '[WARNING] ffsubsync.exe missing from bin/ folder.'])
+          if (!res.whisperReady) setLogs((prev) => [...prev, '[WARNING] whisper.exe missing from bin/ folder.'])
         }
       }
     })

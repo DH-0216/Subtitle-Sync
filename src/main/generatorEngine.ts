@@ -1,5 +1,5 @@
 import { app } from 'electron'
-import { join } from 'path'
+import { join, dirname } from 'path'
 import * as fs from 'fs'
 import * as os from 'os'
 import * as https from 'https'
@@ -83,13 +83,39 @@ export function getModelsDir(): string {
 
 export function getWhisperModelPath(quality: string): string | null {
   const modelName = `ggml-${quality}.bin`
-  const locations = [
-    join(getModelsDir(), modelName),
-    join(app.getAppPath(), 'bin', 'models', modelName),
-    join(app.getAppPath(), 'bin', modelName),
-    join(process.resourcesPath, 'bin', 'models', modelName),
-    join(process.resourcesPath, 'bin', modelName)
+  const locations: string[] = [
+    join(getModelsDir(), modelName)
   ]
+
+  if (process.resourcesPath) {
+    locations.push(join(process.resourcesPath, 'bin', 'models', modelName))
+    locations.push(join(process.resourcesPath, 'bin', modelName))
+    locations.push(join(process.resourcesPath, 'models', modelName))
+  }
+
+  try {
+    const exeDir = dirname(app.getPath('exe'))
+    locations.push(join(exeDir, 'bin', 'models', modelName))
+    locations.push(join(exeDir, 'bin', modelName))
+    locations.push(join(exeDir, 'models', modelName))
+  } catch {}
+
+  const portableDir = process.env.PORTABLE_EXECUTABLE_DIR
+  if (portableDir) {
+    locations.push(join(portableDir, 'bin', 'models', modelName))
+    locations.push(join(portableDir, 'bin', modelName))
+    locations.push(join(portableDir, 'models', modelName))
+  }
+
+  try {
+    locations.push(join(app.getAppPath(), 'bin', 'models', modelName))
+    locations.push(join(app.getAppPath(), 'bin', modelName))
+    locations.push(join(app.getAppPath(), 'models', modelName))
+  } catch {}
+
+  locations.push(join(process.cwd(), 'bin', 'models', modelName))
+  locations.push(join(process.cwd(), 'bin', modelName))
+  locations.push(join(process.cwd(), 'models', modelName))
 
   for (const loc of locations) {
     if (fs.existsSync(loc)) {
@@ -696,7 +722,20 @@ export async function executeSubtitleGeneration(
         tempWav
       ]
 
-      const proc = spawn(ffmpeg, ffmpegArgs, { windowsHide: true })
+      const ffmpegDir = dirname(ffmpeg)
+      const augmentedPath = [
+        ffmpegDir,
+        process.env.PATH || ''
+      ].filter(Boolean).join(process.platform === 'win32' ? ';' : ':')
+
+      const proc = spawn(ffmpeg, ffmpegArgs, {
+        windowsHide: true,
+        cwd: ffmpegDir,
+        env: {
+          ...process.env,
+          PATH: augmentedPath
+        }
+      })
       activeGeneratorProcess = proc
 
       proc.on('close', (code) => {
@@ -801,7 +840,22 @@ export async function executeSubtitleGeneration(
         message: `[WHISPER] Command (${cpuThreads} threads, fast-beam=2, anti-loop ctx=0, no-fallback): ${whisper} ${whisperArgs.join(' ')}`
       })
 
-      const proc = spawn(whisper, whisperArgs, { windowsHide: true })
+      const whisperDir = dirname(whisper)
+      const ffmpegDir = dirname(ffmpeg)
+      const augmentedPath = [
+        whisperDir,
+        ffmpegDir,
+        process.env.PATH || ''
+      ].filter(Boolean).join(process.platform === 'win32' ? ';' : ':')
+
+      const proc = spawn(whisper, whisperArgs, {
+        windowsHide: true,
+        cwd: whisperDir,
+        env: {
+          ...process.env,
+          PATH: augmentedPath
+        }
+      })
       activeGeneratorProcess = proc
 
       // Mapping Whisper progress: 10% -> 75% if Sinhala translation follows, or 10% -> 95% if direct output

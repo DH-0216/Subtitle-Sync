@@ -28,17 +28,32 @@ export function findBinary(name: string): string | null {
 
   const searchLocations: string[] = []
 
-  // 1. Packaged resources path
-  if (app.isPackaged) {
+  // 1. Packaged resources path & execution directories (Installer, Unpacked, Portable)
+  if (process.resourcesPath) {
     searchLocations.push(join(process.resourcesPath, 'bin', exeName))
     searchLocations.push(join(process.resourcesPath, exeName))
-    searchLocations.push(join(dirname(app.getPath('exe')), 'bin', exeName))
-    searchLocations.push(join(dirname(app.getPath('exe')), exeName))
   }
 
-  // 2. Local workspace bin folder
-  searchLocations.push(join(app.getAppPath(), 'bin', exeName))
+  try {
+    const exeDir = dirname(app.getPath('exe'))
+    searchLocations.push(join(exeDir, 'bin', exeName))
+    searchLocations.push(join(exeDir, 'resources', 'bin', exeName))
+    searchLocations.push(join(exeDir, exeName))
+  } catch {}
+
+  const portableDir = process.env.PORTABLE_EXECUTABLE_DIR
+  if (portableDir) {
+    searchLocations.push(join(portableDir, 'bin', exeName))
+    searchLocations.push(join(portableDir, 'resources', 'bin', exeName))
+    searchLocations.push(join(portableDir, exeName))
+  }
+
+  // 2. Local workspace / dev mode bin folder
+  try {
+    searchLocations.push(join(app.getAppPath(), 'bin', exeName))
+  } catch {}
   searchLocations.push(join(__dirname, '../../bin', exeName))
+  searchLocations.push(join(process.cwd(), 'bin', exeName))
 
   // 3. Common Windows paths
   if (process.platform === 'win32') {
@@ -230,7 +245,20 @@ function formatDuration(sec: number): string {
 
 function runProcessCapture(bin: string, args: string[], captureStderr = false): Promise<string> {
   return new Promise((resolve, reject) => {
-    const proc = spawn(bin, args, { windowsHide: true })
+    const binDir = dirname(bin)
+    const augmentedPath = [
+      binDir,
+      process.env.PATH || ''
+    ].filter(Boolean).join(process.platform === 'win32' ? ';' : ':')
+
+    const proc = spawn(bin, args, {
+      windowsHide: true,
+      cwd: binDir,
+      env: {
+        ...process.env,
+        PATH: augmentedPath
+      }
+    })
     let stdout = ''
     let stderr = ''
 

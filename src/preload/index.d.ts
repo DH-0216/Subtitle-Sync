@@ -32,8 +32,10 @@ export interface IElectronAPI {
     checkBinaries: () => Promise<{
       ffmpegReady: boolean
       ffsubsyncReady: boolean
+      whisperReady: boolean
       ffmpegPath: string | null
       ffsubsyncPath: string | null
+      whisperPath: string | null
     }>
     probe: (videoPath: string) => Promise<{
       tracks: Array<{

@@ -5,8 +5,8 @@
 import { spawn, ChildProcess } from 'child_process'
 import * as fs from 'fs'
 import * as os from 'os'
-import { join } from 'path'
-import { getFfsubsyncPath } from './media'
+import { join, dirname } from 'path'
+import { getFfsubsyncPath, getFfmpegPath } from './media'
 import { parseSrt } from './srtTools'
 
 export interface SyncOptions {
@@ -78,11 +78,25 @@ export class SyncEngine {
       }
 
       const ffsubsync = getFfsubsyncPath()
+      const ffmpeg = getFfmpegPath()
+      const binDir = dirname(ffsubsync)
+      const ffmpegDir = dirname(ffmpeg)
+      const augmentedPath = [
+        binDir,
+        ffmpegDir,
+        process.env.PATH || ''
+      ].filter(Boolean).join(process.platform === 'win32' ? ';' : ':')
+
       const args = this.buildArgs(video, sub, out, extra)
 
       const proc = spawn(ffsubsync, args, {
         windowsHide: true,
-        env: { ...process.env, PYTHONIOENCODING: 'utf-8' }
+        cwd: binDir,
+        env: {
+          ...process.env,
+          PYTHONIOENCODING: 'utf-8',
+          PATH: augmentedPath
+        }
       })
       this.currentProc = proc
 
