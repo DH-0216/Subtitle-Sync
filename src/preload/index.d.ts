@@ -11,6 +11,13 @@ export interface IElectronAPI {
     load: () => Promise<any>
     save: (settings: any) => Promise<boolean>
   }
+  clipboard: {
+    readText: () => Promise<string>
+    writeText: (text: string) => Promise<void>
+  }
+  ai: {
+    verifyKey: (provider: 'gemini' | 'openai', apiKey: string) => Promise<{ valid: boolean; message: string }>
+  }
   engine: {
     checkBinaries: () => Promise<{
       ffmpegReady: boolean
@@ -42,6 +49,19 @@ export interface IElectronAPI {
       lines?: number
       span?: string
     } | null>
+    previewSubtitle: (subPath: string, maxCues?: number) => Promise<{
+      fileName: string
+      fullPath: string
+      totalCues: number
+      cues: Array<{
+        index: number
+        startMs: number
+        endMs: number
+        text: string
+      }>
+      rawSample?: string
+      error?: string
+    } | null>
     recommend: (videoPath: string, subPath: string) => Promise<{
       mode: 'Standard' | 'Smart' | 'Split sync'
       title: string
@@ -58,6 +78,20 @@ export interface IElectronAPI {
     }) => Promise<{ success: boolean }>
     cancelSync: () => Promise<boolean>
     onEvent: (callback: (data: any) => void) => () => void
+  }
+  generator: {
+    checkModel: (quality: string) => Promise<{ exists: boolean; path: string | null }>
+    checkWhisper: () => Promise<{ exists: boolean; path: string | null }>
+    downloadModel: (quality: string) => Promise<{ success: boolean; path?: string; error?: string }>
+    cancelDownload: () => Promise<boolean>
+    startGenerate: (params: any) => Promise<{ success: boolean; output?: string; message?: string }>
+    cancelGenerate: () => Promise<boolean>
+    onDownloadProgress: (callback: (data: {
+      percent: number
+      downloaded: number
+      total: number
+      speed: string
+    }) => void) => () => void
   }
 }
 

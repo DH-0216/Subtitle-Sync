@@ -1,5 +1,5 @@
 import React, { useState } from 'react'
-import { FileText, Plus, Trash2, CheckCircle2, X } from 'lucide-react'
+import { FileText, Plus, Trash2, CheckCircle2, X, Eye } from 'lucide-react'
 
 export interface SubtitleItem {
   id: string
@@ -18,6 +18,7 @@ interface Step2SubtitlesProps {
   onRemove: (id: string) => void
   onClearAll: () => void
   onDropFiles: (paths: string[]) => void
+  onPreview?: (path: string) => void
 }
 
 export const Step2Subtitles: React.FC<Step2SubtitlesProps> = ({
@@ -25,7 +26,8 @@ export const Step2Subtitles: React.FC<Step2SubtitlesProps> = ({
   onBrowse,
   onRemove,
   onClearAll,
-  onDropFiles
+  onDropFiles,
+  onPreview
 }) => {
   const [isDragOver, setIsDragOver] = useState(false)
 
@@ -145,13 +147,24 @@ export const Step2Subtitles: React.FC<Step2SubtitlesProps> = ({
                   </div>
                 </div>
 
-                <button
-                  onClick={() => onRemove(sub.id)}
-                  className="p-1.5 rounded-lg text-slate-400 hover:text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-500/10 transition-colors"
-                  title="Remove subtitle"
-                >
-                  <X className="w-4 h-4" />
-                </button>
+                <div className="flex items-center gap-1 shrink-0">
+                  {onPreview && (
+                    <button
+                      onClick={() => onPreview(sub.path)}
+                      className="p-1.5 rounded-lg text-slate-400 hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-500/10 transition-colors cursor-pointer"
+                      title="Preview subtitle cues"
+                    >
+                      <Eye className="w-4 h-4" />
+                    </button>
+                  )}
+                  <button
+                    onClick={() => onRemove(sub.id)}
+                    className="p-1.5 rounded-lg text-slate-400 hover:text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-500/10 transition-colors cursor-pointer"
+                    title="Remove subtitle"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
               </div>
             ))}
           </div>

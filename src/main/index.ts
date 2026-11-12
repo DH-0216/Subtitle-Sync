@@ -1,10 +1,18 @@
-import { app, shell, BrowserWindow, ipcMain, dialog } from 'electron'
-import { join } from 'path'
+import { app, shell, BrowserWindow, ipcMain, dialog, safeStorage, Menu, MenuItem, clipboard } from 'electron'
+import { join, basename } from 'path'
 import * as fs from 'fs'
 import { probeVideoFile, findBinary, getSubtitleSyncDetails } from './media'
 import { SyncEngine } from './syncEngine'
 import { parseSrt } from './srtTools'
 import { analyzeRecommendation } from './recommender'
+import {
+  getWhisperModelPath,
+  getWhisperBinary,
+  downloadWhisperModel,
+  cancelModelDownload,
+  executeSubtitleGeneration,
+  cancelSubtitleGeneration
+} from './generatorEngine'
 
 let mainWindow: BrowserWindow | null = null
 let activeSyncEngine: SyncEngine | null = null
@@ -13,10 +21,49 @@ let activeSyncEngine: SyncEngine | null = null
 const settingsDir = app.getPath('userData')
 const settingsFile = join(settingsDir, 'settings.json')
 
+function encryptSecret(plainText: string): string {
+  if (!plainText || typeof plainText !== 'string') return ''
+  try {
+    if (safeStorage.isEncryptionAvailable()) {
+      const encrypted = safeStorage.encryptString(plainText)
+      return encrypted.toString('base64')
+    }
+  } catch (err) {
+    console.error('Failed to encrypt secret with DPAPI:', err)
+  }
+  return plainText
+}
+
+function decryptSecret(cipherText: string): string {
+  if (!cipherText || typeof cipherText !== 'string') return ''
+  try {
+    if (safeStorage.isEncryptionAvailable()) {
+      const buffer = Buffer.from(cipherText, 'base64')
+      return safeStorage.decryptString(buffer)
+    }
+  } catch (err) {
+    // If decryption fails (e.g. legacy plain text), fallback to raw
+    return cipherText
+  }
+  return cipherText
+}
+
 function loadSettings() {
   try {
     if (fs.existsSync(settingsFile)) {
-      return JSON.parse(fs.readFileSync(settingsFile, 'utf-8'))
+      const raw = JSON.parse(fs.readFileSync(settingsFile, 'utf-8'))
+      const settings = { ...raw }
+
+      // Decrypt encrypted API key if present
+      if (settings.aiApiKeyEncrypted) {
+        settings.aiApiKey = decryptSecret(settings.aiApiKeyEncrypted)
+        delete settings.aiApiKeyEncrypted
+      } else if (settings.aiApiKey) {
+        // Automatically migrate legacy plain-text key to encrypted format on disk
+        saveSettings(settings)
+      }
+
+      return settings
     }
   } catch (e) {
     console.error('Failed to load settings:', e)
@@ -29,7 +76,16 @@ function saveSettings(settings: any) {
     if (!fs.existsSync(settingsDir)) {
       fs.mkdirSync(settingsDir, { recursive: true })
     }
-    fs.writeFileSync(settingsFile, JSON.stringify(settings, null, 2), 'utf-8')
+
+    const toSave = { ...settings }
+
+    // Encrypt sensitive API key using OS DPAPI before writing to disk
+    if (toSave.aiApiKey) {
+      toSave.aiApiKeyEncrypted = encryptSecret(toSave.aiApiKey)
+      delete toSave.aiApiKey // Remove plain-text key from disk JSON
+    }
+
+    fs.writeFileSync(settingsFile, JSON.stringify(toSave, null, 2), 'utf-8')
     return true
   } catch (e) {
     console.error('Failed to save settings:', e)
@@ -53,6 +109,41 @@ function createWindow(): void {
       preload: join(__dirname, '../preload/index.js'),
       sandbox: false,
       contextIsolation: true
+    }
+  })
+
+  // Set application edit menu for standard keyboard shortcuts (Ctrl+A, Ctrl+C, Ctrl+V, Ctrl+X, Ctrl+Z)
+  const template: Electron.MenuItemConstructorOptions[] = [
+    {
+      label: 'Edit',
+      submenu: [
+        { role: 'undo' },
+        { role: 'redo' },
+        { type: 'separator' },
+        { role: 'cut' },
+        { role: 'copy' },
+        { role: 'paste' },
+        { role: 'selectAll' }
+      ]
+    }
+  ]
+  const appMenu = Menu.buildFromTemplate(template)
+  Menu.setApplicationMenu(appMenu)
+
+  // Context Menu for right-click on input, textarea, and selectable text
+  mainWindow.webContents.on('context-menu', (_event, params) => {
+    const contextMenu = new Menu()
+    if (params.isEditable) {
+      contextMenu.append(new MenuItem({ label: 'Cut', role: 'cut', accelerator: 'CmdOrCtrl+X' }))
+      contextMenu.append(new MenuItem({ label: 'Copy', role: 'copy', accelerator: 'CmdOrCtrl+C' }))
+      contextMenu.append(new MenuItem({ label: 'Paste', role: 'paste', accelerator: 'CmdOrCtrl+V' }))
+      contextMenu.append(new MenuItem({ type: 'separator' }))
+      contextMenu.append(new MenuItem({ label: 'Select All', role: 'selectAll', accelerator: 'CmdOrCtrl+A' }))
+      contextMenu.popup()
+    } else if (params.selectionText && params.selectionText.trim().length > 0) {
+      contextMenu.append(new MenuItem({ label: 'Copy', role: 'copy', accelerator: 'CmdOrCtrl+C' }))
+      contextMenu.append(new MenuItem({ label: 'Select All', role: 'selectAll', accelerator: 'CmdOrCtrl+A' }))
+      contextMenu.popup()
     }
   })
 
@@ -120,6 +211,44 @@ app.whenReady().then(() => {
   ipcMain.handle('settings:load', () => loadSettings())
   ipcMain.handle('settings:save', (_event, settings) => saveSettings(settings))
 
+  // IPC: Clipboard
+  ipcMain.handle('clipboard:readText', () => clipboard.readText())
+  ipcMain.handle('clipboard:writeText', (_event, text: string) => clipboard.writeText(text))
+
+  // IPC: Verify AI API Key
+  ipcMain.handle('ai:verifyKey', async (_event, { provider, apiKey }: { provider: 'gemini' | 'openai'; apiKey: string }) => {
+    if (!apiKey || !apiKey.trim()) {
+      return { valid: false, message: 'Please enter an API Key first.' }
+    }
+    const cleanKey = apiKey.trim()
+
+    try {
+      if (provider === 'gemini') {
+        const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash?key=${cleanKey}`
+        const res = await fetch(url)
+        if (res.ok) {
+          return { valid: true, message: 'Gemini API Key is valid and active!' }
+        }
+        const data = await res.json().catch(() => null)
+        const errMsg = data?.error?.message || `HTTP ${res.status}`
+        return { valid: false, message: `Invalid Gemini Key: ${errMsg}` }
+      } else {
+        const url = 'https://api.openai.com/v1/models'
+        const res = await fetch(url, {
+          headers: { Authorization: `Bearer ${cleanKey}` }
+        })
+        if (res.ok) {
+          return { valid: true, message: 'OpenAI API Key is valid and active!' }
+        }
+        const data = await res.json().catch(() => null)
+        const errMsg = data?.error?.message || `HTTP ${res.status}`
+        return { valid: false, message: `Invalid OpenAI Key: ${errMsg}` }
+      }
+    } catch (err: any) {
+      return { valid: false, message: `Connection error: ${err.message}` }
+    }
+  })
+
   // IPC: Check Binaries Status
   ipcMain.handle('engine:checkBinaries', () => {
     const ffmpeg = findBinary('ffmpeg')
@@ -154,6 +283,24 @@ app.whenReady().then(() => {
       }
     } catch (e) {
       return null
+    }
+  })
+
+  // IPC: Read subtitle preview cues
+  ipcMain.handle('subtitles:preview', async (_event, subPath: string, maxCues = 60) => {
+    try {
+      if (!fs.existsSync(subPath)) return null
+      const content = fs.readFileSync(subPath, 'utf-8')
+      const cues = parseSrt(content)
+      return {
+        fileName: basename(subPath),
+        fullPath: subPath,
+        totalCues: cues.length,
+        cues: cues.slice(0, maxCues),
+        rawSample: content.slice(0, 3000)
+      }
+    } catch (e: any) {
+      return { error: e.message }
     }
   })
 
@@ -238,6 +385,49 @@ app.whenReady().then(() => {
       return true
     }
     return false
+  })
+
+  // IPC: Generator Handlers
+  ipcMain.handle('generator:checkModel', (_event, quality: string) => {
+    const path = getWhisperModelPath(quality)
+    return { exists: Boolean(path), path }
+  })
+
+  ipcMain.handle('generator:checkWhisper', () => {
+    const path = getWhisperBinary()
+    return { exists: Boolean(path), path }
+  })
+
+  ipcMain.handle('generator:downloadModel', async (event, quality: string) => {
+    try {
+      const savedPath = await downloadWhisperModel(quality, (progressData) => {
+        event.sender.send('generator:downloadProgress', progressData)
+      })
+      return { success: true, path: savedPath }
+    } catch (e: any) {
+      return { success: false, error: e.message }
+    }
+  })
+
+  ipcMain.handle('generator:cancelDownload', () => {
+    cancelModelDownload()
+    return true
+  })
+
+  ipcMain.handle('generator:startGenerate', async (event, params) => {
+    try {
+      const result = await executeSubtitleGeneration(params, (data) => {
+        event.sender.send('sync:event', data)
+      })
+      return result
+    } catch (e: any) {
+      return { success: false, message: e.message }
+    }
+  })
+
+  ipcMain.handle('generator:cancelGenerate', () => {
+    cancelSubtitleGeneration()
+    return true
   })
 
   createWindow()

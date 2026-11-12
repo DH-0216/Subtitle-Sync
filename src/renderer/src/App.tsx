@@ -1,13 +1,19 @@
 import React, { useState, useEffect } from 'react'
 import { FolderOpen } from 'lucide-react'
+import toast, { Toaster } from 'react-hot-toast'
 import { Header } from './components/Header'
 import { Step1Video } from './components/Step1Video'
+import { SubtitleModeSelector, SubtitleAction } from './components/SubtitleModeSelector'
 import { Step2Subtitles, SubtitleItem } from './components/Step2Subtitles'
+import { Step2Generate, GenerateConfig } from './components/Step2Generate'
 import { Step3Sync, SyncMode } from './components/Step3Sync'
+import { Step3Generate } from './components/Step3Generate'
 import { ActivityConsole } from './components/ActivityConsole'
 import { AudioTrackModal } from './components/AudioTrackModal'
-import { SettingsModal } from './components/SettingsModal'
+import { SettingsModal, DEFAULT_AI_PROMPT } from './components/SettingsModal'
 import { AboutModal } from './components/AboutModal'
+import { SubtitlePreviewModal } from './components/SubtitlePreviewModal'
+import { ModelDownloadModal } from './components/ModelDownloadModal'
 
 export default function App() {
   // Theme & Preferences
@@ -15,13 +21,31 @@ export default function App() {
   const [defaultMode, setDefaultMode] = useState<SyncMode>('Standard')
   const [checkUpdates, setCheckUpdates] = useState(true)
   const [engineReady, setEngineReady] = useState(false)
+  const [aiApiKey, setAiApiKey] = useState('')
+  const [aiProvider, setAiProvider] = useState<'gemini' | 'openai'>('gemini')
+  const [aiPrompt, setAiPrompt] = useState(DEFAULT_AI_PROMPT)
 
   // Modals
   const [audioModalOpen, setAudioModalOpen] = useState(false)
   const [settingsModalOpen, setSettingsModalOpen] = useState(false)
+  const [settingsInitialTab, setSettingsInitialTab] = useState<'general' | 'ai'>('general')
   const [aboutModalOpen, setAboutModalOpen] = useState(false)
+  const [previewModalOpen, setPreviewModalOpen] = useState(false)
+  const [previewSubPath, setPreviewSubPath] = useState<string | null>(null)
+  const [downloadModalOpen, setDownloadModalOpen] = useState(false)
+  const [isDownloadingModel, setIsDownloadingModel] = useState(false)
+  const [modelDownloadProgress, setModelDownloadProgress] = useState(0)
+  const [modelDownloadSpeed, setModelDownloadSpeed] = useState('')
+  const [modelDownloadedBytes, setModelDownloadedBytes] = useState(0)
+  const [modelTotalBytes, setModelTotalBytes] = useState(0)
+  const [modelDownloadError, setModelDownloadError] = useState<string | null>(null)
 
-  const isAnyModalOpen = audioModalOpen || settingsModalOpen || aboutModalOpen
+  const isAnyModalOpen =
+    audioModalOpen ||
+    settingsModalOpen ||
+    aboutModalOpen ||
+    previewModalOpen ||
+    downloadModalOpen
 
   // Lock behind-window scroll whenever any modal (settings, audio track, about) is open
   useEffect(() => {
@@ -44,7 +68,20 @@ export default function App() {
   const [audioTracks, setAudioTracks] = useState<any[]>([])
   const [selectedTrack, setSelectedTrack] = useState<number | null>(null)
 
-  // Step 2: Subtitles
+  // Subtitle Workflow Mode (Sync Existing vs Generate)
+  const [subtitleAction, setSubtitleAction] = useState<SubtitleAction>('sync')
+
+  // Step 2 (Generate Mode): Generation Settings
+  const [generateConfig, setGenerateConfig] = useState<GenerateConfig>({
+    language: 'original',
+    modelQuality: 'small',
+    format: 'srt'
+  })
+  const [isGenerating, setIsGenerating] = useState(false)
+  const [generateProgress, setGenerateProgress] = useState(0)
+  const [generateStatusMessage, setGenerateStatusMessage] = useState('')
+
+  // Step 2 (Sync Mode): Subtitles
   const [subtitles, setSubtitles] = useState<SubtitleItem[]>([])
   const subtitlesRef = React.useRef<SubtitleItem[]>([])
   const currentSubIndexRef = React.useRef(0)
@@ -63,6 +100,7 @@ export default function App() {
   const [progress, setProgress] = useState(0)
   const [statusMessage, setStatusMessage] = useState('')
   const [lastOutputDir, setLastOutputDir] = useState<string | null>(null)
+  const [lastOutputFile, setLastOutputFile] = useState<string | null>(null)
 
   // Console Logs
   const [logs, setLogs] = useState<string[]>([])
@@ -95,6 +133,9 @@ export default function App() {
           setSyncMode(s.defaultMode)
         }
         if (s.checkUpdates !== undefined) setCheckUpdates(s.checkUpdates)
+        if (s.aiApiKey) setAiApiKey(s.aiApiKey)
+        if (s.aiProvider) setAiProvider(s.aiProvider)
+        if (s.aiPrompt) setAiPrompt(s.aiPrompt)
       }
     })
 
@@ -114,6 +155,20 @@ export default function App() {
         }
       }
     })
+  }, [])
+
+  // Listen to model download progress
+  useEffect(() => {
+    if (!window.api?.generator?.onDownloadProgress) return
+    const unsub = window.api.generator.onDownloadProgress((data: any) => {
+      setModelDownloadProgress(data.percent || 0)
+      setModelDownloadedBytes(data.downloaded || 0)
+      setModelTotalBytes(data.total || 0)
+      if (data.speed) {
+        setModelDownloadSpeed(data.speed)
+      }
+    })
+    return () => unsub()
   }, [])
 
   // Listen to background sync events
@@ -150,6 +205,7 @@ export default function App() {
               Math.max(event.output.lastIndexOf('/'), event.output.lastIndexOf('\\'))
             )
             setLastOutputDir(folder)
+            setLastOutputFile(event.output)
           }
         } else {
           setLogs((prev) => [...prev, '[ERROR] Synchronization pass failed.'])
@@ -290,17 +346,23 @@ export default function App() {
       })
       if (res?.success) {
         successCount++
+        setLastOutputFile(outPath)
       }
     }
 
     setProgress(100)
     setIsSyncing(false)
     if (successCount === subtitles.length) {
-      setStatusMessage(`All ${subtitles.length} subtitle(s) synchronized successfully!`)
+      const msg = `All ${subtitles.length} subtitle(s) synchronized successfully!`
+      setStatusMessage(msg)
+      toast.success(msg, { duration: 4000 })
     } else if (successCount > 0) {
-      setStatusMessage(`Completed: ${successCount}/${subtitles.length} synchronized.`)
+      const msg = `Completed: ${successCount}/${subtitles.length} synchronized.`
+      setStatusMessage(msg)
+      toast.success(msg, { duration: 4000 })
     } else {
       setStatusMessage('Synchronization failed.')
+      toast.error('Synchronization failed. Please check logs or try another sync mode.', { duration: 4000 })
     }
   }
 
@@ -308,7 +370,169 @@ export default function App() {
     await window.api.engine.cancelSync()
     setIsSyncing(false)
     setStatusMessage('Cancelled by user')
+    toast('Synchronization cancelled', { icon: '⏹️', duration: 2500 })
     setLogs((prev) => [...prev, '[USER] Synchronization cancelled.'])
+  }
+
+  const handleStartDownloadModel = async () => {
+    if (!window.api?.generator?.downloadModel) {
+      toast.error('Please restart the application (stop terminal and re-run npm run dev) to load backend!')
+      return
+    }
+
+    setIsDownloadingModel(true)
+    setModelDownloadError(null)
+    setModelDownloadProgress(0)
+
+    try {
+      const res = await window.api.generator.downloadModel(generateConfig.modelQuality)
+      setIsDownloadingModel(false)
+      if (res?.success) {
+        toast.success(`Whisper model (${generateConfig.modelQuality}) ready!`)
+        setDownloadModalOpen(false)
+        handleStartGenerate()
+      } else {
+        setModelDownloadError(res?.error || 'Failed to download model.')
+      }
+    } catch (err: any) {
+      setIsDownloadingModel(false)
+      setModelDownloadError(err.message || 'Download error occurred.')
+    }
+  }
+
+  const handleCancelDownloadModel = async () => {
+    if (window.api?.generator?.cancelDownload) {
+      await window.api.generator.cancelDownload()
+    }
+    setIsDownloadingModel(false)
+    setModelDownloadProgress(0)
+    toast('Model download cancelled')
+  }
+
+  // Start Generate Execution
+  const handleStartGenerate = async () => {
+    if (!videoPath) {
+      toast.error('Please select a reference movie in Step 1 first!')
+      return
+    }
+
+    if (!window.api?.generator?.startGenerate) {
+      toast.error('Backend updated! Please restart your terminal (Ctrl+C then "npm run dev") to activate!', {
+        duration: 6500,
+        icon: '🔄'
+      })
+      setLogs((prev) => [
+        ...prev,
+        '[NOTICE] New Electron main/preload backend code detected. Please restart your development server (Ctrl+C and npm run dev) to apply changes.'
+      ])
+      return
+    }
+
+    // Guard: Check AI API Key if target language is Spoken Sinhala
+    if (generateConfig.language === 'si' && !aiApiKey.trim()) {
+      toast.error('Please enter your AI API Key in Settings to translate subtitles into Spoken Sinhala!', {
+        duration: 5000,
+        icon: '🔑'
+      })
+      setSettingsInitialTab('ai')
+      setSettingsModalOpen(true)
+      return
+    }
+
+    // Check if Whisper model exists
+    try {
+      const modelCheck = await window.api.generator.checkModel(generateConfig.modelQuality)
+      if (!modelCheck?.exists) {
+        setDownloadModalOpen(true)
+        return
+      }
+    } catch (e) {
+      // ignore
+    }
+
+    // Check if Whisper binary exists
+    try {
+      const whisperCheck = await window.api.generator.checkWhisper()
+      if (!whisperCheck?.exists) {
+        toast.error('whisper.exe not found in bin/ folder. Please place whisper.exe into the bin/ directory.', {
+          duration: 6000,
+          icon: '⚠️'
+        })
+        setLogs((prev) => [
+          ...prev,
+          '[ERROR] whisper.exe (or whisper-cli.exe) not found in bin/. Please place the whisper executable into the bin/ directory.'
+        ])
+        return
+      }
+    } catch (e) {
+      // ignore
+    }
+
+    setIsGenerating(true)
+    setGenerateProgress(5)
+    setGenerateStatusMessage('Starting subtitle generation...')
+    setLogs((prev) => [
+      ...prev,
+      `=== Starting Subtitle Generation ===`,
+      `Movie: ${videoPath}`,
+      `Selected Audio Track: #${selectedTrack ?? 0}`,
+      `Target Language: ${generateConfig.language}`,
+      `Model Quality: ${generateConfig.modelQuality}`,
+      `Output Format: .${generateConfig.format}`
+    ])
+
+    try {
+      const res = await window.api.generator.startGenerate({
+        video: videoPath,
+        trackIndex: selectedTrack,
+        ...generateConfig,
+        aiApiKey,
+        aiProvider,
+        customPrompt: aiPrompt
+      })
+
+      if (res?.success) {
+        setGenerateProgress(100)
+        setGenerateStatusMessage('Subtitles generated successfully!')
+        toast.success('Subtitle generated successfully!', { duration: 4000 })
+        if (res.output) {
+          const folder = res.output.substring(
+            0,
+            Math.max(res.output.lastIndexOf('/'), res.output.lastIndexOf('\\'))
+          )
+          setLastOutputDir(folder)
+          setLastOutputFile(res.output)
+        }
+      } else {
+        setGenerateStatusMessage('Generation failed.')
+        toast.error(`Generation failed: ${res?.message || 'Unknown error'}`)
+        setLogs((prev) => [...prev, `[ERROR] ${res?.message || 'Generation failed'}`])
+      }
+    } catch (err: any) {
+      setLogs((prev) => [...prev, `[ERROR] ${err.message}`])
+      setGenerateStatusMessage('Error during subtitle generation.')
+      toast.error(`Error: ${err.message}`)
+    } finally {
+      setIsGenerating(false)
+    }
+  }
+
+  const handleCancelGenerate = async () => {
+    await window.api.generator.cancelGenerate()
+    setIsGenerating(false)
+    setGenerateStatusMessage('Generation cancelled by user')
+    toast('Subtitle generation cancelled', { icon: '⏹️' })
+    setLogs((prev) => [...prev, '[USER] Subtitle generation cancelled.'])
+  }
+
+  const handleOpenPreview = (path?: string) => {
+    const target = path || lastOutputFile || (subtitles.length > 0 ? subtitles[0].path : null)
+    if (target) {
+      setPreviewSubPath(target)
+      setPreviewModalOpen(true)
+    } else {
+      toast.error('No subtitle available to preview.')
+    }
   }
 
   const handleOpenFolder = () => {
@@ -321,7 +545,10 @@ export default function App() {
     window.api?.settings?.save({
       theme,
       defaultMode,
-      checkUpdates
+      checkUpdates,
+      aiApiKey,
+      aiProvider,
+      aiPrompt
     })
   }
 
@@ -336,7 +563,10 @@ export default function App() {
       <Header
         theme={theme}
         setTheme={handleSetTheme}
-        onOpenSettings={() => setSettingsModalOpen(true)}
+        onOpenSettings={() => {
+          setSettingsInitialTab('general')
+          setSettingsModalOpen(true)
+        }}
         onOpenAbout={() => setAboutModalOpen(true)}
         engineReady={engineReady}
       />
@@ -353,40 +583,92 @@ export default function App() {
             setVideoPath(null)
             setAudioTracks([])
             setVideoDetails(null)
+            setSelectedTrack(null)
+            setSubtitleAction('sync')
           }}
           onSelectTrackModal={() => setAudioModalOpen(true)}
           onDropFile={(path) => handleSelectVideo(path)}
         />
 
-        {/* Step 2: Subtitle Files */}
-        <Step2Subtitles
-          subtitles={subtitles}
-          onBrowse={handleBrowseSubtitles}
-          onRemove={handleRemoveSubtitle}
-          onClearAll={() => setSubtitles([])}
-          onDropFiles={(paths) => handleAddSubtitles(paths)}
+        {/* Selection Option above Step 2 */}
+        <SubtitleModeSelector
+          action={subtitleAction}
+          hasVideo={Boolean(videoPath)}
+          onSelectAction={(action) => {
+            if (action === 'generate' && !videoPath) return
+            setSubtitleAction(action)
+            setLogs((prev) => [
+              ...prev,
+              `[WORKFLOW] Switched to: ${
+                action === 'sync' ? 'Synchronize Existing Subtitle' : 'Generate Subtitle'
+              }`
+            ])
+          }}
         />
 
-        {/* Step 3: Synchronization Settings & Action */}
-        <Step3Sync
-          unlocked={isUnlocked}
-          isSyncing={isSyncing}
-          syncMode={syncMode}
-          setSyncMode={handleSetSyncMode}
-          recommendation={recommendation}
-          userSelectedMode={userSelectedMode}
-          recommendedMode={recommendedMode}
-          recommendedReason={recommendedReason}
-          progress={progress}
-          statusMessage={statusMessage}
-          lastOutputDir={lastOutputDir}
-          onStartSync={handleStartSync}
-          onCancelSync={handleCancelSync}
-          onOpenFolder={handleOpenFolder}
-        />
+        {/* Step 2: Subtitle Files or Generation Settings */}
+        {subtitleAction === 'sync' ? (
+          <Step2Subtitles
+            subtitles={subtitles}
+            onBrowse={handleBrowseSubtitles}
+            onRemove={handleRemoveSubtitle}
+            onClearAll={() => setSubtitles([])}
+            onDropFiles={(paths) => handleAddSubtitles(paths)}
+            onPreview={(path) => handleOpenPreview(path)}
+          />
+        ) : (
+          <Step2Generate
+            videoPath={videoPath}
+            selectedTrack={selectedTrack}
+            audioTracks={audioTracks}
+            onSelectTrack={(idx) => {
+              setSelectedTrack(idx)
+              setLogs((prev) => [...prev, `[AUDIO] Selected track #${idx} for subtitle generation`])
+            }}
+            config={generateConfig}
+            onChangeConfig={(newCfg) =>
+              setGenerateConfig((prev) => ({ ...prev, ...newCfg }))
+            }
+          />
+        )}
+
+        {/* Step 3: Synchronization or Generate Action */}
+        {subtitleAction === 'sync' ? (
+          <Step3Sync
+            unlocked={isUnlocked}
+            isSyncing={isSyncing}
+            syncMode={syncMode}
+            setSyncMode={handleSetSyncMode}
+            recommendation={recommendation}
+            userSelectedMode={userSelectedMode}
+            recommendedMode={recommendedMode}
+            recommendedReason={recommendedReason}
+            progress={progress}
+            statusMessage={statusMessage}
+            lastOutputDir={lastOutputDir}
+            onStartSync={handleStartSync}
+            onCancelSync={handleCancelSync}
+            onOpenFolder={handleOpenFolder}
+            onPreview={() => handleOpenPreview()}
+          />
+        ) : (
+          <Step3Generate
+            unlocked={Boolean(videoPath)}
+            isGenerating={isGenerating}
+            config={generateConfig}
+            selectedTrack={selectedTrack}
+            progress={generateProgress}
+            statusMessage={generateStatusMessage}
+            lastOutputDir={lastOutputDir}
+            onStartGenerate={handleStartGenerate}
+            onCancelGenerate={handleCancelGenerate}
+            onOpenFolder={handleOpenFolder}
+            onPreview={() => handleOpenPreview()}
+          />
+        )}
 
         {/* Live Activity Console */}
-        <ActivityConsole logs={logs} onClear={() => setLogs([])} isSyncing={isSyncing} />
+        <ActivityConsole logs={logs} onClear={() => setLogs([])} isSyncing={isSyncing || isGenerating} />
       </main>
 
       {/* ---------------- FOOTER ---------------- */}
@@ -396,16 +678,20 @@ export default function App() {
           <div className="flex items-center gap-2 text-blue-950 dark:text-slate-400 font-semibold">
             <span
               className={`text-sm leading-none ${
-                isSyncing
+                (subtitleAction === 'sync' ? isSyncing : isGenerating)
                   ? 'text-blue-600 animate-pulse'
-                  : progress === 100 && lastOutputDir
+                  : (subtitleAction === 'sync' ? progress === 100 : generateProgress === 100) && lastOutputDir
                   ? 'text-emerald-600'
                   : 'text-blue-400 dark:text-slate-500'
               }`}
             >
               ●
             </span>
-            <span>{statusMessage || 'Select movie and subtitle(s)'}</span>
+            <span>
+              {subtitleAction === 'sync'
+                ? statusMessage || 'Select movie and subtitle(s)'
+                : generateStatusMessage || (videoPath ? 'Ready to generate subtitle from movie audio' : 'Select reference movie in Step 1')}
+            </span>
           </div>
 
           <button
@@ -463,16 +749,72 @@ export default function App() {
       <SettingsModal
         isOpen={settingsModalOpen}
         onClose={() => setSettingsModalOpen(false)}
+        initialTab={settingsInitialTab}
         theme={theme}
         setTheme={handleSetTheme}
         checkUpdates={checkUpdates}
         setCheckUpdates={setCheckUpdates}
+        aiApiKey={aiApiKey}
+        setAiApiKey={setAiApiKey}
+        aiProvider={aiProvider}
+        setAiProvider={setAiProvider}
+        aiPrompt={aiPrompt}
+        setAiPrompt={setAiPrompt}
         onSave={handleSaveSettings}
       />
 
       <AboutModal
         isOpen={aboutModalOpen}
         onClose={() => setAboutModalOpen(false)}
+      />
+
+      <SubtitlePreviewModal
+        isOpen={previewModalOpen}
+        onClose={() => setPreviewModalOpen(false)}
+        subPath={previewSubPath}
+        onOpenFolder={handleOpenFolder}
+      />
+
+      <ModelDownloadModal
+        isOpen={downloadModalOpen}
+        onClose={() => setDownloadModalOpen(false)}
+        modelQuality={generateConfig.modelQuality}
+        isDownloading={isDownloadingModel}
+        downloadProgress={modelDownloadProgress}
+        downloadSpeed={modelDownloadSpeed}
+        downloadedBytes={modelDownloadedBytes}
+        totalBytes={modelTotalBytes}
+        errorMessage={modelDownloadError}
+        onStartDownload={handleStartDownloadModel}
+        onCancelDownload={handleCancelDownloadModel}
+      />
+
+      {/* Toast Notifications */}
+      <Toaster
+        position="bottom-right"
+        toastOptions={{
+          style: {
+            background: theme === 'dark' ? '#1E293B' : '#FFFFFF',
+            color: theme === 'dark' ? '#F8FAFC' : '#0F172A',
+            border: theme === 'dark' ? '1px solid rgba(255, 255, 255, 0.1)' : '1px solid rgba(0, 0, 0, 0.08)',
+            borderRadius: '12px',
+            fontSize: '13px',
+            fontWeight: 500,
+            boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.2), 0 8px 10px -6px rgba(0, 0, 0, 0.1)'
+          },
+          success: {
+            iconTheme: {
+              primary: '#10B981',
+              secondary: '#FFFFFF'
+            }
+          },
+          error: {
+            iconTheme: {
+              primary: '#EF4444',
+              secondary: '#FFFFFF'
+            }
+          }
+        }}
       />
     </div>
   )

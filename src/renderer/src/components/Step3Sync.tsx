@@ -1,5 +1,5 @@
 import React from 'react'
-import { Zap, Search, Scissors, Lock, RefreshCw, Square, FolderOpen, Sparkles, Loader2, CheckCircle2 } from 'lucide-react'
+import { Zap, Search, Scissors, Lock, RefreshCw, Square, FolderOpen, Sparkles, Loader2, CheckCircle2, Eye } from 'lucide-react'
 
 export type SyncMode = 'Standard' | 'Smart' | 'Split sync'
 
@@ -25,6 +25,7 @@ interface Step3SyncProps {
   onStartSync: () => void
   onCancelSync: () => void
   onOpenFolder: () => void
+  onPreview?: () => void
 }
 
 export const Step3Sync: React.FC<Step3SyncProps> = ({
@@ -41,7 +42,8 @@ export const Step3Sync: React.FC<Step3SyncProps> = ({
   lastOutputDir,
   onStartSync,
   onCancelSync,
-  onOpenFolder
+  onOpenFolder,
+  onPreview
 }) => {
   const modes: { id: SyncMode; title: string; desc: string; icon: any }[] = [
     {
@@ -263,6 +265,17 @@ export const Step3Sync: React.FC<Step3SyncProps> = ({
             className="flex-1 py-3 px-5 rounded-xl font-semibold text-sm flex items-center justify-center gap-2 transition-all bg-rose-600 hover:bg-rose-500 text-white shadow-md shadow-rose-600/25"
           >
             <Square className="w-4 h-4 fill-current" /> Cancel Synchronization
+          </button>
+        )}
+
+        {lastOutputDir && onPreview && (
+          <button
+            type="button"
+            onClick={onPreview}
+            className="py-3 px-4 rounded-xl border-2 border-emerald-300 bg-emerald-50/80 hover:bg-emerald-100 text-emerald-800 dark:border-emerald-800/80 dark:bg-emerald-950/30 dark:hover:bg-emerald-900/40 dark:text-emerald-300 font-bold text-xs flex items-center gap-2 transition-colors shrink-0 shadow-2xs cursor-pointer"
+            title="Preview synchronized subtitle lines"
+          >
+            <Eye className="w-4 h-4 text-emerald-600 dark:text-emerald-400" /> Preview Subtitle
           </button>
         )}
 
