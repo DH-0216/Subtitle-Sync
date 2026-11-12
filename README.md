@@ -63,28 +63,27 @@ Download the latest version directly or pick your package from the [**GitHub Rel
 
 ## 🛠️ Prerequisites
 
+### For General Users (Downloading Releases)
 > [!NOTE]
-> If you downloaded **`SubtitleSync-Setup.exe`** or **`SubtitleSync-Portable.exe`**, FFmpeg is handled automatically! You do not need to install it manually.
-
-Subtitle synchronization uses **`ffmpeg`** to extract and analyze speech audio from your video files. If you are **running from source** or prefer installing it manually on Windows:
-
-1. Open **PowerShell** and run:
-   ```powershell
-   winget install ffmpeg
-   ```
-   *(Note: If prompted with multiple package options, run `winget install Gyan.FFmpeg`)*
-2. Verify that it worked:
-   ```powershell
-   ffmpeg -version
-   ```
-
-*(Alternative: You can also download manually from [ffmpeg.org/download.html](https://ffmpeg.org/download.html) and add it to your system `PATH`)*
+> **No prerequisites required!** If you download **`SubtitleSync-Setup.exe`** or **`SubtitleSync-Portable.exe`**, all engines (`ffmpeg.exe` and `ffsubsync.exe`) are bundled inside. You do not need to install Python, Node.js, or FFmpeg.
 
 ---
 
-## 💻 Running from Source
+### For Developers (Cloning & Building from Source)
+If you want to clone this repository and build the executables yourself, your machine needs:
 
-If you prefer running directly with Python:
+1. **[Node.js](https://nodejs.org/)** (v18 or higher) & **npm**:
+   - Required for the Electron framework, React frontend, and packaging.
+2. **[Python](https://www.python.org/downloads/)** (v3.10 or higher) with pip:
+   - Required by `build.bat` to compile the standalone `bin/ffsubsync.exe` (~43 MB) on the fly.
+   - > [!IMPORTANT]
+     > During Python installation on Windows, ensure you check the box: **"Add python.exe to PATH"**.
+3. **Internet Connection** (on initial build):
+   - To install npm dependencies, fetch Python build packages, and automatically download the official FFmpeg release.
+
+---
+
+## 💻 Running in Development Mode
 
 ```bash
 # 1. Clone the repository
@@ -94,7 +93,10 @@ cd Subtitle-Sync
 # 2. Install dependencies
 npm install
 
-# 3. Launch the app in development mode
+# 3. Ensure engine binaries exist in bin/ (optional, build.bat does this too)
+# Place or allow build.bat to generate bin/ffmpeg.exe and bin/ffsubsync.exe
+
+# 4. Launch the app in development mode
 npm run dev
 ```
 
@@ -104,18 +106,20 @@ npm run dev
 
 You can build both the standalone portable `.exe` and the standard Windows setup installer using the included 1-click builder:
 
-1. Double-click **`build.bat`**.
+1. Double-click **`build.bat`** (or run `.\build.bat` in terminal).
 2. It will automatically:
-   - Check Node.js and verify project dependencies.
-   - Verify local engine binaries (`bin/ffmpeg.exe` and `bin/ffsubsync.exe`).
+   - Check Node.js and Python environments on your PATH.
+   - Install required frontend dependencies (`npm install`).
+   - Automatically download official `ffmpeg.exe` into `bin/` if missing.
+   - Automatically compile the self-contained standalone `bin/ffsubsync.exe` (~43 MB) using PyInstaller if missing.
    - Bundle frontend assets with Vite & Electron.
    - Package the portable **`dist/SubtitleSync-Portable.exe`** and installer **`dist/SubtitleSync-Setup.exe`** with Electron Builder.
-   - Create/update double-click desktop shortcut (`Subtitle Sync.lnk`).
+   - Create/update the double-click desktop shortcut (`Subtitle Sync.lnk`).
 
 ### 🛠️ Offline vs. Automated Engine Setup:
-The application bundles FFmpeg and FFSubSync in `bin/` so end users have zero external dependencies or PATH configuration requirements:
-- **100% Offline Build:** Place your own `ffmpeg.exe` and `ffsubsync.exe` into the `bin/` directory. `build.bat` will detect and bundle them without touching the internet.
-- **Automated Setup:** If either binary is missing, `build.bat` will automatically fetch `ffmpeg.exe` for you into `bin/`. You can also run `build.bat --binaries` to only prepare engine binaries without building the app.
+The application bundles FFmpeg and FFSubSync in `bin/` so end users have zero external dependencies:
+- **Automated Setup (Default):** If either binary is missing in `bin/`, `build.bat` fetches `ffmpeg.exe` and compiles standalone `ffsubsync.exe` automatically. You can also run `build.bat --binaries` to only prepare engine binaries.
+- **100% Offline Build:** If you already have `ffmpeg.exe` and a standalone `ffsubsync.exe`, simply place them in the `bin/` folder before running `build.bat`. It will detect them and skip downloads/compilation.
 
 Or package manually via npm:
 
