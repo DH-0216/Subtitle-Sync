@@ -1,5 +1,6 @@
 import React, { useState } from 'react'
 import { FileText, Plus, Trash2, CheckCircle2, X } from 'lucide-react'
+import { MetadataBadge } from './MetadataBadge'
 
 export interface SubtitleItem {
   id: string
@@ -120,26 +121,18 @@ export const Step2Subtitles: React.FC<Step2SubtitlesProps> = ({
                       {sub.name}
                     </p>
                     {/* Subtitle details: 🎬 fps • 🏷️ tag • 📝 lines • ⏱️ span */}
-                    <div className="flex flex-wrap items-center gap-1.5 text-[11px] text-slate-600 dark:text-slate-400 mt-1">
+                    <div className="flex flex-wrap items-center gap-1 mt-0.5">
                       {sub.fps && (
-                        <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-slate-200 text-slate-900 border border-slate-300 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700 font-semibold shadow-2xs">
-                          🎬 {sub.fps} fps
-                        </span>
+                        <MetadataBadge icon="🎬" label={`${sub.fps} fps`} />
                       )}
                       {sub.tag && (
-                        <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-slate-200 text-slate-900 border border-slate-300 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700 font-semibold shadow-2xs">
-                          🏷️ {sub.tag}
-                        </span>
+                        <MetadataBadge icon="🏷️" label={sub.tag} />
                       )}
                       {sub.lines !== undefined && (
-                        <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-slate-200 text-slate-900 border border-slate-300 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700 font-mono font-bold shadow-2xs">
-                          📝 {sub.lines.toLocaleString()} lines
-                        </span>
+                        <MetadataBadge variant="mono" icon="📝" label={`${sub.lines.toLocaleString()} lines`} />
                       )}
                       {sub.span && (
-                        <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-slate-200 text-slate-900 border border-slate-300 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700 font-mono font-medium shadow-2xs">
-                          ⏱️ {sub.span}
-                        </span>
+                        <MetadataBadge variant="mono" icon="⏱️" label={sub.span} />
                       )}
                     </div>
                   </div>

@@ -4,7 +4,7 @@
 import { app } from 'electron'
 import { join, dirname, resolve } from 'path'
 import * as fs from 'fs'
-import { spawn } from 'child_process'
+import { spawn, ChildProcess, execSync } from 'child_process'
 import { formatHms, SrtCue } from './srtTools'
 
 export interface AudioTrackInfo {
@@ -482,4 +482,32 @@ export function getSubtitleSyncDetails(subPath: string, cues: SrtCue[], content:
     lines: cues.length,
     span
   }
+}
+
+/**
+ * Forcibly kill a process and its entire child process tree (on Windows using taskkill /T /F).
+ * Ensures that spawned tools like ffmpeg, ffsubsync, whisper, and their child processes
+ * terminate immediately and release all file / pipe handles.
+ */
+export function killProcessTree(proc: ChildProcess | null | undefined): void {
+  if (!proc) return
+  const pid = proc.pid
+  if (pid) {
+    if (process.platform === 'win32') {
+      try {
+        execSync(`taskkill /pid ${pid} /T /F`, { windowsHide: true, stdio: 'ignore' })
+      } catch {}
+    } else {
+      try {
+        process.kill(-pid, 'SIGKILL')
+      } catch {
+        try {
+          proc.kill('SIGKILL')
+        } catch {}
+      }
+    }
+  }
+  try {
+    proc.kill()
+  } catch {}
 }
