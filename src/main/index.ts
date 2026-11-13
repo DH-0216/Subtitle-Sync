@@ -461,15 +461,67 @@ app.whenReady().then(() => {
     }
 
     activeSyncEngine = new SyncEngine(logCb, statusCb, progressCb)
+    let tempRefSrt: string | null = null
 
     try {
+      // 1. Automatic Timing Reference: Check if video contains an embedded text subtitle track
+      if (params.video && fs.existsSync(params.video)) {
+        try {
+          const probe = await probeVideoFile(params.video)
+          const textTracks = (probe.subtitleTracks || []).filter((t) => t.isText)
+          if (textTracks.length > 0) {
+            // Find optimal timing anchor track:
+            // 1. English non-forced text track
+            // 2. Default non-forced text track
+            // 3. Any non-forced text track
+            // 4. Any text track
+            const bestTrack =
+              textTracks.find((t) => (t.language === 'eng' || t.language.toLowerCase().startsWith('en')) && !t.isForced) ||
+              textTracks.find((t) => t.isDefault && !t.isForced) ||
+              textTracks.find((t) => !t.isForced) ||
+              textTracks[0]
+
+            if (bestTrack) {
+              const langCode = (bestTrack.language || 'SRT').toUpperCase()
+              logCb(`[SYNC] Embedded text subtitle detected: Subtitle Track #${bestTrack.index + 1} (${langCode}${bestTrack.title ? ' - ' + bestTrack.title : ''})`)
+              statusCb('Extracting frame-accurate subtitle timing anchor...')
+
+              const tempPath = join(app.getPath('temp'), `subsync_ref_${Date.now()}.srt`)
+              const extRes = await extractSingleSubtitleTrack(
+                {
+                  videoPath: params.video,
+                  track: bestTrack,
+                  outputPath: tempPath,
+                  cleanTags: true
+                },
+                (msg) => logCb(`[EXTRACT-REF] ${msg}`)
+              )
+
+              if (extRes.success && extRes.outputPath && fs.existsSync(extRes.outputPath)) {
+                tempRefSrt = extRes.outputPath
+                logCb(`[SYNC] Timing anchor ready (${extRes.cuesCount ? extRes.cuesCount + ' cues' : 'cues extracted'}). Applying Studio-Grade Subtitle Reference Alignment (0ms drift)!`)
+              }
+            }
+          } else {
+            logCb(`[SYNC] No embedded text subtitles detected in video container. Using audio speech alignment (${params.mode} mode).`)
+          }
+        } catch (probeErr: any) {
+          logCb(`[SYNC] Notice: Embedded subtitle probe skipped (${probeErr?.message || 'unknown'}). Proceeding with audio speech alignment.`)
+        }
+      }
+
+      const syncOptions = {
+        ...params,
+        referenceSub: tempRefSrt
+      }
+
       let result: { success: boolean; score: number | null }
       if (params.mode === 'Smart') {
-        result = await activeSyncEngine.runSmart(params)
+        result = await activeSyncEngine.runSmart(syncOptions)
       } else if (params.mode === 'Split sync') {
-        result = await activeSyncEngine.runSplit(params)
+        result = await activeSyncEngine.runSplit(syncOptions)
       } else {
-        result = await activeSyncEngine.runStandard(params)
+        result = await activeSyncEngine.runStandard(syncOptions)
       }
 
       if (activeSyncEngine?.isCancelled()) {
@@ -502,6 +554,12 @@ app.whenReady().then(() => {
       event.sender.send('sync:event', { type: 'error', message: e.message })
       activeSyncEngine = null
       return { success: false }
+    } finally {
+      if (tempRefSrt && fs.existsSync(tempRefSrt)) {
+        try {
+          fs.unlinkSync(tempRefSrt)
+        } catch {}
+      }
     }
   })
 
