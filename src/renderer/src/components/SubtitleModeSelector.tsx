@@ -101,10 +101,10 @@ export const SubtitleModeSelector: React.FC<SubtitleModeSelectorProps> = ({
             className={`text-[9px] font-bold px-1.5 py-0.2 rounded shrink-0 ${
               action === 'generate'
                 ? 'bg-blue-950 text-white'
-                : 'bg-slate-300 text-slate-900 dark:bg-slate-800 dark:text-slate-300'
+                : 'bg-amber-200 text-amber-950 dark:bg-amber-500/20 dark:text-amber-300 border border-amber-300/40 dark:border-amber-500/30'
             }`}
           >
-            AI
+            Beta
           </span>
         </button>
       </div>
