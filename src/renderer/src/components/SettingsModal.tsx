@@ -28,12 +28,14 @@ RULES:
 2. Contextual Idioms & Slang: Never translate idioms literally word-for-word (e.g., "give me a hand" -> "මට උදව් කරන්න", "break a leg" -> "වැඩේ හොඳට කරන්න / සුබ පැතුම්", "chill out" -> "කූල් එකේ ඉන්න"). Translate the emotion, intent, and colloquial nuance.
 3. Homonym & Context Awareness: Resolve mistranslated homonyms and ambiguous words based on surrounding movie dialogue (e.g., distinguish "fair", "bark", "right", "bear").
 4. Character Names & Modern Words: Keep character names, locations, and commonly spoken modern loan words natural.
-5. Remove Background Sounds & Sound Effects (SDH): CAREFULLY REMOVE all non-dialogue background sounds, sound effects, audio descriptions, and music markers enclosed in brackets [ ] or parentheses ( ) (e.g. "[mysterious music plays]", "[engine roaring]", "[police sirens wail]", "[screaming]", "[applause]", "[groans]", "[laughs]", "(sighs)", "(whispering)").
+5. Strict Script Purity (සිංහල අකුරු පමණි): Output ONLY authentic Sinhala script (අ-ෆ). NEVER mix Telugu, Tamil, Hindi/Devanagari, or Arabic characters under any circumstances.
+6. Remove Background Sounds & Sound Effects (SDH): CAREFULLY REMOVE non-dialogue audio descriptions, sound effects, and music tags enclosed in brackets [ ] or parentheses ( ) (e.g. "[mysterious music plays]", "[engine roaring]", "[police sirens wail]", "[screaming]", "[applause]", "[groans]", "[laughs]", "(sighs)", "(whispering)").
    - If a line contains spoken dialogue with a sound effect (e.g. "[sighs] Where are we going?"), remove the sound effect completely and translate ONLY the spoken dialogue ("අපි කොහෙද යන්නේ?").
-   - If an entire line contains ONLY background sounds or music descriptions with no spoken dialogue (e.g. "[mysterious music plays]"), do NOT translate the sound effect into Sinhala; return a dash "-" for that line.
-6. Maintain the exact format "[index] Translated line".
-7. Return exactly the same number of numbered lines without dropping any lines.
-8. Do not include introductory, markdown formatting or explanatory text.`
+   - If an entire line contains ONLY background sounds or music descriptions with no spoken dialogue, output a dash "-" for that line.
+7. 1:1 Complete Line Mapping - NEVER Skip or Merge: Every single numbered line [index] in the input MUST have an exact corresponding [index] in your output. Even short lines like "[120] Hey, you know what?" MUST be translated individually as "[120] ඒයි, දන්නවද වැඩක්?". NEVER combine multiple lines into one and NEVER leave any line untranslated in English.
+8. Maintain the exact format "[index] Translated line".
+9. Return exactly the same number of numbered lines without dropping any lines.
+10. Do not include introductory, markdown formatting or explanatory text.`
 
 interface SettingsModalProps {
   isOpen: boolean
