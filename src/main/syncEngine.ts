@@ -16,7 +16,6 @@ export interface SyncOptions {
   mode: 'Standard' | 'Smart' | 'Split sync'
   trackIndex?: number | null
   subFps?: number | null
-  referenceSub?: string | null
 }
 
 export type LogCallback = (line: string) => void
@@ -182,28 +181,19 @@ export class SyncEngine {
    */
   public async runStandard(options: SyncOptions): Promise<{ success: boolean; score: number | null }> {
     this.currentOut = options.out
-    const isSubRef = Boolean(options.referenceSub && fs.existsSync(options.referenceSub))
-    const reference = isSubRef ? options.referenceSub! : options.video
-
-    this.onStatus(
-      isSubRef
-        ? 'Standard Sync: Aligning with frame-accurate subtitle timing reference...'
-        : 'Running Standard 1-pass synchronization...'
-    )
-    this.onProgress(5, isSubRef ? 'Aligning to timing grid...' : 'Initializing alignment engine...')
+    this.onStatus('Running Standard 1-pass synchronization...')
+    this.onProgress(5, 'Initializing alignment engine...')
     const extra: string[] = []
 
-    if (!isSubRef) {
-      if (options.trackIndex !== undefined && options.trackIndex !== null) {
-        extra.push('--reference-stream', `0:a:${options.trackIndex}`)
-      }
+    if (options.trackIndex !== undefined && options.trackIndex !== null) {
+      extra.push('--reference-stream', `0:a:${options.trackIndex}`)
     }
     if (options.subFps) {
       extra.push('--sub-fps', String(options.subFps))
     }
 
     const { code, score } = await this.runSinglePass(
-      reference,
+      options.video,
       options.sub,
       options.out,
       extra,
@@ -223,7 +213,7 @@ export class SyncEngine {
       return { success: false, score: null }
     }
 
-    this.onProgress(100, isSubRef ? 'Frame-accurate sync complete!' : 'Synchronization complete!')
+    this.onProgress(100, 'Synchronization complete!')
     return { success: true, score }
   }
 
@@ -232,32 +222,21 @@ export class SyncEngine {
    */
   public async runSmart(options: SyncOptions): Promise<{ success: boolean; score: number | null }> {
     this.currentOut = options.out
-    const isSubRef = Boolean(options.referenceSub && fs.existsSync(options.referenceSub))
-    const reference = isSubRef ? options.referenceSub! : options.video
-
     const extraBase: string[] = []
-    if (!isSubRef) {
-      if (options.trackIndex !== undefined && options.trackIndex !== null) {
-        extraBase.push('--reference-stream', `0:a:${options.trackIndex}`)
-      }
+    if (options.trackIndex !== undefined && options.trackIndex !== null) {
+      extraBase.push('--reference-stream', `0:a:${options.trackIndex}`)
     }
     if (options.subFps) {
       extraBase.push('--sub-fps', String(options.subFps))
     }
 
     const tempDir = fs.mkdtempSync(join(os.tmpdir(), 'subsync_smart_'))
-    const passes = isSubRef
-      ? [
-          { name: 'Subtitle Timing Grid Match', flags: [] },
-          { name: 'Wide search (±15m)', flags: ['--max-offset-seconds', '900'] },
-          { name: 'Speed drift correction (--gss)', flags: ['--gss'] }
-        ]
-      : [
-          { name: 'Base search', flags: [] },
-          { name: 'Wide search (±15m)', flags: ['--max-offset-seconds', '900'] },
-          { name: 'Speed drift correction (--gss)', flags: ['--gss'] },
-          { name: 'Auditok speech detector', flags: ['--vad', 'auditok'] }
-        ]
+    const passes = [
+      { name: 'Base search', flags: [] },
+      { name: 'Wide search (±15m)', flags: ['--max-offset-seconds', '900'] },
+      { name: 'Speed drift correction (--gss)', flags: ['--gss'] },
+      { name: 'Auditok speech detector', flags: ['--vad', 'auditok'] }
+    ]
 
     let bestScore = -Infinity
     let bestFile: string | null = null
@@ -276,7 +255,7 @@ export class SyncEngine {
         const flags = [...extraBase, ...p.flags]
 
         const res = await this.runSinglePass(
-          reference,
+          options.video,
           options.sub,
           passOut,
           flags,
@@ -297,7 +276,7 @@ export class SyncEngine {
 
       if (!this.cancelled && bestFile && fs.existsSync(bestFile)) {
         fs.copyFileSync(bestFile, options.out)
-        this.onProgress(100, isSubRef ? 'Smart frame-accurate sync complete!' : 'Smart sync complete!')
+        this.onProgress(100, 'Smart sync complete!')
         return { success: true, score: bestScore > -Infinity ? bestScore : null }
       }
     } finally {
@@ -319,14 +298,7 @@ export class SyncEngine {
    */
   public async runSplit(options: SyncOptions): Promise<{ success: boolean; score: number | null }> {
     this.currentOut = options.out
-    const isSubRef = Boolean(options.referenceSub && fs.existsSync(options.referenceSub))
-    const reference = isSubRef ? options.referenceSub! : options.video
-
-    this.onStatus(
-      isSubRef
-        ? 'Split Sync: Slicing subtitles into piecewise parts (using timing reference)...'
-        : 'Split Sync: Slicing subtitles into 2-minute parts...'
-    )
+    this.onStatus('Split Sync: Slicing subtitles into 2-minute parts...')
     this.onProgress(10, 'Analyzing subtitle cues...')
     const content = fs.readFileSync(options.sub, 'utf-8')
     const allCues = parseSrt(content)
@@ -342,7 +314,7 @@ export class SyncEngine {
       this.onProgress(20, 'Running piecewise baseline alignment...')
       const baseOut = join(tempDir, 'base.srt')
       const baseRes = await this.runSinglePass(
-        reference,
+        options.video,
         options.sub,
         baseOut,
         ['--max-offset-seconds', '900'],
@@ -354,7 +326,7 @@ export class SyncEngine {
 
       if (!this.cancelled && baseRes.code === 0 && fs.existsSync(baseOut)) {
         fs.copyFileSync(baseOut, options.out)
-        this.onProgress(100, isSubRef ? 'Split sync complete (frame-accurate)!' : 'Split sync complete!')
+        this.onProgress(100, 'Split sync complete!')
         return { success: true, score: baseRes.score }
       }
     } finally {
