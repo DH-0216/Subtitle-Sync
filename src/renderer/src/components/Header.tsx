@@ -1,6 +1,7 @@
 import React from 'react'
 import { Settings, Info, Sun, Moon, CheckCircle2, AlertTriangle, WifiOff } from 'lucide-react'
 import appIcon from '../assets/app_icon.png'
+import { APP_VERSION } from '@shared/version'
 
 interface HeaderProps {
   theme: string
@@ -32,7 +33,7 @@ export const Header: React.FC<HeaderProps> = ({
             <div className="flex items-center gap-2.5">
               <h1 className="font-bold text-lg text-slate-900 dark:text-slate-100 tracking-tight">Subtitle Sync Studio</h1>
               <span className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-blue-100 text-blue-900 border border-blue-300 dark:bg-blue-500/10 dark:text-blue-400 dark:border-blue-500/25">
-                v2.0.0
+                v{APP_VERSION}
               </span>
             </div>
             <p className="text-xs text-slate-700 dark:text-slate-300 font-medium">Automatic speech-to-subtitle audio alignment</p>

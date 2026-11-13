@@ -20,6 +20,7 @@ import {
 import toast from 'react-hot-toast'
 import { EXTERNAL_LINKS, getGeminiVerifyUrl } from '@shared/links'
 import { formatUserFriendlyError } from '@shared/errorUtils'
+import { APP_VERSION } from '@shared/version'
 
 export const DEFAULT_AI_PROMPT = `You are an expert subtitle translator specializing in natural, authentic spoken colloquial Sinhala (ස්වාභාවික කථාබහ සිංහල) for cinema and movies.
 Translate the following movie subtitle lines into natural, spoken Sinhala as people actually speak in day-to-day life.
@@ -56,7 +57,6 @@ interface SettingsModalProps {
   onSave?: () => void
 }
 
-const APP_VERSION = '2.0.0'
 const GITHUB_REPO = EXTERNAL_LINKS.REPO_SLUG
 
 export const SettingsModal: React.FC<SettingsModalProps> = ({
