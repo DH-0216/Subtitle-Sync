@@ -8,6 +8,13 @@ import { spawn } from 'child_process'
 import { findBinary, killProcessTree } from './media'
 import { parseSrt, SrtCue, writeSrt, removeHallucinationLoops, getUniqueFilePath, cleanSdhFromCues, sanitizeSinhalaScript } from './srtTools'
 import { getWhisperModelDownloadUrl, getGeminiGenerateUrl, EXTERNAL_LINKS } from '@shared/links'
+import {
+  AI_MODELS_CONFIG,
+  isGeminiModelExcluded,
+  buildDynamicGeminiChain,
+  buildDynamicOpenAiChain,
+  AiProviderId
+} from '@shared/aiModels'
 
 export interface WhisperModelInfo {
   id: string
@@ -35,7 +42,7 @@ export interface GenerateParams {
   format: 'srt' | 'vtt'
   language: string
   aiApiKey?: string
-  aiProvider?: 'gemini' | 'openai'
+  aiProvider?: AiProviderId
   aiModel?: string
   customPrompt?: string
 }
@@ -558,62 +565,87 @@ function formatTime(totalSeconds: number): string {
  * Dynamically queries Google Gemini API to discover all currently active models
  * supporting text generation for this API key. Zero hardcoded model names.
  */
-async function getGeminiCandidateModels(apiKey: string, preferredModel?: string): Promise<string[]> {
+// In-memory 6-hour model cache for self-healing resolver
+let geminiModelCache: {
+  models: string[]
+  timestamp: number
+  keyHash: string
+} | null = null
+
+export function invalidateGeminiModelCache(): void {
+  geminiModelCache = null
+}
+
+/**
+ * Self-healing cached model resolver. Dynamically queries live models from Google API
+ * and builds an optimal priority chain using @shared/aiModels.
+ * Activates 6-hour caching and auto-recovers on model deprecation (404).
+ */
+export async function getActiveFallbackChain(
+  apiKey: string,
+  preferredModel?: string,
+  onLog?: (msg: string) => void
+): Promise<string[]> {
+  const keyHash = apiKey.slice(-6)
+  const now = Date.now()
+
+  // Return cached chain if valid and unexpired
+  if (
+    geminiModelCache &&
+    geminiModelCache.keyHash === keyHash &&
+    now - geminiModelCache.timestamp < AI_MODELS_CONFIG.CACHE_TTL_MS &&
+    geminiModelCache.models.length > 0
+  ) {
+    const cached = geminiModelCache.models
+    if (preferredModel && preferredModel !== 'auto' && !isGeminiModelExcluded(preferredModel)) {
+      return Array.from(new Set([preferredModel, ...cached]))
+    }
+    return cached
+  }
+
   try {
     const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${apiKey}`)
     if (res.ok) {
       const data = await res.json()
-      const live = (data?.models || [])
+      const rawList = Array.isArray(data?.models) ? data.models : []
+      const rawIds = rawList
         .filter((m: any) => {
           const methods = Array.isArray(m?.supportedGenerationMethods) ? m.supportedGenerationMethods : []
           return methods.includes('generateContent')
         })
-        .map((m: any) => (m.name || '').replace(/^models\//, ''))
-        .filter((n: string) => n.length > 0)
+        .map((m: any) => m.name || '')
 
-      // Exclude miniature models, experimental thinking models, and Gemma which lack Sinhala script tokenization
-      const excludePatterns = ['8b', 'gemma', 'lite', 'thinking', 'learnlm', 'aqa', 'vision', 'embedding', 'exp-']
-      const robustModels = live.filter((m: string) => !excludePatterns.some((p) => m.toLowerCase().includes(p)))
-
-      // Priority order:
-      // 1. Fast production flash models (gemini-2.5-flash, gemini-2.0-flash, gemini-1.5-flash)
-      // 2. High-accuracy pro models (gemini-2.5-pro, gemini-2.0-pro, gemini-1.5-pro)
-      const flashModels = robustModels
-        .filter((m: string) => m.toLowerCase().includes('flash'))
-        .sort((a: string, b: string) => b.localeCompare(a, undefined, { numeric: true, sensitivity: 'base' }))
-
-      const proModels = robustModels
-        .filter((m: string) => m.toLowerCase().includes('pro'))
-        .sort((a: string, b: string) => b.localeCompare(a, undefined, { numeric: true, sensitivity: 'base' }))
-
-      const ordered = [
-        ...(preferredModel && preferredModel !== 'auto' && !excludePatterns.some((p) => preferredModel.toLowerCase().includes(p)) ? [preferredModel] : []),
-        ...flashModels,
-        ...proModels
-      ]
-
-      const unique = Array.from(new Set(ordered))
-      if (unique.length > 0) {
-        return unique
+      const dynamicChain = buildDynamicGeminiChain(rawIds, preferredModel)
+      if (dynamicChain.length > 0) {
+        geminiModelCache = {
+          models: dynamicChain,
+          timestamp: now,
+          keyHash
+        }
+        return dynamicChain
       }
     }
-  } catch {
-    // fallback
+  } catch (err: any) {
+    onLog?.(`[AI TRANSLATION] Notice: Live model query failed (${err?.message || 'Network error'}). Using fallback chain.`)
   }
 
-  return preferredModel && preferredModel !== 'auto' ? [preferredModel] : ['gemini-2.0-flash', 'gemini-1.5-flash', 'gemini-1.5-pro']
+  // Fallback to dynamic emergency chain
+  return buildDynamicGeminiChain([], preferredModel)
 }
+
+// Backward-compatible alias for getActiveFallbackChain
+export const getGeminiCandidateModels = getActiveFallbackChain
 
 /**
  * Dynamically detects the optimal active Gemini model from the provider at runtime.
  */
 async function resolveGeminiModel(apiKey: string, onLog: (msg: string) => void): Promise<string> {
-  const candidates = await getGeminiCandidateModels(apiKey)
+  const candidates = await getActiveFallbackChain(apiKey, undefined, onLog)
   if (candidates.length > 0 && candidates[0] !== 'auto') {
-    onLog(`[AI TRANSLATION] Auto-detected active model from Google: ${candidates[0]}`)
+    onLog(`[AI TRANSLATION] Selected primary active model: ${candidates[0]}`)
     return candidates[0]
   }
-  return candidates[0] || 'gemini-flash'
+  return candidates[0] || AI_MODELS_CONFIG.GEMINI_EMERGENCY_SEEDS[0]
 }
 
 /**
@@ -628,35 +660,13 @@ async function getOpenAiCandidateModels(apiKey: string, preferredModel?: string)
     if (res.ok) {
       const data = await res.json()
       const rawList = Array.isArray(data?.data) ? data.data : []
-      const exclude = ['realtime', 'audio', 'tts', 'transcription', 'whisper', 'embedding', 'dall-e', 'moderation', 'instruct']
-      const chatModels = rawList
-        .map((m: any) => m.id || '')
-        .filter((id: string) => {
-          const lower = id.toLowerCase()
-          return (
-            (lower.startsWith('gpt-') || lower.startsWith('o1') || lower.startsWith('o3') || lower.startsWith('chatgpt-')) &&
-            !exclude.some((e) => lower.includes(e))
-          )
-        })
-        .sort((a: string, b: string) => {
-          const aMini = a.includes('mini')
-          const bMini = b.includes('mini')
-          if (aMini && !bMini) return -1
-          if (!aMini && bMini) return 1
-          return b.localeCompare(a, undefined, { numeric: true, sensitivity: 'base' })
-        })
-
-      const ordered = [
-        ...(preferredModel && preferredModel !== 'auto' ? [preferredModel] : []),
-        ...chatModels
-      ]
-      const unique = Array.from(new Set(ordered))
-      if (unique.length > 0) return unique
+      const rawIds = rawList.map((m: any) => m.id || '')
+      return buildDynamicOpenAiChain(rawIds, preferredModel)
     }
   } catch {
     // fallback
   }
-  return preferredModel && preferredModel !== 'auto' ? [preferredModel] : ['gpt-4o-mini']
+  return buildDynamicOpenAiChain([], preferredModel)
 }
 
 /**
@@ -677,10 +687,10 @@ async function translateCuesWithGemini(
     ? modelChoice
     : await resolveGeminiModel(apiKey, onLog)
 
-  onLog(`[AI TRANSLATION] Target model: ${currentModel}`)
-  const candidateModels = await getGeminiCandidateModels(apiKey, currentModel)
+  onLog(`[AI TRANSLATION] Primary model: ${currentModel}`)
+  const candidateModels = await getActiveFallbackChain(apiKey, currentModel, onLog)
 
-  const batchSize = 30
+  const batchSize = 35
   const translatedCues: SrtCue[] = []
   const instruction = customPrompt && customPrompt.trim().length > 0 ? customPrompt.trim() : DEFAULT_AI_PROMPT
   const totalBatches = Math.ceil(cues.length / batchSize)
@@ -696,22 +706,12 @@ async function translateCuesWithGemini(
       onProgress(batchIdx, totalBatches)
     }
 
-    const promptText = batch.map((c) => `[${c.index}] ${c.text.replace(/\n/g, ' ')}`).join('\n')
-
-    const body = {
-      contents: [
-        {
-          parts: [
-            {
-              text: `${instruction}
-
-Input:
-${promptText}`
-            }
-          ]
-        }
-      ]
-    }
+    const batchInputJson = JSON.stringify(
+      batch.map((c) => ({
+        index: c.index,
+        text: c.text.replace(/\n/g, ' ')
+      }))
+    )
 
     let batchSuccess = false
     let lastErrDetail = ''
@@ -723,7 +723,7 @@ ${promptText}`
         throw new Error('Subtitle generation cancelled by user.')
       }
 
-      // Order candidate models with currentModel first
+      // Prioritize currentModel, followed by the rest of the fallback chain
       const activeCandidates = [
         currentModel,
         ...candidateModels.filter((m) => m !== currentModel)
@@ -734,67 +734,140 @@ ${promptText}`
           throw new Error('Subtitle generation cancelled by user.')
         }
 
-        try {
-          const response = await fetch(getGeminiGenerateUrl(apiKey, model), {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(body),
-            signal: activeAbortController?.signal
-          })
-
-          if (response.ok) {
-            if (model !== currentModel) {
-              currentModel = model
-              onLog(`[AI TRANSLATION] Switched to high-availability model: ${model}`)
-            }
-            const data = await response.json()
-            const content = data?.candidates?.[0]?.content?.parts?.[0]?.text || ''
-
-            const parsedMap: Record<number, string> = {}
-            const lines = content.split('\n').filter((l: string) => l.trim().length > 0)
-            for (const l of lines) {
-              const m = l.match(/^\[(\d+)\]\s*(.*)$/)
-              if (m) {
-                const idx = parseInt(m[1], 10)
-                parsedMap[idx] = sanitizeSinhalaScript(m[2].trim())
+        // Try with thinkingConfig: { thinkingLevel: 'low' }, and fallback if model rejects it
+        for (const useThinking of [true, false]) {
+          const genConfig: any = {
+            responseMimeType: 'application/json',
+            responseSchema: {
+              type: 'ARRAY',
+              items: {
+                type: 'OBJECT',
+                properties: {
+                  index: { type: 'INTEGER' },
+                  text: { type: 'STRING' }
+                },
+                required: ['index', 'text']
               }
             }
+          }
+          if (useThinking) {
+            genConfig.thinkingConfig = { thinkingLevel: 'low' }
+          }
 
-            const missing = batch.filter((c) => !parsedMap[c.index] || parsedMap[c.index].length === 0)
-            if (missing.length > 0 && attempt < maxRetries) {
-              onLog(`[AI TRANSLATION] Model missed ${missing.length} line(s) in batch ${batchIdx}. Retrying for complete translation...`)
-              continue
+          const requestBody = {
+            contents: [
+              {
+                parts: [
+                  {
+                    text: `${instruction}
+
+Input Subtitle Cues (JSON Array):
+${batchInputJson}`
+                  }
+                ]
+              }
+            ],
+            generationConfig: genConfig
+          }
+
+          try {
+            const response = await fetch(getGeminiGenerateUrl(apiKey, model), {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(requestBody),
+              signal: activeAbortController?.signal
+            })
+
+            if (response.ok) {
+              if (model !== currentModel) {
+                currentModel = model
+                onLog(`[AI TRANSLATION] Cascaded to high-availability model: ${model}`)
+              }
+              const data = await response.json()
+              const content = data?.candidates?.[0]?.content?.parts?.[0]?.text || ''
+
+              const parsedMap: Record<number, string> = {}
+              let parsedItems: Array<{ index: number; text: string }> = []
+
+              try {
+                parsedItems = JSON.parse(content)
+              } catch {
+                const match = content.match(/```(?:json)?\s*([\s\S]*?)\s*```/)
+                if (match) {
+                  try {
+                    parsedItems = JSON.parse(match[1])
+                  } catch {
+                    // ignore
+                  }
+                }
+              }
+
+              if (Array.isArray(parsedItems) && parsedItems.length > 0) {
+                for (const item of parsedItems) {
+                  if (typeof item.index === 'number' && typeof item.text === 'string') {
+                    parsedMap[item.index] = sanitizeSinhalaScript(item.text.trim())
+                  }
+                }
+              } else {
+                // Fallback line regex in case model returns flat line formatting
+                const lines = content.split('\n').filter((l: string) => l.trim().length > 0)
+                for (const l of lines) {
+                  const m = l.match(/^\[?(\d+)\]?[:\s-]+(.*)$/)
+                  if (m) {
+                    const idx = parseInt(m[1], 10)
+                    parsedMap[idx] = sanitizeSinhalaScript(m[2].trim())
+                  }
+                }
+              }
+
+              // 1:1 line completeness validation
+              const missing = batch.filter((c) => !parsedMap[c.index] || parsedMap[c.index].length === 0)
+              if (missing.length > 0 && attempt < maxRetries) {
+                onLog(`[AI TRANSLATION] Model missed ${missing.length} cue(s) in batch ${batchIdx}. Retrying for complete translation...`)
+                break // break thinking loop to retry attempt
+              }
+
+              lineMap = parsedMap
+              batchSuccess = true
+              break // success, break thinking loop
             }
 
-            lineMap = parsedMap
-            batchSuccess = true
+            const status = response.status
+            const errText = await response.text()
+            lastErrDetail = errText
+
+            // If 400 Bad Request is due to thinkingConfig not supported by this model, retry without it
+            if (status === 400 && useThinking && errText.toLowerCase().includes('thinkingconfig')) {
+              continue // next iteration in [true, false] loop tries without thinkingConfig
+            }
+
+            // 404 = Model retired / not found: Invalidate 6-hour cache immediately and cascade
+            if (status === 404) {
+              onLog(`[AI TRANSLATION] Model '${model}' returned 404 (retired). Invalidating cache and cascading to next candidate...`)
+              invalidateGeminiModelCache()
+              break // break thinking loop, advance to next model in activeCandidates
+            }
+
+            // 429 = Rate limit / quota pool exhausted: Cascade to next model (each has independent quota pool)
+            // 500, 502, 503, 504 = Service high demand / temporary outage: Cascade
+            const isCascadeable = [429, 500, 502, 503, 504].includes(status)
+            if (isCascadeable) {
+              const reason = status === 429
+                ? 'Rate Limit (429)'
+                : `Server High Demand / Outage (${status})`
+              onLog(`[AI TRANSLATION] Model '${model}' experienced ${reason}. Cascading to next candidate in chain...`)
+              break // break thinking loop, advance to next model
+            }
+
+            // Fail fast on non-retryable client errors (401/403 Invalid API Key, 400 Bad Request)
+            break
+          } catch (e: any) {
+            lastErrDetail = e.message
             break
           }
-
-          const status = response.status
-          const errText = await response.text()
-          lastErrDetail = errText
-
-          // 404 = Model deprecated/not found
-          // 429 = Rate limit / quota spike
-          // 500, 502, 503, 504 = Server high demand / temporary outage
-          const isRetryable = [404, 429, 500, 502, 503, 504].includes(status)
-
-          if (isRetryable) {
-            const reason = status === 503
-              ? 'high demand (spikes in demand are temporary)'
-              : status === 429
-              ? 'rate limit'
-              : `server busy (${status})`
-            onLog(`[AI TRANSLATION] Model '${model}' experienced ${reason}. Switching to alternative candidate...`)
-            continue
-          }
-
-          // If a non-retryable 4xx client error (e.g. invalid key 401/403 or bad request 400), don't loop indefinitely
-          break
-        } catch (e: any) {
-          lastErrDetail = e.message
         }
+
+        if (batchSuccess) break
       }
 
       if (batchSuccess) break
@@ -981,22 +1054,41 @@ async function translateCuesWithOpenAI(
   return translatedCues
 }
 
+type AiTranslationHandler = (
+  cues: SrtCue[],
+  apiKey: string,
+  model: string | undefined,
+  customPrompt: string | undefined,
+  onLog: (msg: string) => void,
+  onProgress?: (batchIdx: number, totalBatches: number) => void
+) => Promise<SrtCue[]>
+
+/**
+ * AI Provider Translation Dispatch Registry
+ * To support a new provider, implement its translation function and register it here.
+ */
+const AI_TRANSLATION_HANDLERS: Record<AiProviderId, AiTranslationHandler> = {
+  gemini: translateCuesWithGemini,
+  openai: translateCuesWithOpenAI
+}
+
 /**
  * Unified AI Translation Dispatcher
  */
 async function translateCuesViaAi(
   cues: SrtCue[],
-  provider: 'gemini' | 'openai',
+  provider: AiProviderId,
   apiKey: string,
   model: string | undefined,
   customPrompt: string | undefined,
   onLog: (msg: string) => void,
   onProgress?: (batchIdx: number, totalBatches: number) => void
 ): Promise<SrtCue[]> {
-  if (provider === 'openai') {
-    return translateCuesWithOpenAI(cues, apiKey, model, customPrompt, onLog, onProgress)
+  const handler = AI_TRANSLATION_HANDLERS[provider]
+  if (!handler) {
+    throw new Error(`Unsupported AI provider "${provider}". Supported providers: ${Object.keys(AI_TRANSLATION_HANDLERS).join(', ')}`)
   }
-  return translateCuesWithGemini(cues, apiKey, model, customPrompt, onLog, onProgress)
+  return handler(cues, apiKey, model, customPrompt, onLog, onProgress)
 }
 
 /**

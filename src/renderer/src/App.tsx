@@ -17,6 +17,7 @@ import { AboutModal } from './components/AboutModal'
 import { ModelDownloadModal } from './components/ModelDownloadModal'
 import { EXTERNAL_LINKS } from '@shared/links'
 import { formatUserFriendlyError } from '@shared/errorUtils'
+import { AiProviderId, isValidAiProvider } from '@shared/aiModels'
 
 export default function App() {
   // Theme & Preferences
@@ -25,7 +26,7 @@ export default function App() {
   const [checkUpdates, setCheckUpdates] = useState(true)
   const [engineReady, setEngineReady] = useState(false)
   const [aiApiKey, setAiApiKey] = useState('')
-  const [aiProvider, setAiProvider] = useState<'gemini' | 'openai'>('gemini')
+  const [aiProvider, setAiProvider] = useState<AiProviderId>('gemini')
   const [aiModel, setAiModel] = useState('auto')
   const [aiPrompt, setAiPrompt] = useState(DEFAULT_AI_PROMPT)
 
@@ -211,7 +212,7 @@ export default function App() {
         }
         if (s.checkUpdates !== undefined) setCheckUpdates(s.checkUpdates)
         if (s.aiApiKey) setAiApiKey(s.aiApiKey)
-        if (s.aiProvider) setAiProvider(s.aiProvider)
+        if (s.aiProvider && isValidAiProvider(s.aiProvider)) setAiProvider(s.aiProvider)
         if (s.aiModel) setAiModel(s.aiModel)
         if (s.aiPrompt) {
           if (!s.aiPrompt.includes('Background Sounds') && !s.aiPrompt.includes('SDH')) {
