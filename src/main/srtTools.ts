@@ -195,10 +195,15 @@ export function removeHallucinationLoops(cues: SrtCue[]): SrtCue[] {
     }
   }
 
-  return pass2.map((c, i) => ({
-    ...c,
-    index: i + 1
-  }))
+  return pass2
+    .filter((c) => {
+      const t = c.text.trim()
+      return t.length > 0 && t !== '-'
+    })
+    .map((c, i) => ({
+      ...c,
+      index: i + 1
+    }))
 }
 
 /**

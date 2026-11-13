@@ -3,8 +3,21 @@ setlocal enabledelayedexpansion
 cd /d "%~dp0"
 
 :: ---------------------------------------------------------------------------
-:: Privileges: Standard user privileges are sufficient for building and packaging
+:: Auto-Elevation: Automatically request Administrator privileges if not elevated
 :: ---------------------------------------------------------------------------
+if "%~1"=="--no-elevate" (
+    shift
+    goto :start_build
+)
+
+net session >nul 2>&1
+if %errorlevel% neq 0 (
+    echo [INFO] Requesting Administrator privileges to build and package...
+    powershell -NoProfile -Command "Start-Process cmd.exe -ArgumentList '/k \""""%~f0"""" %*' -Verb RunAs"
+    exit /b
+)
+
+:start_build
 
 echo =======================================================
 echo     Subtitle Sync Studio - Electron Edition Builder
@@ -131,7 +144,7 @@ pyinstaller --onefile --clean --name ffsubsync --additional-hooks-dir pyinstalle
 
 if exist "dist\ffsubsync.exe" (
     copy /y "dist\ffsubsync.exe" "bin\ffsubsync.exe" >nul
-    echo [SUCCESS] bin\ffsubsync.exe (standalone) compiled successfully.
+    echo [SUCCESS] bin\ffsubsync.exe [standalone] compiled successfully.
 ) else (
     echo [ERROR] Failed to compile bin\ffsubsync.exe.
 )
@@ -167,7 +180,18 @@ if exist "bin\whisper.exe" (
 )
 
 echo [INFO] Local Whisper AI binaries not found. Downloading official whisper.cpp release (Windows x64)...
-powershell -NoProfile -Command "$ProgressPreference = 'SilentlyContinue'; $urls = @('https://github.com/ggml-org/whisper.cpp/releases/latest/download/whisper-bin-x64.zip', 'https://github.com/ggml-org/whisper.cpp/releases/download/v1.7.4/whisper-bin-x64.zip'); $zip = '%~dp0bin\whisper_temp.zip'; $extDir = '%~dp0bin\whisper_extract'; try { [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12; $downloaded = $false; foreach ($u in $urls) { try { Write-Host ('Connecting to: ' + $u); Invoke-WebRequest -Uri $u -OutFile $zip -UseBasicParsing; $downloaded = $true; break; } catch { continue; } }; if (-not $downloaded) { throw 'Unable to connect or download whisper-bin-x64.zip'; }; Write-Host 'Extracting Whisper executables and CPU backend DLLs...'; Expand-Archive -Path $zip -DestinationPath $extDir -Force; Get-ChildItem -Path $extDir -Include '*.exe','*.dll' -Recurse | ForEach-Object { Copy-Item -Path $_.FullName -Destination '%~dp0bin\' -Force }; if (Test-Path '%~dp0bin\whisper-cli.exe') { Copy-Item -Path '%~dp0bin\whisper-cli.exe' -Destination '%~dp0bin\whisper.exe' -Force }; Write-Host '[SUCCESS] Whisper AI binaries & DLLs placed in bin\ folder.'; } catch { Write-Host ('[ERROR] Whisper download failed: ' + $_.Exception.Message); } finally { if (Test-Path $extDir) { Remove-Item -Path $extDir -Recurse -Force -ErrorAction SilentlyContinue }; if (Test-Path $zip) { Remove-Item -Path $zip -Force -ErrorAction SilentlyContinue }; }"
+powershell -NoProfile -Command "$ProgressPreference = 'SilentlyContinue'; [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12; $zip = '%~dp0bin\whisper_temp.zip'; $extDir = '%~dp0bin\whisper_extract'; $urls = @(); try { $releases = Invoke-RestMethod -Uri 'https://api.github.com/repos/ggml-org/whisper.cpp/releases' -Headers @{'User-Agent'='PowerShell'} -TimeoutSec 10 -UseBasicParsing; foreach ($r in $releases) { $a = $r.assets | Where-Object { $_.name -eq 'whisper-bin-x64.zip' } | Select-Object -First 1; if ($a) { $urls += $a.browser_download_url; break; } } } catch {}; $urls += 'https://github.com/ggml-org/whisper.cpp/releases/download/b5454/whisper-bin-x64.zip'; $urls += 'https://github.com/ggml-org/whisper.cpp/releases/download/b5130/whisper-bin-x64.zip'; try { $downloaded = $false; foreach ($u in $urls) { try { Write-Host ('Connecting to: ' + $u); Invoke-WebRequest -Uri $u -OutFile $zip -TimeoutSec 60 -UseBasicParsing; if ((Test-Path $zip) -and ((Get-Item $zip).Length -gt 1000000)) { $downloaded = $true; break; } } catch { continue; } }; if (-not $downloaded) { throw 'Unable to download valid whisper-bin-x64.zip from any source.'; }; Write-Host 'Extracting Whisper executables and CPU backend DLLs...'; Expand-Archive -Path $zip -DestinationPath $extDir -Force; Get-ChildItem -Path $extDir -Recurse | Where-Object { $_.Extension -in '.exe', '.dll' } | ForEach-Object { Copy-Item -Path $_.FullName -Destination '%~dp0bin\' -Force }; if (Test-Path '%~dp0bin\whisper-cli.exe') { Copy-Item -Path '%~dp0bin\whisper-cli.exe' -Destination '%~dp0bin\whisper.exe' -Force }; Write-Host '[SUCCESS] Whisper AI binaries & DLLs placed in bin\ folder.'; } catch { Write-Host ('[ERROR] Whisper download failed: ' + $_.Exception.Message); } finally { if (Test-Path $extDir) { Remove-Item -Path $extDir -Recurse -Force -ErrorAction SilentlyContinue }; if (Test-Path $zip) { Remove-Item -Path $zip -Force -ErrorAction SilentlyContinue }; }"
+
+:: Clean up extraneous whisper.cpp unit-test executables to keep installer lean
+if exist "bin\test-*.exe" del /q "bin\test-*.exe" >nul 2>&1
+
+if not exist "bin\whisper.exe" (
+    if exist "bin-backup\whisper.exe" (
+        echo [INFO] Restoring Whisper AI binaries and libraries from bin-backup...
+        copy /y "bin-backup\*.dll" "bin\" >nul 2>&1
+        copy /y "bin-backup\*.exe" "bin\" >nul 2>&1
+    )
+)
 
 if not exist "bin\whisper.exe" (
     if exist "bin\whisper-cli.exe" (

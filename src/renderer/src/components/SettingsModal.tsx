@@ -28,9 +28,12 @@ RULES:
 2. Contextual Idioms & Slang: Never translate idioms literally word-for-word (e.g., "give me a hand" -> "මට උදව් කරන්න", "break a leg" -> "වැඩේ හොඳට කරන්න / සුබ පැතුම්", "chill out" -> "කූල් එකේ ඉන්න"). Translate the emotion, intent, and colloquial nuance.
 3. Homonym & Context Awareness: Resolve mistranslated homonyms and ambiguous words based on surrounding movie dialogue (e.g., distinguish "fair", "bark", "right", "bear").
 4. Character Names & Modern Words: Keep character names, locations, and commonly spoken modern loan words natural.
-5. Maintain the exact format "[index] Translated line".
-6. Return exactly the same number of numbered lines without dropping any lines.
-7. Do not include introductory, markdown formatting or explanatory text.`
+5. Remove Background Sounds & Sound Effects (SDH): CAREFULLY REMOVE all non-dialogue background sounds, sound effects, audio descriptions, and music markers enclosed in brackets [ ] or parentheses ( ) (e.g. "[mysterious music plays]", "[engine roaring]", "[police sirens wail]", "[screaming]", "[applause]", "[groans]", "[laughs]", "(sighs)", "(whispering)").
+   - If a line contains spoken dialogue with a sound effect (e.g. "[sighs] Where are we going?"), remove the sound effect completely and translate ONLY the spoken dialogue ("අපි කොහෙද යන්නේ?").
+   - If an entire line contains ONLY background sounds or music descriptions with no spoken dialogue (e.g. "[mysterious music plays]"), do NOT translate the sound effect into Sinhala; return a dash "-" for that line.
+6. Maintain the exact format "[index] Translated line".
+7. Return exactly the same number of numbered lines without dropping any lines.
+8. Do not include introductory, markdown formatting or explanatory text.`
 
 interface SettingsModalProps {
   isOpen: boolean
@@ -865,6 +868,9 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                     </span>
                     <span className="text-[10px] font-semibold px-2 py-0.5 rounded-md bg-purple-100 text-purple-800 dark:bg-purple-500/15 dark:text-purple-300">
                       Homonym Resolution
+                    </span>
+                    <span className="text-[10px] font-semibold px-2 py-0.5 rounded-md bg-amber-100 text-amber-800 dark:bg-amber-500/15 dark:text-amber-300">
+                      SDH Sound Cleaner [ ]
                     </span>
                   </div>
                 </div>
