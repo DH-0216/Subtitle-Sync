@@ -1,5 +1,5 @@
 import React from 'react'
-import { Sparkles, Lock, Square, FolderOpen, Loader2, CheckCircle2, Eye } from 'lucide-react'
+import { Sparkles, Lock, Square, FolderOpen, Loader2, CheckCircle2 } from 'lucide-react'
 import { GenerateConfig } from './Step2Generate'
 
 interface Step3GenerateProps {
@@ -13,7 +13,6 @@ interface Step3GenerateProps {
   onStartGenerate: () => void
   onCancelGenerate: () => void
   onOpenFolder: () => void
-  onPreview?: () => void
 }
 
 export const Step3Generate: React.FC<Step3GenerateProps> = ({
@@ -26,8 +25,7 @@ export const Step3Generate: React.FC<Step3GenerateProps> = ({
   lastOutputDir,
   onStartGenerate,
   onCancelGenerate,
-  onOpenFolder,
-  onPreview
+  onOpenFolder
 }) => {
   return (
     <div
@@ -146,23 +144,6 @@ export const Step3Generate: React.FC<Step3GenerateProps> = ({
             className="flex-1 py-3 px-5 rounded-xl font-semibold text-sm flex items-center justify-center gap-2 transition-all bg-rose-600 hover:bg-rose-500 text-white shadow-md shadow-rose-600/25 cursor-pointer"
           >
             <Square className="w-4 h-4 fill-current" /> Cancel Generation
-          </button>
-        )}
-
-        {onPreview && (
-          <button
-            type="button"
-            onClick={onPreview}
-            disabled={!lastOutputDir || isGenerating}
-            className={`py-3 px-4 rounded-xl border-2 font-bold text-xs flex items-center gap-2 transition-all shrink-0 shadow-2xs ${
-              lastOutputDir && !isGenerating
-                ? 'border-purple-400 bg-purple-50 hover:bg-purple-100 text-purple-900 dark:border-purple-700 dark:bg-purple-950/40 dark:hover:bg-purple-900/50 dark:text-purple-200 cursor-pointer shadow-purple-500/10 hover:scale-[1.01]'
-                : 'border-slate-200 bg-slate-50 text-slate-400 dark:border-slate-800 dark:bg-slate-900/40 dark:text-slate-600 cursor-not-allowed opacity-60'
-            }`}
-            title={lastOutputDir && !isGenerating ? 'Preview generated subtitle lines' : 'Preview will be available once subtitles are generated'}
-          >
-            <Eye className={`w-4 h-4 ${lastOutputDir && !isGenerating ? 'text-purple-600 dark:text-purple-400' : 'text-slate-400 dark:text-slate-600'}`} />
-            Preview Subtitle
           </button>
         )}
 

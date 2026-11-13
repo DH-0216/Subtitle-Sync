@@ -1,10 +1,38 @@
 import React, { useState } from 'react'
-import { Cpu, FileText, CheckCircle2, AlertCircle, Music, Sliders, ChevronDown, Languages } from 'lucide-react'
+import {
+  Cpu,
+  FileText,
+  CheckCircle2,
+  AlertCircle,
+  Music,
+  Sliders,
+  ChevronDown,
+  Languages,
+  RefreshCw,
+  HardDrive,
+  CloudDownload,
+  Sparkles
+} from 'lucide-react'
 import { AudioTrack } from './Step1Video'
+
+export interface WhisperModelItem {
+  id: string
+  filename: string
+  name: string
+  label: string
+  sizeBytes: number
+  sizeFormatted: string
+  description: string
+  category: 'recommended' | 'standard' | 'high_accuracy' | 'quantized' | 'english_only' | 'custom'
+  isDownloaded: boolean
+  localPath: string | null
+  speedHint?: string
+  isRecommended?: boolean
+}
 
 export interface GenerateConfig {
   language: string
-  modelQuality: 'tiny' | 'base' | 'small' | 'medium'
+  modelQuality: string
   format: 'srt' | 'vtt'
 }
 
@@ -16,6 +44,10 @@ interface Step2GenerateProps {
   config: GenerateConfig
   onChangeConfig: (newConfig: Partial<GenerateConfig>) => void
   isOnline?: boolean
+  availableModels?: WhisperModelItem[]
+  isLoadingModels?: boolean
+  onRefreshModels?: () => void
+  modelsSource?: 'remote' | 'cached' | 'fallback'
 }
 
 export const Step2Generate: React.FC<Step2GenerateProps> = ({
@@ -25,7 +57,11 @@ export const Step2Generate: React.FC<Step2GenerateProps> = ({
   onSelectTrack,
   config,
   onChangeConfig,
-  isOnline = true
+  isOnline = true,
+  availableModels = [],
+  isLoadingModels = false,
+  onRefreshModels,
+  modelsSource = 'fallback'
 }) => {
   const [showAdvanced, setShowAdvanced] = useState(false)
 
@@ -38,6 +74,15 @@ export const Step2Generate: React.FC<Step2GenerateProps> = ({
     { code: 'en', name: 'English' },
     { code: 'si', name: 'Spoken Sinhala (කථන සිංහල)' }
   ]
+
+  // Model categories for dynamic grouping
+  const recommendedModels = availableModels.filter((m) => m.category === 'recommended')
+  const standardModels = availableModels.filter((m) => m.category === 'standard' || m.category === 'high_accuracy')
+  const englishOnlyModels = availableModels.filter((m) => m.category === 'english_only')
+  const quantizedModels = availableModels.filter((m) => m.category === 'quantized')
+  const customModels = availableModels.filter((m) => m.category === 'custom')
+
+  const selectedModel = availableModels.find((m) => m.id === config.modelQuality)
 
   return (
     <div className="bg-white dark:bg-slate-900/60 border-2 border-blue-200/90 dark:border-slate-800/80 rounded-2xl p-5 shadow-sm shadow-blue-500/10 dark:shadow-md dark:shadow-black/20 hover:border-blue-300 dark:hover:border-slate-700/70 transition-all">
@@ -166,25 +211,136 @@ export const Step2Generate: React.FC<Step2GenerateProps> = ({
         </button>
 
         {showAdvanced && (
-          <div className="mt-3 p-3.5 rounded-xl bg-blue-50/60 dark:bg-slate-800/50 border border-blue-200/80 dark:border-slate-700/80 space-y-2">
+          <div className="mt-3 p-3.5 rounded-xl bg-blue-50/60 dark:bg-slate-800/50 border border-blue-200/80 dark:border-slate-700/80 space-y-3">
             <div className="space-y-1.5">
-              <label className="text-xs font-bold text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
-                <Cpu className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
-                <span>Whisper AI Model Quality</span>
-              </label>
+              <div className="flex items-center justify-between">
+                <label className="text-xs font-bold text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
+                  <Cpu className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
+                  <span>Whisper AI Model</span>
+                </label>
+                <div className="flex items-center gap-2">
+                  <span className="inline-flex items-center gap-1 text-[10px] text-slate-500 dark:text-slate-400">
+                    <span
+                      className={`w-1.5 h-1.5 rounded-full ${
+                        modelsSource === 'remote' ? 'bg-emerald-500' : 'bg-amber-500'
+                      }`}
+                    />
+                    {modelsSource === 'remote' ? 'Hugging Face Live' : 'Hugging Face Catalog'}
+                  </span>
+                  {onRefreshModels && (
+                    <button
+                      type="button"
+                      onClick={onRefreshModels}
+                      disabled={isLoadingModels}
+                      className="p-1 rounded-md text-slate-400 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-blue-100/50 dark:hover:bg-slate-700/50 transition-colors cursor-pointer disabled:opacity-50"
+                      title="Fetch latest models from Hugging Face"
+                    >
+                      <RefreshCw
+                        className={`w-3.5 h-3.5 ${isLoadingModels ? 'animate-spin text-blue-600' : ''}`}
+                      />
+                    </button>
+                  )}
+                </div>
+              </div>
+
               <select
                 value={config.modelQuality}
-                onChange={(e) => onChangeConfig({ modelQuality: e.target.value as any })}
+                onChange={(e) => onChangeConfig({ modelQuality: e.target.value })}
                 className="w-full text-xs font-medium px-3 py-2 rounded-xl border border-blue-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 focus:outline-hidden focus:ring-2 focus:ring-blue-500/30 transition-all cursor-pointer"
               >
-                <option value="base">Base (⚡ Recommended — 3x to 4x Faster, ~140 MB)</option>
-                <option value="small">Small (High Precision for Complex Accents, ~460 MB)</option>
-                <option value="tiny">Tiny (⚡⚡ Blazing Fast, Lowest RAM, ~75 MB)</option>
-                <option value="medium">Medium (Maximum Accuracy, Heavy ~1.5 GB)</option>
+                {availableModels.length > 0 ? (
+                  <>
+                    {recommendedModels.length > 0 && (
+                      <optgroup label="⚡ Recommended (Fast & High Accuracy)">
+                        {recommendedModels.map((m) => (
+                          <option key={m.id} value={m.id}>
+                            {m.isDownloaded ? '✓ [Ready] ' : '☁ [Download] '}
+                            {m.name}
+                          </option>
+                        ))}
+                      </optgroup>
+                    )}
+
+                    {standardModels.length > 0 && (
+                      <optgroup label="🌐 Standard Multilingual Models">
+                        {standardModels.map((m) => (
+                          <option key={m.id} value={m.id}>
+                            {m.isDownloaded ? '✓ [Ready] ' : '☁ [Download] '}
+                            {m.name}
+                          </option>
+                        ))}
+                      </optgroup>
+                    )}
+
+                    {quantizedModels.length > 0 && (
+                      <optgroup label="💾 Quantized Models (Low RAM & Small Size)">
+                        {quantizedModels.map((m) => (
+                          <option key={m.id} value={m.id}>
+                            {m.isDownloaded ? '✓ [Ready] ' : '☁ [Download] '}
+                            {m.name}
+                          </option>
+                        ))}
+                      </optgroup>
+                    )}
+
+                    {englishOnlyModels.length > 0 && (
+                      <optgroup label="🔤 English Only Models (Optimized)">
+                        {englishOnlyModels.map((m) => (
+                          <option key={m.id} value={m.id}>
+                            {m.isDownloaded ? '✓ [Ready] ' : '☁ [Download] '}
+                            {m.name}
+                          </option>
+                        ))}
+                      </optgroup>
+                    )}
+
+                    {customModels.length > 0 && (
+                      <optgroup label="📁 Custom / Local Models">
+                        {customModels.map((m) => (
+                          <option key={m.id} value={m.id}>
+                            ✓ [Local] {m.name}
+                          </option>
+                        ))}
+                      </optgroup>
+                    )}
+                  </>
+                ) : (
+                  <>
+                    <option value="base">Base (⚡ Recommended — Fast &amp; Balanced, ~142 MB)</option>
+                    <option value="large-v3-turbo">Large v3 Turbo (⚡ State-of-the-art Accuracy, ~1.5 GB)</option>
+                    <option value="small">Small (High Precision for Accents, ~466 MB)</option>
+                    <option value="tiny">Tiny (⚡⚡ Blazing Fast, Lowest RAM, ~75 MB)</option>
+                    <option value="medium">Medium (Maximum Accuracy, Heavy ~1.5 GB)</option>
+                  </>
+                )}
               </select>
-              <p className="text-[11px] text-slate-500 dark:text-slate-400">
-                ⚡ <strong>Speed Tip:</strong> Selecting <strong>Base</strong> is 3x to 4x faster on your CPU while maintaining high speech accuracy for movie dialogue. Use <strong>Small</strong> for rare dialects or difficult background noise.
-              </p>
+
+              {/* Dynamic Model Status Card */}
+              <div className="p-2.5 rounded-xl bg-white/80 dark:bg-slate-900/80 border border-blue-200/70 dark:border-slate-700/70 space-y-1">
+                <div className="flex items-center justify-between text-xs">
+                  <div className="flex items-center gap-1.5">
+                    {selectedModel?.isDownloaded ? (
+                      <span className="flex items-center gap-1 font-semibold text-emerald-600 dark:text-emerald-400">
+                        <HardDrive className="w-3.5 h-3.5 shrink-0" />
+                        <span>Model downloaded &amp; ready offline</span>
+                      </span>
+                    ) : (
+                      <span className="flex items-center gap-1 font-semibold text-blue-600 dark:text-blue-400">
+                        <CloudDownload className="w-3.5 h-3.5 shrink-0" />
+                        <span>Requires one-time download on first use</span>
+                      </span>
+                    )}
+                  </div>
+                  <span className="text-[10px] font-mono px-2 py-0.5 rounded-md bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 font-bold">
+                    {selectedModel?.sizeFormatted || 'AI Model'}
+                  </span>
+                </div>
+
+                <p className="text-[11px] text-slate-500 dark:text-slate-400">
+                  {selectedModel?.description ||
+                    '⚡ Tip: Selecting Base is 3x to 4x faster on your CPU while maintaining high speech accuracy for movie dialogue.'}
+                </p>
+              </div>
             </div>
           </div>
         )}

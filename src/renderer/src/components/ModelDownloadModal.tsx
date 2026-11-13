@@ -1,10 +1,20 @@
 import React, { useEffect } from 'react'
 import { X, Cpu, Download, Loader2, AlertCircle, HardDrive, WifiOff } from 'lucide-react'
 
+export interface WhisperModelModalItem {
+  id: string
+  filename: string
+  name: string
+  label?: string
+  sizeFormatted: string
+  description?: string
+}
+
 interface ModelDownloadModalProps {
   isOpen: boolean
   onClose: () => void
-  modelQuality: 'tiny' | 'base' | 'small' | 'medium'
+  modelQuality: string
+  modelInfo?: WhisperModelModalItem | null
   isDownloading: boolean
   downloadProgress: number
   downloadSpeed?: string
@@ -28,6 +38,7 @@ export const ModelDownloadModal: React.FC<ModelDownloadModalProps> = ({
   isOpen,
   onClose,
   modelQuality,
+  modelInfo,
   isDownloading,
   downloadProgress,
   downloadSpeed,
@@ -48,14 +59,26 @@ export const ModelDownloadModal: React.FC<ModelDownloadModalProps> = ({
 
   if (!isOpen) return null
 
-  const modelInfoMap = {
+  const fallbackMap: Record<string, { name: string; size: string; desc: string }> = {
     tiny: { name: 'ggml-tiny.bin', size: '~75 MB', desc: 'Ultra-fast transcription model' },
     base: { name: 'ggml-base.bin', size: '~140 MB', desc: 'Fast & balanced transcription model' },
     small: { name: 'ggml-small.bin', size: '~460 MB', desc: 'High precision movie transcription model' },
-    medium: { name: 'ggml-medium.bin', size: '~1.5 GB', desc: 'Maximum accuracy transcription model' }
+    medium: { name: 'ggml-medium.bin', size: '~1.5 GB', desc: 'Maximum accuracy transcription model' },
+    'large-v3-turbo': { name: 'ggml-large-v3-turbo.bin', size: '~1.5 GB', desc: 'High precision & fast inference large model' },
+    'large-v3': { name: 'ggml-large-v3.bin', size: '~2.9 GB', desc: 'State-of-the-art accuracy multilingual model' }
   }
 
-  const currentInfo = modelInfoMap[modelQuality] || modelInfoMap.small
+  const fallback = fallbackMap[modelQuality] || {
+    name: modelQuality.endsWith('.bin') ? modelQuality : `ggml-${modelQuality}.bin`,
+    size: 'Downloadable AI Model',
+    desc: 'Whisper offline speech-to-text model'
+  }
+
+  const currentInfo = {
+    name: modelInfo?.filename || fallback.name,
+    size: modelInfo?.sizeFormatted || fallback.size,
+    desc: modelInfo?.description || fallback.desc
+  }
 
   return (
     <div

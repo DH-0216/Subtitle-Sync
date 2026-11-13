@@ -3,7 +3,9 @@ import { contextBridge, ipcRenderer } from 'electron'
 const api = {
   dialog: {
     openVideo: () => ipcRenderer.invoke('dialog:openVideo'),
-    openSubtitles: () => ipcRenderer.invoke('dialog:openSubtitles')
+    openSubtitles: () => ipcRenderer.invoke('dialog:openSubtitles'),
+    selectFolder: (defaultPath?: string) => ipcRenderer.invoke('dialog:selectFolder', defaultPath),
+    saveSrt: (defaultPath: string) => ipcRenderer.invoke('dialog:saveSrt', defaultPath)
   },
   shell: {
     showItemInFolder: (path: string) => ipcRenderer.invoke('shell:showItemInFolder', path),
@@ -28,7 +30,6 @@ const api = {
     checkBinaries: () => ipcRenderer.invoke('engine:checkBinaries'),
     probe: (videoPath: string) => ipcRenderer.invoke('engine:probe', videoPath),
     inspectSubtitle: (subPath: string) => ipcRenderer.invoke('subtitles:inspect', subPath),
-    previewSubtitle: (subPath: string, maxCues?: number) => ipcRenderer.invoke('subtitles:preview', subPath, maxCues),
     recommend: (videoPath: string, subPath: string) => ipcRenderer.invoke('engine:recommend', videoPath, subPath),
     startSync: (params: {
       video: string
@@ -46,6 +47,7 @@ const api = {
     }
   },
   generator: {
+    getAvailableModels: (forceRefresh?: boolean) => ipcRenderer.invoke('generator:getAvailableModels', forceRefresh),
     checkModel: (quality: string) => ipcRenderer.invoke('generator:checkModel', quality),
     checkWhisper: () => ipcRenderer.invoke('generator:checkWhisper'),
     downloadModel: (quality: string) => ipcRenderer.invoke('generator:downloadModel', quality),
@@ -56,6 +58,27 @@ const api = {
       const sub = (_: any, data: any) => callback(data)
       ipcRenderer.on('generator:downloadProgress', sub)
       return () => ipcRenderer.removeListener('generator:downloadProgress', sub)
+    }
+  },
+  extractor: {
+    extractSingle: (params: {
+      videoPath: string
+      track: any
+      outputPath?: string
+      outputDir?: string
+      cleanTags?: boolean
+    }) => ipcRenderer.invoke('extractor:extractSingle', params),
+    extractMultiple: (params: {
+      videoPath: string
+      tracks: any[]
+      outputDir?: string
+      cleanTags?: boolean
+    }) => ipcRenderer.invoke('extractor:extractMultiple', params),
+    cancel: () => ipcRenderer.invoke('extractor:cancel'),
+    onEvent: (callback: (data: any) => void) => {
+      const sub = (_: any, data: any) => callback(data)
+      ipcRenderer.on('extractor:event', sub)
+      return () => ipcRenderer.removeListener('extractor:event', sub)
     }
   }
 }

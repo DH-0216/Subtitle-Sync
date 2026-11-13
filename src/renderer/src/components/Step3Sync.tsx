@@ -1,5 +1,5 @@
 import React from 'react'
-import { Zap, Search, Scissors, Lock, RefreshCw, Square, FolderOpen, Sparkles, Loader2, CheckCircle2, Eye } from 'lucide-react'
+import { Zap, Search, Scissors, Lock, RefreshCw, Square, FolderOpen, Sparkles, Loader2, CheckCircle2 } from 'lucide-react'
 
 export type SyncMode = 'Standard' | 'Smart' | 'Split sync'
 
@@ -25,7 +25,6 @@ interface Step3SyncProps {
   onStartSync: () => void
   onCancelSync: () => void
   onOpenFolder: () => void
-  onPreview?: () => void
 }
 
 export const Step3Sync: React.FC<Step3SyncProps> = ({
@@ -42,8 +41,7 @@ export const Step3Sync: React.FC<Step3SyncProps> = ({
   lastOutputDir,
   onStartSync,
   onCancelSync,
-  onOpenFolder,
-  onPreview
+  onOpenFolder
 }) => {
   const modes: { id: SyncMode; title: string; desc: string; icon: any }[] = [
     {
@@ -265,23 +263,6 @@ export const Step3Sync: React.FC<Step3SyncProps> = ({
             className="flex-1 py-3 px-5 rounded-xl font-semibold text-sm flex items-center justify-center gap-2 transition-all bg-rose-600 hover:bg-rose-500 text-white shadow-md shadow-rose-600/25"
           >
             <Square className="w-4 h-4 fill-current" /> Cancel Synchronization
-          </button>
-        )}
-
-        {onPreview && (
-          <button
-            type="button"
-            onClick={onPreview}
-            disabled={!lastOutputDir || isSyncing}
-            className={`py-3 px-4 rounded-xl border-2 font-bold text-xs flex items-center gap-2 transition-all shrink-0 shadow-2xs ${
-              lastOutputDir && !isSyncing
-                ? 'border-emerald-400 bg-emerald-50 hover:bg-emerald-100 text-emerald-900 dark:border-emerald-700 dark:bg-emerald-950/40 dark:hover:bg-emerald-900/50 dark:text-emerald-200 cursor-pointer shadow-emerald-500/10 hover:scale-[1.01]'
-                : 'border-slate-200 bg-slate-50 text-slate-400 dark:border-slate-800 dark:bg-slate-900/40 dark:text-slate-600 cursor-not-allowed opacity-60'
-            }`}
-            title={lastOutputDir && !isSyncing ? 'Preview synchronized subtitle lines' : 'Preview will be available once synchronization completes'}
-          >
-            <Eye className={`w-4 h-4 ${lastOutputDir && !isSyncing ? 'text-emerald-600 dark:text-emerald-400' : 'text-slate-400 dark:text-slate-600'}`} />
-            Preview Subtitle
           </button>
         )}
 

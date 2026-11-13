@@ -20,8 +20,9 @@ export const EXTERNAL_LINKS = {
   GEMINI_API_BASE: 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash',
   OPENAI_MODELS_API: 'https://api.openai.com/v1/models',
 
-  // Offline Whisper Model CDN / Mirror
-  WHISPER_MODELS_BASE: 'https://huggingface.co/ggerganov/whisper.cpp/resolve/main'
+  // Offline Whisper Model CDN / Mirror & Discovery API
+  WHISPER_MODELS_BASE: 'https://huggingface.co/ggerganov/whisper.cpp/resolve/main',
+  WHISPER_MODELS_API: 'https://huggingface.co/api/models/ggerganov/whisper.cpp/tree/main'
 } as const
 
 /**

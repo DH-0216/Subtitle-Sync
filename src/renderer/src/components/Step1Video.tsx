@@ -1,5 +1,5 @@
 import React, { useState } from 'react'
-import { Film, Upload, CheckCircle2, Music, X } from 'lucide-react'
+import { Film, Upload, CheckCircle2, Music, X, FileDown } from 'lucide-react'
 
 export interface AudioTrack {
   index: number
@@ -9,6 +9,17 @@ export interface AudioTrack {
   channels: number
 }
 
+export interface SubtitleTrack {
+  index: number
+  streamIndex: number
+  codec: string
+  language: string
+  title: string
+  isDefault: boolean
+  isForced: boolean
+  isText: boolean
+}
+
 interface Step1VideoProps {
   videoPath: string | null
   videoDetails: {
@@ -16,9 +27,11 @@ interface Step1VideoProps {
     duration: string
     resolution: string
     audioCount: number
+    subtitleCount?: number
   } | null
   audioTracks: AudioTrack[]
   selectedTrack: number | null
+  subtitleTracks?: SubtitleTrack[]
   onBrowse: () => void
   onRemove: () => void
   onSelectTrackModal: () => void
@@ -30,6 +43,7 @@ export const Step1Video: React.FC<Step1VideoProps> = ({
   videoDetails,
   audioTracks,
   selectedTrack,
+  subtitleTracks = [],
   onBrowse,
   onRemove,
   onSelectTrackModal,
@@ -160,6 +174,32 @@ export const Step1Video: React.FC<Step1VideoProps> = ({
               )}
             </div>
           )}
+
+          {/* Encoded / Embedded Subtitles Information */}
+          {subtitleTracks && subtitleTracks.length > 0 ? (
+            <div className="mt-2.5 pt-2.5 border-t border-blue-200/80 dark:border-slate-800/80 flex items-center justify-between flex-wrap gap-2">
+              <div className="flex items-center gap-2 text-xs text-blue-950 dark:text-slate-300">
+                <FileDown className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
+                <span>
+                  Encoded Subtitles:{' '}
+                  <strong className="text-emerald-700 dark:text-emerald-400 font-bold">
+                    {subtitleTracks.length} {subtitleTracks.length === 1 ? 'Track' : 'Tracks'} Detected ({subtitleTracks
+                      .slice(0, 4)
+                      .map((t) => t.language.toUpperCase())
+                      .join(', ')}
+                    {subtitleTracks.length > 4 ? '...' : ''})
+                  </strong>
+                </span>
+              </div>
+            </div>
+          ) : videoPath ? (
+            <div className="mt-2.5 pt-2.5 border-t border-blue-200/80 dark:border-slate-800/80 flex items-center justify-between text-xs text-slate-500 dark:text-slate-400">
+              <span className="flex items-center gap-1.5">
+                <FileDown className="w-3.5 h-3.5 opacity-50" />
+                <span>Encoded Subtitles: None detected in container</span>
+              </span>
+            </div>
+          ) : null}
         </div>
       )}
     </div>

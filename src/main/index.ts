@@ -11,8 +11,14 @@ import {
   downloadWhisperModel,
   cancelModelDownload,
   executeSubtitleGeneration,
-  cancelSubtitleGeneration
+  cancelSubtitleGeneration,
+  getAvailableWhisperModels
 } from './generatorEngine'
+import {
+  extractSingleSubtitleTrack,
+  extractMultipleSubtitleTracks,
+  cancelExtraction
+} from './extractorEngine'
 import { EXTERNAL_LINKS, getGeminiVerifyUrl } from '@shared/links'
 import { formatUserFriendlyError } from '@shared/errorUtils'
 
@@ -405,24 +411,6 @@ app.whenReady().then(() => {
     }
   })
 
-  // IPC: Read subtitle preview cues
-  ipcMain.handle('subtitles:preview', async (_event, subPath: string, maxCues = 60) => {
-    try {
-      if (!fs.existsSync(subPath)) return null
-      const content = fs.readFileSync(subPath, 'utf-8')
-      const cues = parseSrt(content)
-      return {
-        fileName: basename(subPath),
-        fullPath: subPath,
-        totalCues: cues.length,
-        cues: cues.slice(0, maxCues),
-        rawSample: content.slice(0, 3000)
-      }
-    } catch (e: any) {
-      return { error: e.message }
-    }
-  })
-
   // IPC: Recommender
   ipcMain.handle('engine:recommend', async (_event, videoPath: string, subPath: string) => {
     try {
@@ -525,6 +513,10 @@ app.whenReady().then(() => {
   })
 
   // IPC: Generator Handlers
+  ipcMain.handle('generator:getAvailableModels', (_event, forceRefresh?: boolean) => {
+    return getAvailableWhisperModels(forceRefresh)
+  })
+
   ipcMain.handle('generator:checkModel', (_event, quality: string) => {
     const path = getWhisperModelPath(quality)
     return { exists: Boolean(path), path }
@@ -565,6 +557,49 @@ app.whenReady().then(() => {
   ipcMain.handle('generator:cancelGenerate', () => {
     cancelSubtitleGeneration()
     return true
+  })
+
+  // IPC: Extractor Handlers
+  ipcMain.handle('extractor:extractSingle', async (event, params) => {
+    const logCb = (line: string) => {
+      event.sender.send('extractor:event', { type: 'log', message: line })
+    }
+    return extractSingleSubtitleTrack(params, logCb)
+  })
+
+  ipcMain.handle('extractor:extractMultiple', async (event, params) => {
+    const progressCb = (data: { percent: number; message: string; currentTrack?: string }) => {
+      event.sender.send('extractor:event', { type: 'progress', ...data })
+    }
+    const logCb = (line: string) => {
+      event.sender.send('extractor:event', { type: 'log', message: line })
+    }
+    return extractMultipleSubtitleTracks(params, progressCb, logCb)
+  })
+
+  ipcMain.handle('extractor:cancel', () => {
+    cancelExtraction()
+    return true
+  })
+
+  ipcMain.handle('dialog:selectFolder', async (_event, defaultPath?: string) => {
+    if (!mainWindow) return null
+    const res = await dialog.showOpenDialog(mainWindow, {
+      title: 'Select Destination Folder for Extracted Subtitles',
+      defaultPath: defaultPath && fs.existsSync(defaultPath) ? defaultPath : undefined,
+      properties: ['openDirectory', 'createDirectory']
+    })
+    return res.canceled ? null : res.filePaths[0]
+  })
+
+  ipcMain.handle('dialog:saveSrt', async (_event, defaultPath: string) => {
+    if (!mainWindow) return null
+    const res = await dialog.showSaveDialog(mainWindow, {
+      title: 'Save Extracted Subtitle As',
+      defaultPath,
+      filters: [{ name: 'SubRip Subtitle (*.srt)', extensions: ['srt'] }]
+    })
+    return res.canceled ? null : res.filePath
   })
 
   createWindow()
