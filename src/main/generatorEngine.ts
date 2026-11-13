@@ -5,7 +5,7 @@ import * as os from 'os'
 import * as https from 'https'
 import * as http from 'http'
 import { spawn } from 'child_process'
-import { findBinary } from './media'
+import { findBinary, killProcessTree } from './media'
 import { parseSrt, SrtCue, writeSrt, removeHallucinationLoops, getUniqueFilePath } from './srtTools'
 import { getWhisperModelDownloadUrl, getGeminiGenerateUrl, EXTERNAL_LINKS } from '@shared/links'
 
@@ -75,6 +75,8 @@ RULES:
 let activeGeneratorProcess: any = null
 let activeDownloadRequest: any = null
 let isGenerationCancelled = false
+let activeAbortController: AbortController | null = null
+let pendingGeneratorReject: ((err: Error) => void) | null = null
 const activeCreatedFiles = new Set<string>()
 
 export function cleanupActiveGenerationFiles(): void {
@@ -727,7 +729,8 @@ ${promptText}`
           const response = await fetch(getGeminiGenerateUrl(apiKey, model), {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(body)
+            body: JSON.stringify(body),
+            signal: activeAbortController?.signal
           })
 
           if (response.ok) {
@@ -873,6 +876,7 @@ async function translateCuesWithOpenAI(
               'Content-Type': 'application/json',
               Authorization: `Bearer ${apiKey}`
             },
+            signal: activeAbortController?.signal,
             body: JSON.stringify({
               model,
               messages: [
@@ -977,6 +981,7 @@ export async function executeSubtitleGeneration(
   onEvent: (data: any) => void
 ): Promise<{ success: boolean; output?: string; message?: string }> {
   isGenerationCancelled = false
+  activeAbortController = new AbortController()
   // Clean slate for tracking only current temporary scratch files (never delete previously saved user files)
   activeCreatedFiles.clear()
 
@@ -1093,7 +1098,9 @@ export async function executeSubtitleGeneration(
   try {
     // Step 1: Extract 16kHz mono audio via FFmpeg (using multi-threading for maximum speed)
     await new Promise<void>((resolve, reject) => {
+      pendingGeneratorReject = reject
       if (isGenerationCancelled) {
+        pendingGeneratorReject = null
         reject(new Error('Subtitle generation cancelled by user.'))
         return
       }
@@ -1126,7 +1133,8 @@ export async function executeSubtitleGeneration(
       activeGeneratorProcess = proc
 
       proc.on('close', (code) => {
-        activeGeneratorProcess = null
+        if (activeGeneratorProcess === proc) activeGeneratorProcess = null
+        if (pendingGeneratorReject === reject) pendingGeneratorReject = null
         if (isGenerationCancelled) {
           reject(new Error('Subtitle generation cancelled by user.'))
           return
@@ -1139,7 +1147,8 @@ export async function executeSubtitleGeneration(
       })
 
       proc.on('error', (err) => {
-        activeGeneratorProcess = null
+        if (activeGeneratorProcess === proc) activeGeneratorProcess = null
+        if (pendingGeneratorReject === reject) pendingGeneratorReject = null
         reject(err)
       })
     })
@@ -1187,7 +1196,9 @@ export async function executeSubtitleGeneration(
     const cpuThreads = Math.max(1, Math.min(os.cpus().length, 16))
 
     await new Promise<void>((resolve, reject) => {
+      pendingGeneratorReject = reject
       if (isGenerationCancelled) {
+        pendingGeneratorReject = null
         reject(new Error('Subtitle generation cancelled by user.'))
         return
       }
@@ -1333,7 +1344,8 @@ export async function executeSubtitleGeneration(
       })
 
       proc.on('close', (code) => {
-        activeGeneratorProcess = null
+        if (activeGeneratorProcess === proc) activeGeneratorProcess = null
+        if (pendingGeneratorReject === reject) pendingGeneratorReject = null
         if (isGenerationCancelled) {
           reject(new Error('Subtitle generation cancelled by user.'))
           return
@@ -1361,7 +1373,8 @@ export async function executeSubtitleGeneration(
       })
 
       proc.on('error', (err) => {
-        activeGeneratorProcess = null
+        if (activeGeneratorProcess === proc) activeGeneratorProcess = null
+        if (pendingGeneratorReject === reject) pendingGeneratorReject = null
         reject(err)
       })
     })
@@ -1487,13 +1500,21 @@ export async function executeSubtitleGeneration(
 
 export function cancelSubtitleGeneration(): void {
   isGenerationCancelled = true
-  if (activeGeneratorProcess) {
+  const proc = activeGeneratorProcess
+  activeGeneratorProcess = null
+  if (proc) {
+    killProcessTree(proc)
+  }
+  if (activeAbortController) {
     try {
-      activeGeneratorProcess.kill()
-    } catch (e) {
-      // ignore
-    }
-    activeGeneratorProcess = null
+      activeAbortController.abort()
+    } catch {}
+    activeAbortController = null
+  }
+  if (pendingGeneratorReject) {
+    const rej = pendingGeneratorReject
+    pendingGeneratorReject = null
+    rej(new Error('Subtitle generation cancelled by user.'))
   }
   cleanupActiveGenerationFiles()
 }

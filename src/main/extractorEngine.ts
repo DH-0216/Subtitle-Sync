@@ -6,11 +6,13 @@
 import { spawn, ChildProcess } from 'child_process'
 import { join, dirname, basename, extname, resolve } from 'path'
 import * as fs from 'fs'
-import { getFfmpegPath, SubtitleTrackInfo } from './media'
+import { getFfmpegPath, SubtitleTrackInfo, killProcessTree } from './media'
 import { parseSrt, formatHms } from './srtTools'
 
 let activeExtractProcess: ChildProcess | null = null
 let isExtractionCancelled = false
+let activeExtractOutputPath: string | null = null
+let pendingExtractResolve: ((code: number) => void) | null = null
 
 export interface ExtractSingleParams {
   videoPath: string
@@ -153,10 +155,26 @@ export async function extractSingleSubtitleTrack(
     outPath
   ]
 
-  isExtractionCancelled = false
+  activeExtractOutputPath = outPath
+
+  if (isExtractionCancelled) {
+    if (fs.existsSync(outPath)) {
+      try { fs.unlinkSync(outPath) } catch {}
+    }
+    return {
+      success: false,
+      trackIndex: track.index,
+      streamIndex: track.streamIndex,
+      language: track.language,
+      title: track.title,
+      cancelled: true,
+      error: 'Extraction cancelled by user.'
+    }
+  }
 
   try {
     const exitCode = await new Promise<number>((resolve, reject) => {
+      pendingExtractResolve = resolve
       const binDir = dirname(ffmpeg)
       const augmentedPath = [binDir, process.env.PATH || ''].filter(Boolean).join(process.platform === 'win32' ? ';' : ':')
 
@@ -173,23 +191,30 @@ export async function extractSingleSubtitleTrack(
 
       let stderr = ''
       proc.stderr?.on('data', (d) => {
+        if (isExtractionCancelled) return
         const str = d.toString('utf-8')
         stderr += str
         onLog?.(`[FFmpeg] ${str.trim()}`)
       })
 
       proc.on('close', (code) => {
-        activeExtractProcess = null
-        if (isExtractionCancelled) {
-          resolve(-1)
-        } else {
-          resolve(code ?? 0)
+        if (activeExtractProcess === proc) {
+          activeExtractProcess = null
+        }
+        if (pendingExtractResolve === resolve) {
+          pendingExtractResolve = null
+          resolve(isExtractionCancelled ? -1 : (code ?? 0))
         }
       })
 
       proc.on('error', (err) => {
-        activeExtractProcess = null
-        reject(err)
+        if (activeExtractProcess === proc) {
+          activeExtractProcess = null
+        }
+        if (pendingExtractResolve === resolve) {
+          pendingExtractResolve = null
+          reject(err)
+        }
       })
     })
 
@@ -345,16 +370,20 @@ export async function extractMultipleSubtitleTracks(
  */
 export function cancelExtraction(): void {
   isExtractionCancelled = true
-  if (activeExtractProcess) {
+  const proc = activeExtractProcess
+  activeExtractProcess = null
+  if (proc) {
+    killProcessTree(proc)
+  }
+  if (pendingExtractResolve) {
+    const res = pendingExtractResolve
+    pendingExtractResolve = null
+    res(-1)
+  }
+  if (activeExtractOutputPath && fs.existsSync(activeExtractOutputPath)) {
     try {
-      activeExtractProcess.kill('SIGTERM')
-      setTimeout(() => {
-        if (activeExtractProcess) {
-          activeExtractProcess.kill('SIGKILL')
-        }
-      }, 500)
-    } catch (e) {
-      console.warn('Failed to kill extraction process:', e)
-    }
+      fs.unlinkSync(activeExtractOutputPath)
+    } catch {}
+    activeExtractOutputPath = null
   }
 }

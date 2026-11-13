@@ -460,25 +460,28 @@ app.whenReady().then(() => {
       event.sender.send('sync:event', { type: 'progress', percent, message })
     }
 
-    activeSyncEngine = new SyncEngine(logCb, statusCb, progressCb)
+    const currentEngine = new SyncEngine(logCb, statusCb, progressCb)
+    activeSyncEngine = currentEngine
 
     try {
       let result: { success: boolean; score: number | null }
       if (params.mode === 'Smart') {
-        result = await activeSyncEngine.runSmart(params)
+        result = await currentEngine.runSmart(params)
       } else if (params.mode === 'Split sync') {
-        result = await activeSyncEngine.runSplit(params)
+        result = await currentEngine.runSplit(params)
       } else {
-        result = await activeSyncEngine.runStandard(params)
+        result = await currentEngine.runStandard(params)
       }
 
-      if (activeSyncEngine?.isCancelled()) {
+      if (currentEngine.isCancelled() || (activeSyncEngine && activeSyncEngine.isCancelled())) {
         if (params.out && fs.existsSync(params.out)) {
           try {
             fs.unlinkSync(params.out)
           } catch (e) {}
         }
-        activeSyncEngine = null
+        if (activeSyncEngine === currentEngine) {
+          activeSyncEngine = null
+        }
         return { success: false, cancelled: true }
       }
 
@@ -496,11 +499,15 @@ app.whenReady().then(() => {
           score: null
         })
       }
-      activeSyncEngine = null
+      if (activeSyncEngine === currentEngine) {
+        activeSyncEngine = null
+      }
       return { success: result.success, out: params.out }
     } catch (e: any) {
       event.sender.send('sync:event', { type: 'error', message: e.message })
-      activeSyncEngine = null
+      if (activeSyncEngine === currentEngine) {
+        activeSyncEngine = null
+      }
       return { success: false }
     }
   })
@@ -509,7 +516,6 @@ app.whenReady().then(() => {
   ipcMain.handle('engine:cancelSync', () => {
     if (activeSyncEngine) {
       activeSyncEngine.cancel()
-      activeSyncEngine = null
       return true
     }
     return false

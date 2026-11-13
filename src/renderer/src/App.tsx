@@ -150,6 +150,8 @@ export default function App() {
   const subtitlesRef = React.useRef<SubtitleItem[]>([])
   const currentSubIndexRef = React.useRef(0)
   const syncCancelledRef = React.useRef(false)
+  const generateCancelledRef = React.useRef(false)
+  const extractCancelledRef = React.useRef(false)
   const isGeneratingRef = React.useRef(false)
   const isSyncingRef = React.useRef(false)
 
@@ -263,61 +265,78 @@ export default function App() {
         setLogs((prev) => [...prev, event.message])
       } else if (event.type === 'status') {
         if (isGeneratingRef.current) {
-          setGenerateStatusMessage(event.message)
+          if (!generateCancelledRef.current) {
+            setGenerateStatusMessage(event.message)
+          }
         } else {
-          setStatusMessage(event.message)
+          if (!syncCancelledRef.current) {
+            setStatusMessage(event.message)
+          }
         }
       } else if (event.type === 'progress') {
         const filePct = typeof event.percent === 'number' ? event.percent : 0
         if (isGeneratingRef.current) {
-          setGenerateProgress(filePct)
-          if (event.message) {
-            setGenerateStatusMessage(event.message)
+          if (!generateCancelledRef.current) {
+            setGenerateProgress(filePct)
+            if (event.message) {
+              setGenerateStatusMessage(event.message)
+            }
           }
         } else {
-          const subIdx = currentSubIndexRef.current
-          const total = subtitlesRef.current.length || 1
-          const overallPct = Math.min(100, Math.max(0, Math.round(((subIdx * 100) + filePct) / total)))
-          setProgress(overallPct)
-          if (event.message) {
-            if (total > 1) {
-              setStatusMessage(`[${subIdx + 1}/${total}] ${event.message}`)
-            } else {
-              setStatusMessage(event.message)
+          if (!syncCancelledRef.current) {
+            const subIdx = currentSubIndexRef.current
+            const total = subtitlesRef.current.length || 1
+            const overallPct = Math.min(100, Math.max(0, Math.round(((subIdx * 100) + filePct) / total)))
+            setProgress(overallPct)
+            if (event.message) {
+              if (total > 1) {
+                setStatusMessage(`[${subIdx + 1}/${total}] ${event.message}`)
+              } else {
+                setStatusMessage(event.message)
+              }
             }
           }
         }
       } else if (event.type === 'done') {
         if (event.success) {
           if (isGeneratingRef.current) {
-            setGenerateProgress(100)
-            setGenerateStatusMessage('Subtitle generation complete!')
+            if (!generateCancelledRef.current) {
+              setGenerateProgress(100)
+              setGenerateStatusMessage('Subtitle generation complete!')
+            }
           }
-          setLogs((prev) => [
-            ...prev,
-            `[SUCCESS] Output generated: ${event.output} (Score: ${event.score !== null ? event.score : 'N/A'})`
-          ])
-          if (event.output) {
-            const folder = event.output.substring(
-              0,
-              Math.max(event.output.lastIndexOf('/'), event.output.lastIndexOf('\\'))
-            )
-            setLastOutputDir(folder)
-            setLastOutputFile(event.output)
+          if (!syncCancelledRef.current && !generateCancelledRef.current) {
+            setLogs((prev) => [
+              ...prev,
+              `[SUCCESS] Output generated: ${event.output} (Score: ${event.score !== null ? event.score : 'N/A'})`
+            ])
+            if (event.output) {
+              const folder = event.output.substring(
+                0,
+                Math.max(event.output.lastIndexOf('/'), event.output.lastIndexOf('\\'))
+              )
+              setLastOutputDir(folder)
+              setLastOutputFile(event.output)
+            }
           }
         } else {
-          setLogs((prev) => [...prev, '[ERROR] Synchronization pass failed.'])
+          if (!syncCancelledRef.current && !generateCancelledRef.current) {
+            setLogs((prev) => [...prev, '[ERROR] Synchronization pass failed.'])
+          }
         }
       } else if (event.type === 'error') {
-        setLogs((prev) => [...prev, `[ERROR] ${event.message}`])
-        setStatusMessage('Error occurred during sync.')
-        setIsSyncing(false)
+        if (!syncCancelledRef.current && !generateCancelledRef.current) {
+          setLogs((prev) => [...prev, `[ERROR] ${event.message}`])
+          setStatusMessage('Error occurred during sync.')
+          setIsSyncing(false)
+        }
       }
     })
 
     // Listen to extractor events
     const unsubExtract = window.api?.extractor?.onEvent
       ? window.api.extractor.onEvent((event: any) => {
+          if (extractCancelledRef.current) return
           if (event.type === 'progress') {
             const p = typeof event.percent === 'number' ? event.percent : 0
             setExtractProgress(p)
@@ -337,6 +356,10 @@ export default function App() {
   // Probe Video File
   const handleSelectVideo = async (filePath: string) => {
     setVideoPath(filePath)
+    setUserSelectedMode(false)
+    setProgress(0)
+    setLastOutputDir(null)
+    setLastOutputFile(null)
     setLogs((prev) => [...prev, `[MEDIA] Loading video: ${filePath}`])
     setStatusMessage('Probing video audio and subtitle tracks...')
 
@@ -412,6 +435,11 @@ export default function App() {
       })
     }
     setSubtitles((prev) => [...prev, ...newItems])
+    setUserSelectedMode(false)
+    setProgress(0)
+    setLastOutputDir(null)
+    setLastOutputFile(null)
+    setStatusMessage('Ready')
     setLogs((prev) => [...prev, `[SUBTITLES] Added ${paths.length} subtitle file(s)`])
   }
 
@@ -423,6 +451,7 @@ export default function App() {
   }
 
   const handleRemoveSubtitle = (id: string) => {
+    setUserSelectedMode(false)
     setSubtitles((prev) => {
       const next = prev.filter((s) => s.id !== id)
       if (next.length === 0) {
@@ -435,10 +464,13 @@ export default function App() {
     })
   }
 
-  // Intelligent Recommender Trigger
+  // Intelligent Recommender Trigger: automatically re-evaluates whenever video or subtitles change
+  const subtitlePathsKey = subtitles.map((s) => s.path).join('|')
+
   useEffect(() => {
     if (videoPath && subtitles.length > 0) {
-      window.api.engine.recommend(videoPath, subtitles[0].path).then((res: any) => {
+      const primarySub = subtitles[0].path
+      window.api.engine.recommend(videoPath, primarySub).then((res: any) => {
         if (res) {
           setRecommendation(res)
           setRecommendedMode(res.mode)
@@ -446,7 +478,7 @@ export default function App() {
           if (!userSelectedMode && res.mode) {
             setSyncMode(res.mode as SyncMode)
           }
-          setLogs((prev) => [...prev, `[RECOMMENDER] ${res.title}`])
+          setLogs((prev) => [...prev, `[RECOMMENDER] Recommended mode: ${res.mode} - ${res.title}`])
         }
       })
     } else {
@@ -454,7 +486,7 @@ export default function App() {
       setRecommendedMode(null)
       setRecommendedReason(null)
     }
-  }, [videoPath, subtitles.length])
+  }, [videoPath, subtitlePathsKey, userSelectedMode])
 
   const handleSetSyncMode = (m: SyncMode) => {
     setSyncMode(m)
@@ -497,6 +529,7 @@ export default function App() {
         trackIndex: selectedTrack
       })
       if (syncCancelledRef.current || res?.cancelled) {
+        syncCancelledRef.current = true
         break
       }
       if (res?.success) {
@@ -516,6 +549,7 @@ export default function App() {
       setProgress(0)
       setLastOutputDir(null)
       setLastOutputFile(null)
+      setStatusMessage('Cancelled by user')
       return
     }
 
@@ -537,7 +571,9 @@ export default function App() {
 
   const handleCancelSync = async () => {
     syncCancelledRef.current = true
-    await window.api.engine.cancelSync()
+    try {
+      await window.api.engine.cancelSync()
+    } catch {}
     setIsSyncing(false)
     setProgress(0)
     setLastOutputDir(null)
@@ -711,6 +747,7 @@ export default function App() {
       }
     }
 
+    generateCancelledRef.current = false
     setIsGenerating(true)
     setGenerateProgress(5)
     setLastOutputDir(null)
@@ -787,13 +824,16 @@ export default function App() {
   }
 
   const handleCancelGenerate = async () => {
-    await window.api.generator.cancelGenerate()
+    generateCancelledRef.current = true
+    try {
+      await window.api.generator.cancelGenerate()
+    } catch {}
     setIsGenerating(false)
     setGenerateProgress(0)
     setLastOutputDir(null)
     setLastOutputFile(null)
-    setGenerateStatusMessage('Generation cancelled by user')
-    toast('Subtitle generation cancelled', { icon: '⏹️' })
+    setGenerateStatusMessage('Cancelled by user')
+    toast('Subtitle generation cancelled', { icon: '⏹️', duration: 2500 })
     setLogs((prev) => [...prev, '[USER] Subtitle generation cancelled.'])
   }
 
@@ -840,6 +880,7 @@ export default function App() {
       return
     }
 
+    extractCancelledRef.current = false
     setIsExtracting(true)
     setExtractProgress(5)
     setExtractStatusMessage('Starting subtitle extraction with FFmpeg...')
@@ -951,13 +992,19 @@ export default function App() {
   }
 
   const handleCancelExtract = async () => {
-    if (window.api?.extractor?.cancel) {
-      await window.api.extractor.cancel()
-    }
+    extractCancelledRef.current = true
+    try {
+      if (window.api?.extractor?.cancel) {
+        await window.api.extractor.cancel()
+      }
+    } catch {}
     setIsExtracting(false)
     setExtractProgress(0)
-    setExtractStatusMessage('Extraction cancelled')
-    toast('Extraction cancelled', { icon: '⏹️' })
+    setLastOutputDir(null)
+    setLastOutputFile(null)
+    setExtractStatusMessage('Extraction cancelled by user')
+    toast('Extraction cancelled', { icon: '⏹️', duration: 2500 })
+    setLogs((prev) => [...prev, '[USER] Subtitle extraction cancelled.'])
   }
 
   const handleSendExtractedToSync = async (item: ExtractedFileItem) => {
@@ -974,6 +1021,11 @@ export default function App() {
         span: info?.span
       }
 
+      setUserSelectedMode(false)
+      setProgress(0)
+      setStatusMessage('Ready')
+      setLastOutputDir(null)
+      setLastOutputFile(null)
       setSubtitles([newItem])
       setSubtitleAction('sync')
       toast.success(`Loaded "${item.fileName}" into Synchronizer!`, { icon: '🔄', duration: 4000 })
@@ -1089,6 +1141,11 @@ export default function App() {
             setSelectedExtractTrackIndices([])
             setExtractedFiles([])
             setSubtitleAction('sync')
+            setUserSelectedMode(false)
+            setProgress(0)
+            setStatusMessage('')
+            setLastOutputDir(null)
+            setLastOutputFile(null)
           }}
           onSelectTrackModal={() => setAudioModalOpen(true)}
           onDropFile={(path) => handleSelectVideo(path)}
@@ -1125,6 +1182,7 @@ export default function App() {
             onRemove={handleRemoveSubtitle}
             onClearAll={() => {
               setSubtitles([])
+              setUserSelectedMode(false)
               setProgress(0)
               setStatusMessage('')
               setLastOutputDir(null)

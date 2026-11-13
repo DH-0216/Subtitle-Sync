@@ -6,7 +6,7 @@ import { spawn, ChildProcess } from 'child_process'
 import * as fs from 'fs'
 import * as os from 'os'
 import { join, dirname } from 'path'
-import { getFfsubsyncPath, getFfmpegPath } from './media'
+import { getFfsubsyncPath, getFfmpegPath, killProcessTree } from './media'
 import { parseSrt } from './srtTools'
 
 export interface SyncOptions {
@@ -29,6 +29,7 @@ export class SyncEngine {
   private currentProc: ChildProcess | null = null
   private cancelled = false
   private currentOut: string | null = null
+  private pendingPassResolve: ((val: { code: number; score: number | null }) => void) | null = null
 
   constructor(
     private onLog: LogCallback,
@@ -38,11 +39,15 @@ export class SyncEngine {
 
   public cancel(): void {
     this.cancelled = true
-    if (this.currentProc) {
-      try {
-        this.currentProc.kill()
-      } catch (e) {}
-      this.currentProc = null
+    const proc = this.currentProc
+    this.currentProc = null
+    if (proc) {
+      killProcessTree(proc)
+    }
+    if (this.pendingPassResolve) {
+      const res = this.pendingPassResolve
+      this.pendingPassResolve = null
+      res({ code: -1, score: null })
     }
     // Delete any partial output file if it was created on disk
     if (this.currentOut && fs.existsSync(this.currentOut)) {
@@ -77,6 +82,8 @@ export class SyncEngine {
         return
       }
 
+      this.pendingPassResolve = resolve
+
       const ffsubsync = getFfsubsyncPath()
       const ffmpeg = getFfmpegPath()
       const binDir = dirname(ffsubsync)
@@ -104,6 +111,7 @@ export class SyncEngine {
       let estimatedProgress = 10
 
       proc.stdout?.on('data', (d) => {
+        if (this.cancelled) return
         const text = d.toString('utf-8')
         for (const line of text.split(/\r?\n/)) {
           const trimmed = line.trim()
@@ -147,6 +155,7 @@ export class SyncEngine {
       })
 
       proc.stderr?.on('data', (d) => {
+        if (this.cancelled) return
         const text = d.toString('utf-8')
         for (const line of text.split(/\r?\n/)) {
           const trimmed = line.trim()
@@ -164,14 +173,25 @@ export class SyncEngine {
       })
 
       proc.on('close', (code) => {
-        this.currentProc = null
-        onPassProgress?.(100)
-        resolve({ code: code || 0, score })
+        if (this.currentProc === proc) {
+          this.currentProc = null
+        }
+        if (this.pendingPassResolve === resolve) {
+          this.pendingPassResolve = null
+          onPassProgress?.(100)
+          resolve({ code: code || 0, score })
+        }
       })
 
       proc.on('error', (err) => {
-        this.onLog(`[ERROR] Failed to launch ffsubsync: ${err.message}`)
-        resolve({ code: 1, score: null })
+        if (this.currentProc === proc) {
+          this.currentProc = null
+        }
+        if (this.pendingPassResolve === resolve) {
+          this.pendingPassResolve = null
+          this.onLog(`[ERROR] Failed to launch ffsubsync: ${err.message}`)
+          resolve({ code: 1, score: null })
+        }
       })
     })
   }
