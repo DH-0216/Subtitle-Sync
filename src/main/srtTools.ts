@@ -110,6 +110,79 @@ export function writeSrt(cues: SrtCue[]): string {
   return output.join('\n')
 }
 
+/**
+ * Cleans SDH (Subtitles for the Deaf and Hard-of-Hearing) sound descriptions from cues.
+ * - Strips bracketed sound descriptions: [music plays], [engine revving], [sighs], [screams], etc.
+ * - Strips parenthesized sound descriptions: (sighs), (screaming), (laughs), (engine roaring), etc.
+ * - Strips music notes / tags: ♪, ♫, ♪♪, etc.
+ * - Discards cues that contain ONLY sound effects / music with no spoken dialogue.
+ * - Cleans in-line sound tags while preserving spoken character dialogue.
+ * - Re-indexes the remaining dialogue cues sequentially (1, 2, 3...).
+ */
+export function cleanSdhFromCues(cues: SrtCue[]): SrtCue[] {
+  if (!cues || cues.length === 0) return cues
+
+  const cleanedCues: SrtCue[] = []
+  // Matches parenthesized sound effects & technical directions across all SDH / CC formats
+  const PAREN_SOUND_REGEX = /\((?:[^)]*?(?:music|song|theme|melody|plays?|playing|sing(?:s|ing)?|sighs?|screams?|screaming|laughs?|laughter|chuckles?|groans?|groaning|crying|sobs?|sobbing|applause|cheer(?:s|ing)?|gasp(?:s|ing)?|snickers?|snorts?|cough(?:s|ing)?|whimpers?|shouts?|whispers?|whispering|panting|gulps?|growls?|grunts?|roars?|barking|engine(?:\s+\w+)?|sirens?|door(?:\s+\w+)?|gunshots?|gunfire|explosion|footsteps?|alarm(?:\s+\w+)?|phone(?:\s+\w+)?|buzzing|ringing|static|bell(?:\s+\w+)?|thunder|rain|wind|creak(?:s|ing)?|thud|clatter|rattle|screech(?:es|ing)?|chimes?|whistle|beep(?:s|ing)?|indistinct(?:\s+\w+)?|inaudible|muffled|speaking\s+\w+|speaks\s+\w+|on\s+radio|over\s+radio|over\s+phone|voiceover|v\.o\.|o\.s\.)[^)]*|[A-Z\s,.'!?-]{3,})\)/gi
+
+  for (const cue of cues) {
+    let text = cue.text
+
+    // 1. Remove bracketed content [anything] (Industry standard for SDH / CC in Netflix, Max, Disney+, Prime, Blu-ray)
+    text = text.replace(/\[[^\]]*\]/g, '')
+
+    // 2. Remove curly brackets {anything} (Used by some converters & Aegisub)
+    text = text.replace(/\{[^}]*\}/g, '')
+
+    // 3. Remove parenthesized sound descriptions and technical directions
+    text = text.replace(PAREN_SOUND_REGEX, '')
+
+    // 4. Remove music note symbols
+    text = text.replace(/[♪♫#♩♬]/g, '')
+
+    // 5. Clean residual HTML styling tags (<font>, <i>, <b>, <u>)
+    text = text.replace(/<\/?[a-z0-9]+[^>]*>/gi, '')
+
+    // 6. Clean up leading/trailing dashes and whitespace on lines
+    const lines = text
+      .split('\n')
+      .map((l) => l.trim().replace(/^[-–—]\s*/, '').trim())
+      .filter((l) => l.length > 0 && l !== '-')
+
+    const cleanedText = lines.join('\n').trim()
+
+    // 7. Check if any actual spoken dialogue characters remain (English, Sinhala, numbers)
+    const hasSpokenContent = /[a-zA-Z\u0D80-\u0DFF0-9]/.test(cleanedText)
+
+    if (hasSpokenContent && cleanedText.length > 0) {
+      cleanedCues.push({
+        ...cue,
+        text: cleanedText
+      })
+    }
+  }
+
+  // Re-index remaining clean dialogue cues
+  return cleanedCues.map((c, i) => ({
+    ...c,
+    index: i + 1
+  }))
+}
+
+/**
+ * Cleans accidental rogue foreign Unicode scripts (Arabic, Persian, Devanagari/Hindi,
+ * Telugu, Tamil, Malayalam, Bengali, etc.) that small or hallucinating models occasionally emit.
+ * Sinhala Unicode range (\u0D80-\u0DFF) and ASCII/Latin punctuation are strictly preserved.
+ */
+export function sanitizeSinhalaScript(text: string): string {
+  // Strip Arabic / Persian: \u0600-\u06FF, \u0750-\u077F
+  let cleaned = text.replace(/[\u0600-\u06FF\u0750-\u077F]/g, '')
+  // Strip non-Sinhala Indic scripts (Devanagari \u0900 through Malayalam \u0D7F)
+  cleaned = cleaned.replace(/[\u0900-\u0D7F]/g, '')
+  return cleaned.replace(/[ \t]{2,}/g, ' ').trim()
+}
+
 export function cleanAndSortCues(cues: SrtCue[]): SrtCue[] {
   // Filter out invalid durations and sort chronologically
   const valid = cues
@@ -195,10 +268,15 @@ export function removeHallucinationLoops(cues: SrtCue[]): SrtCue[] {
     }
   }
 
-  return pass2.map((c, i) => ({
-    ...c,
-    index: i + 1
-  }))
+  return pass2
+    .filter((c) => {
+      const t = c.text.trim()
+      return t.length > 0 && t !== '-'
+    })
+    .map((c, i) => ({
+      ...c,
+      index: i + 1
+    }))
 }
 
 /**

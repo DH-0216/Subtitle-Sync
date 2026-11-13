@@ -6,7 +6,7 @@ import * as https from 'https'
 import * as http from 'http'
 import { spawn } from 'child_process'
 import { findBinary, killProcessTree } from './media'
-import { parseSrt, SrtCue, writeSrt, removeHallucinationLoops, getUniqueFilePath } from './srtTools'
+import { parseSrt, SrtCue, writeSrt, removeHallucinationLoops, getUniqueFilePath, cleanSdhFromCues, sanitizeSinhalaScript } from './srtTools'
 import { getWhisperModelDownloadUrl, getGeminiGenerateUrl, EXTERNAL_LINKS } from '@shared/links'
 
 export interface WhisperModelInfo {
@@ -68,9 +68,14 @@ RULES:
 2. Contextual Idioms & Slang: Never translate idioms literally word-for-word (e.g., "give me a hand" -> "මට උදව් කරන්න", "break a leg" -> "වැඩේ හොඳට කරන්න / සුබ පැතුම්", "chill out" -> "කූල් එකේ ඉන්න"). Translate the emotion, intent, and colloquial nuance.
 3. Homonym & Context Awareness: Resolve mistranslated homonyms and ambiguous words based on surrounding movie dialogue (e.g., distinguish "fair", "bark", "right", "bear").
 4. Character Names & Modern Words: Keep character names, locations, and commonly spoken modern loan words natural.
-5. Maintain the exact format "[index] Translated line".
-6. Return exactly the same number of numbered lines without dropping any lines.
-7. Do not include introductory, markdown formatting or explanatory text.`
+5. Strict Script Purity (සිංහල අකුරු පමණි): Output ONLY authentic Sinhala script (අ-ෆ). NEVER mix Telugu, Tamil, Hindi/Devanagari, or Arabic characters under any circumstances.
+6. Remove Background Sounds & Sound Effects (SDH): CAREFULLY REMOVE non-dialogue audio descriptions, sound effects, and music tags enclosed in brackets [ ] or parentheses ( ) (e.g. "[mysterious music plays]", "[engine roaring]", "[police sirens wail]", "[screaming]", "[applause]", "[groans]", "[laughs]", "(sighs)", "(whispering)").
+   - If a line contains spoken dialogue with a sound effect (e.g. "[sighs] Where are we going?"), remove the sound effect completely and translate ONLY the spoken dialogue ("අපි කොහෙද යන්නේ?").
+   - If an entire line contains ONLY background sounds or music descriptions with no spoken dialogue, output a dash "-" for that line.
+7. 1:1 Complete Line Mapping - NEVER Skip or Merge: Every single numbered line [index] in the input MUST have an exact corresponding [index] in your output. Even short lines like "[120] Hey, you know what?" MUST be translated individually as "[120] ඒයි, දන්නවද වැඩක්?". NEVER combine multiple lines into one and NEVER leave any line untranslated in English.
+8. Maintain the exact format "[index] Translated line".
+9. Return exactly the same number of numbered lines without dropping any lines.
+10. Do not include introductory, markdown formatting or explanatory text.`
 
 let activeGeneratorProcess: any = null
 let activeDownloadRequest: any = null
@@ -566,21 +571,25 @@ async function getGeminiCandidateModels(apiKey: string, preferredModel?: string)
         .map((m: any) => (m.name || '').replace(/^models\//, ''))
         .filter((n: string) => n.length > 0)
 
-      // Sort live models dynamically:
-      // 1. Models containing 'flash' (fastest & high quota), newer versions first
-      // 2. All other generation models, newer versions first
-      const flashModels = live
-        .filter((m) => m.toLowerCase().includes('flash'))
-        .sort((a, b) => b.localeCompare(a, undefined, { numeric: true, sensitivity: 'base' }))
+      // Exclude miniature models, experimental thinking models, and Gemma which lack Sinhala script tokenization
+      const excludePatterns = ['8b', 'gemma', 'lite', 'thinking', 'learnlm', 'aqa', 'vision', 'embedding', 'exp-']
+      const robustModels = live.filter((m: string) => !excludePatterns.some((p) => m.toLowerCase().includes(p)))
 
-      const otherModels = live
-        .filter((m) => !m.toLowerCase().includes('flash'))
-        .sort((a, b) => b.localeCompare(a, undefined, { numeric: true, sensitivity: 'base' }))
+      // Priority order:
+      // 1. Fast production flash models (gemini-2.5-flash, gemini-2.0-flash, gemini-1.5-flash)
+      // 2. High-accuracy pro models (gemini-2.5-pro, gemini-2.0-pro, gemini-1.5-pro)
+      const flashModels = robustModels
+        .filter((m: string) => m.toLowerCase().includes('flash'))
+        .sort((a: string, b: string) => b.localeCompare(a, undefined, { numeric: true, sensitivity: 'base' }))
+
+      const proModels = robustModels
+        .filter((m: string) => m.toLowerCase().includes('pro'))
+        .sort((a: string, b: string) => b.localeCompare(a, undefined, { numeric: true, sensitivity: 'base' }))
 
       const ordered = [
-        ...(preferredModel && preferredModel !== 'auto' ? [preferredModel] : []),
+        ...(preferredModel && preferredModel !== 'auto' && !excludePatterns.some((p) => preferredModel.toLowerCase().includes(p)) ? [preferredModel] : []),
         ...flashModels,
-        ...otherModels
+        ...proModels
       ]
 
       const unique = Array.from(new Set(ordered))
@@ -592,7 +601,7 @@ async function getGeminiCandidateModels(apiKey: string, preferredModel?: string)
     // fallback
   }
 
-  return preferredModel && preferredModel !== 'auto' ? [preferredModel] : ['gemini-flash']
+  return preferredModel && preferredModel !== 'auto' ? [preferredModel] : ['gemini-2.0-flash', 'gemini-1.5-flash', 'gemini-1.5-pro']
 }
 
 /**
@@ -671,7 +680,7 @@ async function translateCuesWithGemini(
   onLog(`[AI TRANSLATION] Target model: ${currentModel}`)
   const candidateModels = await getGeminiCandidateModels(apiKey, currentModel)
 
-  const batchSize = 75
+  const batchSize = 30
   const translatedCues: SrtCue[] = []
   const instruction = customPrompt && customPrompt.trim().length > 0 ? customPrompt.trim() : DEFAULT_AI_PROMPT
   const totalBatches = Math.ceil(cues.length / batchSize)
@@ -706,7 +715,7 @@ ${promptText}`
 
     let batchSuccess = false
     let lastErrDetail = ''
-    let content = ''
+    let lineMap: Record<number, string> = {}
     const maxRetries = 3
 
     for (let attempt = 1; attempt <= maxRetries; attempt++) {
@@ -739,7 +748,25 @@ ${promptText}`
               onLog(`[AI TRANSLATION] Switched to high-availability model: ${model}`)
             }
             const data = await response.json()
-            content = data?.candidates?.[0]?.content?.parts?.[0]?.text || ''
+            const content = data?.candidates?.[0]?.content?.parts?.[0]?.text || ''
+
+            const parsedMap: Record<number, string> = {}
+            const lines = content.split('\n').filter((l: string) => l.trim().length > 0)
+            for (const l of lines) {
+              const m = l.match(/^\[(\d+)\]\s*(.*)$/)
+              if (m) {
+                const idx = parseInt(m[1], 10)
+                parsedMap[idx] = sanitizeSinhalaScript(m[2].trim())
+              }
+            }
+
+            const missing = batch.filter((c) => !parsedMap[c.index] || parsedMap[c.index].length === 0)
+            if (missing.length > 0 && attempt < maxRetries) {
+              onLog(`[AI TRANSLATION] Model missed ${missing.length} line(s) in batch ${batchIdx}. Retrying for complete translation...`)
+              continue
+            }
+
+            lineMap = parsedMap
             batchSuccess = true
             break
           }
@@ -792,21 +819,11 @@ ${promptText}`
       throw new Error(`Gemini API: ${cleanErr}`)
     }
 
-    // Parse translated lines
-    const lines = content.split('\n').filter((l: string) => l.trim().length > 0)
-    const lineMap: Record<number, string> = {}
-
-    for (const l of lines) {
-      const m = l.match(/^\[(\d+)\]\s*(.*)$/)
-      if (m) {
-        lineMap[parseInt(m[1], 10)] = m[2].trim()
-      }
-    }
-
     for (const c of batch) {
+      const trans = lineMap[c.index] ? sanitizeSinhalaScript(lineMap[c.index]) : ''
       translatedCues.push({
         ...c,
-        text: lineMap[c.index] || c.text
+        text: trans || c.text
       })
     }
   }
@@ -831,7 +848,7 @@ async function translateCuesWithOpenAI(
     : (candidateModels[0] || 'gpt-4o-mini')
 
   onLog(`[AI TRANSLATION] Initiating OpenAI (${currentModel}) translation...`)
-  const batchSize = 75
+  const batchSize = 30
   const translatedCues: SrtCue[] = []
   const instruction = customPrompt && customPrompt.trim().length > 0 ? customPrompt.trim() : DEFAULT_AI_PROMPT
   const totalBatches = Math.ceil(cues.length / batchSize)
@@ -849,9 +866,9 @@ async function translateCuesWithOpenAI(
 
     const promptText = batch.map((c) => `[${c.index}] ${c.text.replace(/\n/g, ' ')}`).join('\n')
 
-    let content = ''
     let batchSuccess = false
     let lastErrDetail = ''
+    let lineMap: Record<number, string> = {}
     const maxRetries = 3
 
     for (let attempt = 1; attempt <= maxRetries; attempt++) {
@@ -893,7 +910,25 @@ async function translateCuesWithOpenAI(
               onLog(`[AI TRANSLATION] Switched to active OpenAI model: ${model}`)
             }
             const data = await response.json()
-            content = data?.choices?.[0]?.message?.content || ''
+            const content = data?.choices?.[0]?.message?.content || ''
+
+            const parsedMap: Record<number, string> = {}
+            const lines = content.split('\n').filter((l: string) => l.trim().length > 0)
+            for (const l of lines) {
+              const m = l.match(/^\[(\d+)\]\s*(.*)$/)
+              if (m) {
+                const idx = parseInt(m[1], 10)
+                parsedMap[idx] = sanitizeSinhalaScript(m[2].trim())
+              }
+            }
+
+            const missing = batch.filter((c) => !parsedMap[c.index] || parsedMap[c.index].length === 0)
+            if (missing.length > 0 && attempt < maxRetries) {
+              onLog(`[AI TRANSLATION] Model missed ${missing.length} line(s) in batch ${batchIdx}. Retrying for complete translation...`)
+              continue
+            }
+
+            lineMap = parsedMap
             batchSuccess = true
             break
           }
@@ -934,20 +969,11 @@ async function translateCuesWithOpenAI(
       throw new Error(`OpenAI API: ${cleanErr}`)
     }
 
-    const lines = content.split('\n').filter((l: string) => l.trim().length > 0)
-    const lineMap: Record<number, string> = {}
-
-    for (const l of lines) {
-      const m = l.match(/^\[(\d+)\]\s*(.*)$/)
-      if (m) {
-        lineMap[parseInt(m[1], 10)] = m[2].trim()
-      }
-    }
-
     for (const c of batch) {
+      const trans = lineMap[c.index] ? sanitizeSinhalaScript(lineMap[c.index]) : ''
       translatedCues.push({
         ...c,
-        text: lineMap[c.index] || c.text
+        text: trans || c.text
       })
     }
   }
@@ -1006,6 +1032,15 @@ export async function executeSubtitleGeneration(
     onEvent({ type: 'log', message: `[SUBTITLE] Loaded ${cues.length} cues from ${sourceSubPath}` })
 
     let processedCues = removeHallucinationLoops(cues)
+    const initialCuesCount = processedCues.length
+    processedCues = cleanSdhFromCues(processedCues)
+    const sdhCleanedCount = initialCuesCount - processedCues.length
+    if (sdhCleanedCount > 0) {
+      onEvent({
+        type: 'log',
+        message: `[SDH CLEANER] Purged ${sdhCleanedCount} background sound effect cues (e.g. [music], [screaming], (sighs)). Retained ${processedCues.length} clean dialogue cues.`
+      })
+    }
     let finalSrtPath = sourceSubPath
 
     if (language === 'si') {
@@ -1039,7 +1074,7 @@ export async function executeSubtitleGeneration(
         throw new Error('Subtitle translation cancelled by user.')
       }
 
-      processedCues = removeHallucinationLoops(translatedCues)
+      processedCues = cleanSdhFromCues(removeHallucinationLoops(translatedCues))
       finalSrtPath = sourceSubPath.replace(/\.[^/.]+$/, '') + '.sinhala.translated.srt'
     } else {
       finalSrtPath = sourceSubPath.replace(/\.[^/.]+$/, '') + `.${language}.translated.srt`
@@ -1404,7 +1439,17 @@ export async function executeSubtitleGeneration(
       onEvent({ type: 'progress', percent: 75, message: 'Translating into Spoken Sinhala...' })
 
       const srtContent = fs.readFileSync(generatedSrt, 'utf-8')
-      const rawCues = parseSrt(srtContent)
+      let rawCues = parseSrt(srtContent)
+      rawCues = removeHallucinationLoops(rawCues)
+      const initialCuesCount = rawCues.length
+      rawCues = cleanSdhFromCues(rawCues)
+      const sdhCleanedCount = initialCuesCount - rawCues.length
+      if (sdhCleanedCount > 0) {
+        onEvent({
+          type: 'log',
+          message: `[SDH CLEANER] Purged ${sdhCleanedCount} background sound effect cues. Retained ${rawCues.length} clean dialogue cues.`
+        })
+      }
 
       try {
         const translatedCues = await translateCuesViaAi(
@@ -1430,7 +1475,8 @@ export async function executeSubtitleGeneration(
           throw new Error('Subtitle generation cancelled by user.')
         }
 
-        const finalSinhalaSrt = writeSrt(translatedCues)
+        const finalSinhalaCues = cleanSdhFromCues(removeHallucinationLoops(translatedCues))
+        const finalSinhalaSrt = writeSrt(finalSinhalaCues)
         finalSrtPath = getUniqueFilePath(video.replace(/\.[^/.]+$/, `.sinhala.generated.srt`))
         fs.writeFileSync(finalSrtPath, finalSinhalaSrt, 'utf-8')
         onEvent({ type: 'log', message: `[AI TRANSLATION] Translated subtitle saved: ${finalSrtPath}` })

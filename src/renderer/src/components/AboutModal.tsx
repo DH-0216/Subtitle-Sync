@@ -2,6 +2,7 @@ import React from 'react'
 import { Github, ExternalLink } from 'lucide-react'
 import appIcon from '../assets/app_icon.png'
 import { EXTERNAL_LINKS } from '@shared/links'
+import { APP_VERSION } from '@shared/version'
 
 interface AboutModalProps {
   isOpen: boolean
@@ -37,7 +38,7 @@ export const AboutModal: React.FC<AboutModalProps> = ({ isOpen, onClose }) => {
           />
 
           <h3 className="font-bold text-lg text-slate-900 dark:text-slate-100 tracking-tight">Subtitle Sync Studio</h3>
-          <p className="text-xs text-blue-600 dark:text-blue-400 font-semibold mb-3">Version 2.0.0 (Electron Edition)</p>
+          <p className="text-xs text-blue-600 dark:text-blue-400 font-semibold mb-3">Version {APP_VERSION} (Electron Edition)</p>
 
           <p className="text-xs text-slate-600 dark:text-slate-400 leading-relaxed mb-4">
             A modern, high-precision desktop application to automatically synchronize out-of-sync

@@ -20,6 +20,7 @@ import {
 import toast from 'react-hot-toast'
 import { EXTERNAL_LINKS, getGeminiVerifyUrl } from '@shared/links'
 import { formatUserFriendlyError } from '@shared/errorUtils'
+import { APP_VERSION } from '@shared/version'
 
 export const DEFAULT_AI_PROMPT = `You are an expert subtitle translator specializing in natural, authentic spoken colloquial Sinhala (ස්වාභාවික කථාබහ සිංහල) for cinema and movies.
 Translate the following movie subtitle lines into natural, spoken Sinhala as people actually speak in day-to-day life.
@@ -28,9 +29,14 @@ RULES:
 2. Contextual Idioms & Slang: Never translate idioms literally word-for-word (e.g., "give me a hand" -> "මට උදව් කරන්න", "break a leg" -> "වැඩේ හොඳට කරන්න / සුබ පැතුම්", "chill out" -> "කූල් එකේ ඉන්න"). Translate the emotion, intent, and colloquial nuance.
 3. Homonym & Context Awareness: Resolve mistranslated homonyms and ambiguous words based on surrounding movie dialogue (e.g., distinguish "fair", "bark", "right", "bear").
 4. Character Names & Modern Words: Keep character names, locations, and commonly spoken modern loan words natural.
-5. Maintain the exact format "[index] Translated line".
-6. Return exactly the same number of numbered lines without dropping any lines.
-7. Do not include introductory, markdown formatting or explanatory text.`
+5. Strict Script Purity (සිංහල අකුරු පමණි): Output ONLY authentic Sinhala script (අ-ෆ). NEVER mix Telugu, Tamil, Hindi/Devanagari, or Arabic characters under any circumstances.
+6. Remove Background Sounds & Sound Effects (SDH): CAREFULLY REMOVE non-dialogue audio descriptions, sound effects, and music tags enclosed in brackets [ ] or parentheses ( ) (e.g. "[mysterious music plays]", "[engine roaring]", "[police sirens wail]", "[screaming]", "[applause]", "[groans]", "[laughs]", "(sighs)", "(whispering)").
+   - If a line contains spoken dialogue with a sound effect (e.g. "[sighs] Where are we going?"), remove the sound effect completely and translate ONLY the spoken dialogue ("අපි කොහෙද යන්නේ?").
+   - If an entire line contains ONLY background sounds or music descriptions with no spoken dialogue, output a dash "-" for that line.
+7. 1:1 Complete Line Mapping - NEVER Skip or Merge: Every single numbered line [index] in the input MUST have an exact corresponding [index] in your output. Even short lines like "[120] Hey, you know what?" MUST be translated individually as "[120] ඒයි, දන්නවද වැඩක්?". NEVER combine multiple lines into one and NEVER leave any line untranslated in English.
+8. Maintain the exact format "[index] Translated line".
+9. Return exactly the same number of numbered lines without dropping any lines.
+10. Do not include introductory, markdown formatting or explanatory text.`
 
 interface SettingsModalProps {
   isOpen: boolean
@@ -51,7 +57,6 @@ interface SettingsModalProps {
   onSave?: () => void
 }
 
-const APP_VERSION = '2.0.0'
 const GITHUB_REPO = EXTERNAL_LINKS.REPO_SLUG
 
 export const SettingsModal: React.FC<SettingsModalProps> = ({
@@ -865,6 +870,9 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                     </span>
                     <span className="text-[10px] font-semibold px-2 py-0.5 rounded-md bg-purple-100 text-purple-800 dark:bg-purple-500/15 dark:text-purple-300">
                       Homonym Resolution
+                    </span>
+                    <span className="text-[10px] font-semibold px-2 py-0.5 rounded-md bg-amber-100 text-amber-800 dark:bg-amber-500/15 dark:text-amber-300">
+                      SDH Sound Cleaner [ ]
                     </span>
                   </div>
                 </div>

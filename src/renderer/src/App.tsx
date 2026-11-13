@@ -213,7 +213,13 @@ export default function App() {
         if (s.aiApiKey) setAiApiKey(s.aiApiKey)
         if (s.aiProvider) setAiProvider(s.aiProvider)
         if (s.aiModel) setAiModel(s.aiModel)
-        if (s.aiPrompt) setAiPrompt(s.aiPrompt)
+        if (s.aiPrompt) {
+          if (!s.aiPrompt.includes('Background Sounds') && !s.aiPrompt.includes('SDH')) {
+            setAiPrompt(DEFAULT_AI_PROMPT)
+          } else {
+            setAiPrompt(s.aiPrompt)
+          }
+        }
       }
     })
 
