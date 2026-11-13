@@ -1,5 +1,6 @@
 import React, { useState } from 'react'
 import { Film, Upload, CheckCircle2, Music, X, FileDown } from 'lucide-react'
+import { MetadataBadge } from './MetadataBadge'
 
 export interface AudioTrack {
   index: number
@@ -121,21 +122,15 @@ export const Step1Video: React.FC<Step1VideoProps> = ({
                 <p className="text-sm font-bold text-slate-900 dark:text-slate-100 truncate" title={videoPath}>
                   {fileName}
                 </p>
-                <div className="flex items-center gap-2 mt-1.5 flex-wrap">
+                <div className="flex items-center gap-1 mt-1 flex-wrap">
                   {videoDetails?.duration && (
-                    <span className="text-[11px] bg-slate-200/80 text-slate-800 border border-slate-300 dark:bg-slate-800/90 dark:text-slate-300 dark:border-slate-700/50 px-2 py-0.5 rounded font-mono font-bold shadow-2xs">
-                      ⏱ {videoDetails.duration}
-                    </span>
+                    <MetadataBadge variant="mono" icon="⏱" label={videoDetails.duration} />
                   )}
                   {videoDetails?.fps && (
-                    <span className="text-[11px] bg-slate-200/80 text-slate-800 border border-slate-300 dark:bg-slate-800/90 dark:text-slate-300 dark:border-slate-700/50 px-2 py-0.5 rounded font-mono font-bold shadow-2xs">
-                      {videoDetails.fps.toFixed(3)} fps
-                    </span>
+                    <MetadataBadge variant="mono" icon="🎬" label={`${videoDetails.fps.toFixed(3)} fps`} />
                   )}
                   {videoDetails?.resolution && (
-                    <span className="text-[11px] bg-slate-200/80 text-slate-800 border border-slate-300 dark:bg-slate-800/90 dark:text-slate-300 dark:border-slate-700/50 px-2 py-0.5 rounded font-mono font-bold shadow-2xs">
-                      {videoDetails.resolution}
-                    </span>
+                    <MetadataBadge variant="mono" icon="🖥️" label={videoDetails.resolution} />
                   )}
                 </div>
               </div>
