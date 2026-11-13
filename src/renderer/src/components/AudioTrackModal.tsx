@@ -64,13 +64,13 @@ export const AudioTrackModal: React.FC<AudioTrackModalProps> = ({
                 }}
                 className={`p-3 rounded-xl border flex items-center justify-between cursor-pointer transition-all ${
                   isSelected
-                    ? 'bg-blue-50/80 border-blue-500 ring-1 ring-blue-500/40 shadow-xs dark:bg-blue-600/15 dark:border-blue-500 dark:ring-blue-500/40'
+                    ? 'bg-slate-100/90 border-blue-800 ring-1 ring-blue-800 shadow-2xs dark:bg-blue-950/40 dark:border-blue-500 dark:ring-blue-500/40'
                     : 'bg-slate-50/70 border-slate-200 hover:border-slate-300 hover:bg-slate-100/70 dark:bg-[#0B0F19]/60 dark:border-slate-800 dark:hover:border-slate-700 dark:hover:bg-[#0B0F19]'
                 }`}
               >
                 <div>
                   <div className="flex items-center gap-2">
-                    <span className="text-xs font-bold text-blue-600 dark:text-blue-400 font-mono">
+                    <span className="text-xs font-bold text-blue-800 dark:text-blue-400 font-mono">
                       Track #{track.index}
                     </span>
                     <span className="text-xs font-semibold px-2 py-0.5 rounded bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-200 border border-slate-200 dark:border-slate-700/50 shadow-2xs">
@@ -86,7 +86,7 @@ export const AudioTrackModal: React.FC<AudioTrackModalProps> = ({
                 </div>
 
                 {isSelected && (
-                  <div className="w-6 h-6 rounded-full bg-blue-600 text-white flex items-center justify-center shrink-0">
+                  <div className="w-6 h-6 rounded-full bg-blue-800 dark:bg-blue-600 text-white flex items-center justify-center shrink-0">
                     <Check className="w-3.5 h-3.5" />
                   </div>
                 )}

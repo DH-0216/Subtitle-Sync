@@ -9,6 +9,30 @@
   }
 }
 
+/* In dark mode, eliminate heavy/chunky bold text for a clean, sleek appearance */
+.dark,
+.dark * {
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+.dark h1,
+.dark h2,
+.dark h3,
+.dark h4,
+.dark h5,
+.dark h6,
+.dark b,
+.dark strong,
+.dark th,
+.dark .font-black,
+.dark .font-extrabold,
+.dark .font-bold,
+.dark .font-semibold,
+.dark .font-medium {
+  font-weight: 400 !important;
+}
+
 /* Custom dark scrollbar */
 ::-webkit-scrollbar {
   width: 7px;

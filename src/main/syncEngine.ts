@@ -5,8 +5,8 @@
 import { spawn, ChildProcess } from 'child_process'
 import * as fs from 'fs'
 import * as os from 'os'
-import { join } from 'path'
-import { getFfsubsyncPath } from './media'
+import { join, dirname } from 'path'
+import { getFfsubsyncPath, getFfmpegPath } from './media'
 import { parseSrt } from './srtTools'
 
 export interface SyncOptions {
@@ -16,6 +16,7 @@ export interface SyncOptions {
   mode: 'Standard' | 'Smart' | 'Split sync'
   trackIndex?: number | null
   subFps?: number | null
+  referenceSub?: string | null
 }
 
 export type LogCallback = (line: string) => void
@@ -28,6 +29,7 @@ const PERCENT_REGEX = /(?:^|\D)(\d{1,3})%(?:\D|$)/
 export class SyncEngine {
   private currentProc: ChildProcess | null = null
   private cancelled = false
+  private currentOut: string | null = null
 
   constructor(
     private onLog: LogCallback,
@@ -42,6 +44,12 @@ export class SyncEngine {
         this.currentProc.kill()
       } catch (e) {}
       this.currentProc = null
+    }
+    // Delete any partial output file if it was created on disk
+    if (this.currentOut && fs.existsSync(this.currentOut)) {
+      try {
+        fs.unlinkSync(this.currentOut)
+      } catch (e) {}
     }
   }
 
@@ -71,11 +79,25 @@ export class SyncEngine {
       }
 
       const ffsubsync = getFfsubsyncPath()
+      const ffmpeg = getFfmpegPath()
+      const binDir = dirname(ffsubsync)
+      const ffmpegDir = dirname(ffmpeg)
+      const augmentedPath = [
+        binDir,
+        ffmpegDir,
+        process.env.PATH || ''
+      ].filter(Boolean).join(process.platform === 'win32' ? ';' : ':')
+
       const args = this.buildArgs(video, sub, out, extra)
 
       const proc = spawn(ffsubsync, args, {
         windowsHide: true,
-        env: { ...process.env, PYTHONIOENCODING: 'utf-8' }
+        cwd: binDir,
+        env: {
+          ...process.env,
+          PYTHONIOENCODING: 'utf-8',
+          PATH: augmentedPath
+        }
       })
       this.currentProc = proc
 
@@ -159,19 +181,29 @@ export class SyncEngine {
    * 1. Standard Sync: Fast single pass alignment
    */
   public async runStandard(options: SyncOptions): Promise<{ success: boolean; score: number | null }> {
-    this.onStatus('Running Standard 1-pass synchronization...')
-    this.onProgress(5, 'Initializing alignment engine...')
+    this.currentOut = options.out
+    const isSubRef = Boolean(options.referenceSub && fs.existsSync(options.referenceSub))
+    const reference = isSubRef ? options.referenceSub! : options.video
+
+    this.onStatus(
+      isSubRef
+        ? 'Standard Sync: Aligning with frame-accurate subtitle timing reference...'
+        : 'Running Standard 1-pass synchronization...'
+    )
+    this.onProgress(5, isSubRef ? 'Aligning to timing grid...' : 'Initializing alignment engine...')
     const extra: string[] = []
 
-    if (options.trackIndex !== undefined && options.trackIndex !== null) {
-      extra.push('--reference-stream', `0:a:${options.trackIndex}`)
+    if (!isSubRef) {
+      if (options.trackIndex !== undefined && options.trackIndex !== null) {
+        extra.push('--reference-stream', `0:a:${options.trackIndex}`)
+      }
     }
     if (options.subFps) {
       extra.push('--sub-fps', String(options.subFps))
     }
 
     const { code, score } = await this.runSinglePass(
-      options.video,
+      reference,
       options.sub,
       options.out,
       extra,
@@ -181,38 +213,61 @@ export class SyncEngine {
       }
     )
 
-    this.onProgress(100, 'Synchronization complete!')
-    return { success: code === 0, score }
+    // If cancelled or failed, remove partial output file
+    if (this.cancelled || code !== 0) {
+      if (fs.existsSync(options.out)) {
+        try {
+          fs.unlinkSync(options.out)
+        } catch (e) {}
+      }
+      return { success: false, score: null }
+    }
+
+    this.onProgress(100, isSubRef ? 'Frame-accurate sync complete!' : 'Synchronization complete!')
+    return { success: true, score }
   }
 
   /**
    * 2. Smart Sync: 4-Pass scoring algorithm
    */
   public async runSmart(options: SyncOptions): Promise<{ success: boolean; score: number | null }> {
+    this.currentOut = options.out
+    const isSubRef = Boolean(options.referenceSub && fs.existsSync(options.referenceSub))
+    const reference = isSubRef ? options.referenceSub! : options.video
+
     const extraBase: string[] = []
-    if (options.trackIndex !== undefined && options.trackIndex !== null) {
-      extraBase.push('--reference-stream', `0:a:${options.trackIndex}`)
+    if (!isSubRef) {
+      if (options.trackIndex !== undefined && options.trackIndex !== null) {
+        extraBase.push('--reference-stream', `0:a:${options.trackIndex}`)
+      }
     }
     if (options.subFps) {
       extraBase.push('--sub-fps', String(options.subFps))
     }
 
     const tempDir = fs.mkdtempSync(join(os.tmpdir(), 'subsync_smart_'))
-    const passes = [
-      { name: 'Base search', flags: [] },
-      { name: 'Wide search (±15m)', flags: ['--max-offset-seconds', '900'] },
-      { name: 'Speed drift correction (--gss)', flags: ['--gss'] },
-      { name: 'Auditok speech detector', flags: ['--vad', 'auditok'] }
-    ]
+    const passes = isSubRef
+      ? [
+          { name: 'Subtitle Timing Grid Match', flags: [] },
+          { name: 'Wide search (±15m)', flags: ['--max-offset-seconds', '900'] },
+          { name: 'Speed drift correction (--gss)', flags: ['--gss'] }
+        ]
+      : [
+          { name: 'Base search', flags: [] },
+          { name: 'Wide search (±15m)', flags: ['--max-offset-seconds', '900'] },
+          { name: 'Speed drift correction (--gss)', flags: ['--gss'] },
+          { name: 'Auditok speech detector', flags: ['--vad', 'auditok'] }
+        ]
 
     let bestScore = -Infinity
     let bestFile: string | null = null
 
     try {
+      const passWeight = 100 / passes.length
       for (let i = 0; i < passes.length; i++) {
         if (this.cancelled) break
         const p = passes[i]
-        const passBasePct = i * 25
+        const passBasePct = Math.round(i * passWeight)
         const statusText = `Smart Sync: Pass ${i + 1}/${passes.length} (${p.name})`
         this.onStatus(statusText)
         this.onLog(`\n--- Pass ${i + 1}/${passes.length}: ${p.name} ---`)
@@ -221,12 +276,12 @@ export class SyncEngine {
         const flags = [...extraBase, ...p.flags]
 
         const res = await this.runSinglePass(
-          options.video,
+          reference,
           options.sub,
           passOut,
           flags,
           (passPct) => {
-            const overallPct = Math.min(98, Math.round(passBasePct + (passPct * 0.25)))
+            const overallPct = Math.min(98, Math.round(passBasePct + passPct * (passWeight / 100)))
             this.onProgress(overallPct, `${statusText} - ${overallPct}%`)
           }
         )
@@ -240,15 +295,20 @@ export class SyncEngine {
         }
       }
 
-      if (bestFile && fs.existsSync(bestFile)) {
+      if (!this.cancelled && bestFile && fs.existsSync(bestFile)) {
         fs.copyFileSync(bestFile, options.out)
-        this.onProgress(100, 'Smart sync complete!')
+        this.onProgress(100, isSubRef ? 'Smart frame-accurate sync complete!' : 'Smart sync complete!')
         return { success: true, score: bestScore > -Infinity ? bestScore : null }
       }
     } finally {
       try {
         fs.rmSync(tempDir, { recursive: true, force: true })
       } catch (e) {}
+      if (this.cancelled && fs.existsSync(options.out)) {
+        try {
+          fs.unlinkSync(options.out)
+        } catch (e) {}
+      }
     }
 
     return { success: false, score: null }
@@ -258,7 +318,15 @@ export class SyncEngine {
    * 3. Split Sync: Piecewise 2-minute chunk alignment
    */
   public async runSplit(options: SyncOptions): Promise<{ success: boolean; score: number | null }> {
-    this.onStatus('Split Sync: Slicing subtitles into 2-minute parts...')
+    this.currentOut = options.out
+    const isSubRef = Boolean(options.referenceSub && fs.existsSync(options.referenceSub))
+    const reference = isSubRef ? options.referenceSub! : options.video
+
+    this.onStatus(
+      isSubRef
+        ? 'Split Sync: Slicing subtitles into piecewise parts (using timing reference)...'
+        : 'Split Sync: Slicing subtitles into 2-minute parts...'
+    )
     this.onProgress(10, 'Analyzing subtitle cues...')
     const content = fs.readFileSync(options.sub, 'utf-8')
     const allCues = parseSrt(content)
@@ -274,7 +342,7 @@ export class SyncEngine {
       this.onProgress(20, 'Running piecewise baseline alignment...')
       const baseOut = join(tempDir, 'base.srt')
       const baseRes = await this.runSinglePass(
-        options.video,
+        reference,
         options.sub,
         baseOut,
         ['--max-offset-seconds', '900'],
@@ -284,15 +352,20 @@ export class SyncEngine {
         }
       )
 
-      if (baseRes.code === 0 && fs.existsSync(baseOut)) {
+      if (!this.cancelled && baseRes.code === 0 && fs.existsSync(baseOut)) {
         fs.copyFileSync(baseOut, options.out)
-        this.onProgress(100, 'Split sync complete!')
+        this.onProgress(100, isSubRef ? 'Split sync complete (frame-accurate)!' : 'Split sync complete!')
         return { success: true, score: baseRes.score }
       }
     } finally {
       try {
         fs.rmSync(tempDir, { recursive: true, force: true })
       } catch (e) {}
+      if (this.cancelled && fs.existsSync(options.out)) {
+        try {
+          fs.unlinkSync(options.out)
+        } catch (e) {}
+      }
     }
 
     return { success: false, score: null }

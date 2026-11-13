@@ -3,15 +3,28 @@ import { contextBridge, ipcRenderer } from 'electron'
 const api = {
   dialog: {
     openVideo: () => ipcRenderer.invoke('dialog:openVideo'),
-    openSubtitles: () => ipcRenderer.invoke('dialog:openSubtitles')
+    openSubtitles: () => ipcRenderer.invoke('dialog:openSubtitles'),
+    selectFolder: (defaultPath?: string) => ipcRenderer.invoke('dialog:selectFolder', defaultPath),
+    saveSrt: (defaultPath: string) => ipcRenderer.invoke('dialog:saveSrt', defaultPath)
   },
   shell: {
     showItemInFolder: (path: string) => ipcRenderer.invoke('shell:showItemInFolder', path),
+    openPath: (path: string) => ipcRenderer.invoke('shell:openPath', path),
     openExternal: (url: string) => ipcRenderer.invoke('shell:openExternal', url)
   },
   settings: {
     load: () => ipcRenderer.invoke('settings:load'),
     save: (settings: any) => ipcRenderer.invoke('settings:save', settings)
+  },
+  clipboard: {
+    readText: () => ipcRenderer.invoke('clipboard:readText'),
+    writeText: (text: string) => ipcRenderer.invoke('clipboard:writeText', text)
+  },
+  ai: {
+    verifyKey: (provider: 'gemini' | 'openai', apiKey: string) =>
+      ipcRenderer.invoke('ai:verifyKey', { provider, apiKey }),
+    fetchModels: (provider: 'gemini' | 'openai', apiKey: string) =>
+      ipcRenderer.invoke('ai:fetchModels', { provider, apiKey })
   },
   engine: {
     checkBinaries: () => ipcRenderer.invoke('engine:checkBinaries'),
@@ -31,6 +44,41 @@ const api = {
       const sub = (_: any, data: any) => callback(data)
       ipcRenderer.on('sync:event', sub)
       return () => ipcRenderer.removeListener('sync:event', sub)
+    }
+  },
+  generator: {
+    getAvailableModels: (forceRefresh?: boolean) => ipcRenderer.invoke('generator:getAvailableModels', forceRefresh),
+    checkModel: (quality: string) => ipcRenderer.invoke('generator:checkModel', quality),
+    checkWhisper: () => ipcRenderer.invoke('generator:checkWhisper'),
+    downloadModel: (quality: string) => ipcRenderer.invoke('generator:downloadModel', quality),
+    cancelDownload: () => ipcRenderer.invoke('generator:cancelDownload'),
+    startGenerate: (params: any) => ipcRenderer.invoke('generator:startGenerate', params),
+    cancelGenerate: () => ipcRenderer.invoke('generator:cancelGenerate'),
+    onDownloadProgress: (callback: (data: any) => void) => {
+      const sub = (_: any, data: any) => callback(data)
+      ipcRenderer.on('generator:downloadProgress', sub)
+      return () => ipcRenderer.removeListener('generator:downloadProgress', sub)
+    }
+  },
+  extractor: {
+    extractSingle: (params: {
+      videoPath: string
+      track: any
+      outputPath?: string
+      outputDir?: string
+      cleanTags?: boolean
+    }) => ipcRenderer.invoke('extractor:extractSingle', params),
+    extractMultiple: (params: {
+      videoPath: string
+      tracks: any[]
+      outputDir?: string
+      cleanTags?: boolean
+    }) => ipcRenderer.invoke('extractor:extractMultiple', params),
+    cancel: () => ipcRenderer.invoke('extractor:cancel'),
+    onEvent: (callback: (data: any) => void) => {
+      const sub = (_: any, data: any) => callback(data)
+      ipcRenderer.on('extractor:event', sub)
+      return () => ipcRenderer.removeListener('extractor:event', sub)
     }
   }
 }

@@ -1,10 +1,26 @@
-import { app, shell, BrowserWindow, ipcMain, dialog } from 'electron'
-import { join } from 'path'
+import { app, shell, BrowserWindow, ipcMain, dialog, safeStorage, Menu, MenuItem, clipboard } from 'electron'
+import { join, basename } from 'path'
 import * as fs from 'fs'
 import { probeVideoFile, findBinary, getSubtitleSyncDetails } from './media'
 import { SyncEngine } from './syncEngine'
-import { parseSrt } from './srtTools'
+import { parseSrt, getUniqueFilePath } from './srtTools'
 import { analyzeRecommendation } from './recommender'
+import {
+  getWhisperModelPath,
+  getWhisperBinary,
+  downloadWhisperModel,
+  cancelModelDownload,
+  executeSubtitleGeneration,
+  cancelSubtitleGeneration,
+  getAvailableWhisperModels
+} from './generatorEngine'
+import {
+  extractSingleSubtitleTrack,
+  extractMultipleSubtitleTracks,
+  cancelExtraction
+} from './extractorEngine'
+import { EXTERNAL_LINKS, getGeminiVerifyUrl } from '@shared/links'
+import { formatUserFriendlyError } from '@shared/errorUtils'
 
 let mainWindow: BrowserWindow | null = null
 let activeSyncEngine: SyncEngine | null = null
@@ -13,10 +29,49 @@ let activeSyncEngine: SyncEngine | null = null
 const settingsDir = app.getPath('userData')
 const settingsFile = join(settingsDir, 'settings.json')
 
+function encryptSecret(plainText: string): string {
+  if (!plainText || typeof plainText !== 'string') return ''
+  try {
+    if (safeStorage.isEncryptionAvailable()) {
+      const encrypted = safeStorage.encryptString(plainText)
+      return encrypted.toString('base64')
+    }
+  } catch (err) {
+    console.error('Failed to encrypt secret with DPAPI:', err)
+  }
+  return plainText
+}
+
+function decryptSecret(cipherText: string): string {
+  if (!cipherText || typeof cipherText !== 'string') return ''
+  try {
+    if (safeStorage.isEncryptionAvailable()) {
+      const buffer = Buffer.from(cipherText, 'base64')
+      return safeStorage.decryptString(buffer)
+    }
+  } catch (err) {
+    // If decryption fails (e.g. legacy plain text), fallback to raw
+    return cipherText
+  }
+  return cipherText
+}
+
 function loadSettings() {
   try {
     if (fs.existsSync(settingsFile)) {
-      return JSON.parse(fs.readFileSync(settingsFile, 'utf-8'))
+      const raw = JSON.parse(fs.readFileSync(settingsFile, 'utf-8'))
+      const settings = { ...raw }
+
+      // Decrypt encrypted API key if present
+      if (settings.aiApiKeyEncrypted) {
+        settings.aiApiKey = decryptSecret(settings.aiApiKeyEncrypted)
+        delete settings.aiApiKeyEncrypted
+      } else if (settings.aiApiKey) {
+        // Automatically migrate legacy plain-text key to encrypted format on disk
+        saveSettings(settings)
+      }
+
+      return settings
     }
   } catch (e) {
     console.error('Failed to load settings:', e)
@@ -29,7 +84,16 @@ function saveSettings(settings: any) {
     if (!fs.existsSync(settingsDir)) {
       fs.mkdirSync(settingsDir, { recursive: true })
     }
-    fs.writeFileSync(settingsFile, JSON.stringify(settings, null, 2), 'utf-8')
+
+    const toSave = { ...settings }
+
+    // Encrypt sensitive API key using OS DPAPI before writing to disk
+    if (toSave.aiApiKey) {
+      toSave.aiApiKeyEncrypted = encryptSecret(toSave.aiApiKey)
+      delete toSave.aiApiKey // Remove plain-text key from disk JSON
+    }
+
+    fs.writeFileSync(settingsFile, JSON.stringify(toSave, null, 2), 'utf-8')
     return true
   } catch (e) {
     console.error('Failed to save settings:', e)
@@ -53,6 +117,41 @@ function createWindow(): void {
       preload: join(__dirname, '../preload/index.js'),
       sandbox: false,
       contextIsolation: true
+    }
+  })
+
+  // Set application edit menu for standard keyboard shortcuts (Ctrl+A, Ctrl+C, Ctrl+V, Ctrl+X, Ctrl+Z)
+  const template: Electron.MenuItemConstructorOptions[] = [
+    {
+      label: 'Edit',
+      submenu: [
+        { role: 'undo' },
+        { role: 'redo' },
+        { type: 'separator' },
+        { role: 'cut' },
+        { role: 'copy' },
+        { role: 'paste' },
+        { role: 'selectAll' }
+      ]
+    }
+  ]
+  const appMenu = Menu.buildFromTemplate(template)
+  Menu.setApplicationMenu(appMenu)
+
+  // Context Menu for right-click on input, textarea, and selectable text
+  mainWindow.webContents.on('context-menu', (_event, params) => {
+    const contextMenu = new Menu()
+    if (params.isEditable) {
+      contextMenu.append(new MenuItem({ label: 'Cut', role: 'cut', accelerator: 'CmdOrCtrl+X' }))
+      contextMenu.append(new MenuItem({ label: 'Copy', role: 'copy', accelerator: 'CmdOrCtrl+C' }))
+      contextMenu.append(new MenuItem({ label: 'Paste', role: 'paste', accelerator: 'CmdOrCtrl+V' }))
+      contextMenu.append(new MenuItem({ type: 'separator' }))
+      contextMenu.append(new MenuItem({ label: 'Select All', role: 'selectAll', accelerator: 'CmdOrCtrl+A' }))
+      contextMenu.popup()
+    } else if (params.selectionText && params.selectionText.trim().length > 0) {
+      contextMenu.append(new MenuItem({ label: 'Copy', role: 'copy', accelerator: 'CmdOrCtrl+C' }))
+      contextMenu.append(new MenuItem({ label: 'Select All', role: 'selectAll', accelerator: 'CmdOrCtrl+A' }))
+      contextMenu.popup()
     }
   })
 
@@ -102,8 +201,33 @@ app.whenReady().then(() => {
 
   ipcMain.handle('shell:showItemInFolder', async (_event, fullPath: string) => {
     if (fullPath && fs.existsSync(fullPath)) {
-      shell.showItemInFolder(fullPath)
-      return true
+      try {
+        const stat = fs.statSync(fullPath)
+        if (stat.isDirectory()) {
+          // Open directly INSIDE the directory
+          await shell.openPath(fullPath)
+          return true
+        }
+        shell.showItemInFolder(fullPath)
+        return true
+      } catch (e) {
+        shell.showItemInFolder(fullPath)
+        return true
+      }
+    }
+    return false
+  })
+
+  ipcMain.handle('shell:openPath', async (_event, targetPath: string) => {
+    if (targetPath && fs.existsSync(targetPath)) {
+      try {
+        const stat = fs.statSync(targetPath)
+        const folder = stat.isDirectory() ? targetPath : join(targetPath, '..')
+        await shell.openPath(folder)
+        return true
+      } catch (e) {
+        return false
+      }
     }
     return false
   })
@@ -120,15 +244,145 @@ app.whenReady().then(() => {
   ipcMain.handle('settings:load', () => loadSettings())
   ipcMain.handle('settings:save', (_event, settings) => saveSettings(settings))
 
+  // IPC: Clipboard
+  ipcMain.handle('clipboard:readText', () => clipboard.readText())
+  ipcMain.handle('clipboard:writeText', (_event, text: string) => clipboard.writeText(text))
+
+  // Helper: Fetch available models from AI Provider
+  const fetchAvailableModels = async (
+    provider: 'gemini' | 'openai',
+    apiKey: string
+  ): Promise<{ success: boolean; models: Array<{ id: string; name: string; description?: string }>; error?: string }> => {
+    const cleanKey = apiKey.trim()
+    if (!cleanKey) {
+      return { success: false, models: [], error: 'Please enter an API Key first.' }
+    }
+
+    try {
+      if (provider === 'gemini') {
+        const url = getGeminiVerifyUrl(cleanKey)
+        const res = await fetch(url)
+        if (!res.ok) {
+          const errJson = await res.json().catch(() => null)
+          const errMsg = errJson?.error?.message || `HTTP ${res.status}`
+          return { success: false, models: [], error: errMsg }
+        }
+        const data = await res.json()
+        const rawList = Array.isArray(data?.models) ? data.models : []
+
+        // Filter for generation models that support generateContent
+        const filtered = rawList.filter((m: any) => {
+          const methods = Array.isArray(m?.supportedGenerationMethods) ? m.supportedGenerationMethods : []
+          return methods.includes('generateContent')
+        })
+
+        const formatted = filtered.map((m: any) => {
+          const rawId = (m.name || '').replace(/^models\//, '')
+          const displayName = m.displayName || rawId
+          return {
+            id: rawId,
+            name: displayName !== rawId ? `${displayName} (${rawId})` : rawId,
+            description: m.description || ''
+          }
+        })
+
+        // Sort dynamically: prioritize 'flash' models (fast & high quota), newer versions first
+        formatted.sort((a, b) => {
+          const aFlash = a.id.toLowerCase().includes('flash')
+          const bFlash = b.id.toLowerCase().includes('flash')
+          if (aFlash && !bFlash) return -1
+          if (!aFlash && bFlash) return 1
+          return b.id.localeCompare(a.id, undefined, { numeric: true, sensitivity: 'base' })
+        })
+
+        return { success: true, models: formatted }
+      } else {
+        const url = EXTERNAL_LINKS.OPENAI_MODELS_API
+        const res = await fetch(url, {
+          headers: { Authorization: `Bearer ${cleanKey}` }
+        })
+        if (!res.ok) {
+          const errJson = await res.json().catch(() => null)
+          const errMsg = errJson?.error?.message || `HTTP ${res.status}`
+          return { success: false, models: [], error: errMsg }
+        }
+        const data = await res.json()
+        const rawList = Array.isArray(data?.data) ? data.data : []
+
+        // Filter for chat completion models (gpt-4, gpt-3.5, o1, o3, chatgpt-)
+        const validPrefixes = ['gpt-4', 'gpt-3.5', 'o1', 'o3', 'chatgpt-']
+        const exclude = ['realtime', 'audio', 'tts', 'transcription', 'whisper', 'embedding', 'dall-e']
+
+        const formatted = rawList
+          .filter((m: any) => {
+            const id = (m.id || '').toLowerCase()
+            const matchesPrefix = validPrefixes.some((p) => id.startsWith(p))
+            const isExcluded = exclude.some((e) => id.includes(e))
+            return matchesPrefix && !isExcluded
+          })
+          .map((m: any) => ({
+            id: m.id,
+            name: m.id,
+            description: ''
+          }))
+          .sort((a, b) => {
+            const aMini = a.id.includes('mini')
+            const bMini = b.id.includes('mini')
+            if (aMini && !bMini) return -1
+            if (!aMini && bMini) return 1
+            return b.id.localeCompare(a.id, undefined, { numeric: true, sensitivity: 'base' })
+          })
+
+        return { success: true, models: formatted }
+      }
+    } catch (err: any) {
+      const friendlyErr = formatUserFriendlyError(err)
+      return { success: false, models: [], error: friendlyErr }
+    }
+  }
+
+  // IPC: Verify AI API Key
+  ipcMain.handle('ai:verifyKey', async (_event, { provider, apiKey }: { provider: 'gemini' | 'openai'; apiKey: string }) => {
+    if (!apiKey || !apiKey.trim()) {
+      return { valid: false, message: 'Please enter an API Key first.' }
+    }
+    const cleanKey = apiKey.trim()
+    const result = await fetchAvailableModels(provider, cleanKey)
+
+    if (result.success) {
+      const providerName = provider === 'gemini' ? 'Gemini' : 'OpenAI'
+      return {
+        valid: true,
+        message: `${providerName} API Key is valid and active (${result.models.length} models detected)!`,
+        models: result.models
+      }
+    } else {
+      const friendlyErr = formatUserFriendlyError(result.error)
+      return {
+        valid: false,
+        message: friendlyErr,
+        models: []
+      }
+    }
+  })
+
+  // IPC: Fetch Available AI Models
+  ipcMain.handle('ai:fetchModels', async (_event, { provider, apiKey }: { provider: 'gemini' | 'openai'; apiKey: string }) => {
+    return fetchAvailableModels(provider, apiKey)
+  })
+
   // IPC: Check Binaries Status
   ipcMain.handle('engine:checkBinaries', () => {
     const ffmpeg = findBinary('ffmpeg')
     const ffsubsync = findBinary('ffsubsync')
+    const whisper = getWhisperBinary()
     return {
       ffmpegReady: Boolean(ffmpeg),
       ffsubsyncReady: Boolean(ffsubsync),
+      whisperReady: Boolean(whisper),
       ffmpegPath: ffmpeg,
-      ffsubsyncPath: ffsubsync
+      ffsubsyncPath: ffsubsync,
+      whisperPath: whisper
     }
   })
 
@@ -193,6 +447,9 @@ app.whenReady().then(() => {
       activeSyncEngine.cancel()
     }
 
+    // Auto-increment (1), (2), etc. if output file already exists
+    params.out = getUniqueFilePath(params.out)
+
     const logCb = (line: string) => {
       event.sender.send('sync:event', { type: 'log', message: line })
     }
@@ -204,29 +461,105 @@ app.whenReady().then(() => {
     }
 
     activeSyncEngine = new SyncEngine(logCb, statusCb, progressCb)
+    let tempRefSrt: string | null = null
 
     try {
-      let result: { success: boolean; score: number | null }
-      if (params.mode === 'Smart') {
-        result = await activeSyncEngine.runSmart(params)
-      } else if (params.mode === 'Split sync') {
-        result = await activeSyncEngine.runSplit(params)
-      } else {
-        result = await activeSyncEngine.runStandard(params)
+      // 1. Automatic Timing Reference: Check if video contains an embedded text subtitle track
+      if (params.video && fs.existsSync(params.video)) {
+        try {
+          const probe = await probeVideoFile(params.video)
+          const textTracks = (probe.subtitleTracks || []).filter((t) => t.isText)
+          if (textTracks.length > 0) {
+            // Find optimal timing anchor track:
+            // 1. English non-forced text track
+            // 2. Default non-forced text track
+            // 3. Any non-forced text track
+            // 4. Any text track
+            const bestTrack =
+              textTracks.find((t) => (t.language === 'eng' || t.language.toLowerCase().startsWith('en')) && !t.isForced) ||
+              textTracks.find((t) => t.isDefault && !t.isForced) ||
+              textTracks.find((t) => !t.isForced) ||
+              textTracks[0]
+
+            if (bestTrack) {
+              const langCode = (bestTrack.language || 'SRT').toUpperCase()
+              logCb(`[SYNC] Embedded text subtitle detected: Subtitle Track #${bestTrack.index + 1} (${langCode}${bestTrack.title ? ' - ' + bestTrack.title : ''})`)
+              statusCb('Extracting frame-accurate subtitle timing anchor...')
+
+              const tempPath = join(app.getPath('temp'), `subsync_ref_${Date.now()}.srt`)
+              const extRes = await extractSingleSubtitleTrack(
+                {
+                  videoPath: params.video,
+                  track: bestTrack,
+                  outputPath: tempPath,
+                  cleanTags: true
+                },
+                (msg) => logCb(`[EXTRACT-REF] ${msg}`)
+              )
+
+              if (extRes.success && extRes.outputPath && fs.existsSync(extRes.outputPath)) {
+                tempRefSrt = extRes.outputPath
+                logCb(`[SYNC] Timing anchor ready (${extRes.cuesCount ? extRes.cuesCount + ' cues' : 'cues extracted'}). Applying Studio-Grade Subtitle Reference Alignment (0ms drift)!`)
+              }
+            }
+          } else {
+            logCb(`[SYNC] No embedded text subtitles detected in video container. Using audio speech alignment (${params.mode} mode).`)
+          }
+        } catch (probeErr: any) {
+          logCb(`[SYNC] Notice: Embedded subtitle probe skipped (${probeErr?.message || 'unknown'}). Proceeding with audio speech alignment.`)
+        }
       }
 
-      event.sender.send('sync:event', {
-        type: 'done',
-        success: result.success,
-        score: result.score,
-        output: params.out
-      })
+      const syncOptions = {
+        ...params,
+        referenceSub: tempRefSrt
+      }
+
+      let result: { success: boolean; score: number | null }
+      if (params.mode === 'Smart') {
+        result = await activeSyncEngine.runSmart(syncOptions)
+      } else if (params.mode === 'Split sync') {
+        result = await activeSyncEngine.runSplit(syncOptions)
+      } else {
+        result = await activeSyncEngine.runStandard(syncOptions)
+      }
+
+      if (activeSyncEngine?.isCancelled()) {
+        if (params.out && fs.existsSync(params.out)) {
+          try {
+            fs.unlinkSync(params.out)
+          } catch (e) {}
+        }
+        activeSyncEngine = null
+        return { success: false, cancelled: true }
+      }
+
+      if (result.success) {
+        event.sender.send('sync:event', {
+          type: 'done',
+          success: true,
+          score: result.score,
+          output: params.out
+        })
+      } else {
+        event.sender.send('sync:event', {
+          type: 'done',
+          success: false,
+          score: null
+        })
+      }
       activeSyncEngine = null
-      return { success: result.success }
+      return { success: result.success, out: params.out }
     } catch (e: any) {
       event.sender.send('sync:event', { type: 'error', message: e.message })
       activeSyncEngine = null
       return { success: false }
+    } finally {
+      if (tempRefSrt && fs.existsSync(tempRefSrt)) {
+        try {
+          fs.unlinkSync(tempRefSrt)
+        } catch {}
+      }
     }
   })
 
@@ -238,6 +571,96 @@ app.whenReady().then(() => {
       return true
     }
     return false
+  })
+
+  // IPC: Generator Handlers
+  ipcMain.handle('generator:getAvailableModels', (_event, forceRefresh?: boolean) => {
+    return getAvailableWhisperModels(forceRefresh)
+  })
+
+  ipcMain.handle('generator:checkModel', (_event, quality: string) => {
+    const path = getWhisperModelPath(quality)
+    return { exists: Boolean(path), path }
+  })
+
+  ipcMain.handle('generator:checkWhisper', () => {
+    const path = getWhisperBinary()
+    return { exists: Boolean(path), path }
+  })
+
+  ipcMain.handle('generator:downloadModel', async (event, quality: string) => {
+    try {
+      const savedPath = await downloadWhisperModel(quality, (progressData) => {
+        event.sender.send('generator:downloadProgress', progressData)
+      })
+      return { success: true, path: savedPath }
+    } catch (e: any) {
+      return { success: false, error: e.message }
+    }
+  })
+
+  ipcMain.handle('generator:cancelDownload', () => {
+    cancelModelDownload()
+    return true
+  })
+
+  ipcMain.handle('generator:startGenerate', async (event, params) => {
+    try {
+      const result = await executeSubtitleGeneration(params, (data) => {
+        event.sender.send('sync:event', data)
+      })
+      return result
+    } catch (e: any) {
+      return { success: false, message: e.message }
+    }
+  })
+
+  ipcMain.handle('generator:cancelGenerate', () => {
+    cancelSubtitleGeneration()
+    return true
+  })
+
+  // IPC: Extractor Handlers
+  ipcMain.handle('extractor:extractSingle', async (event, params) => {
+    const logCb = (line: string) => {
+      event.sender.send('extractor:event', { type: 'log', message: line })
+    }
+    return extractSingleSubtitleTrack(params, logCb)
+  })
+
+  ipcMain.handle('extractor:extractMultiple', async (event, params) => {
+    const progressCb = (data: { percent: number; message: string; currentTrack?: string }) => {
+      event.sender.send('extractor:event', { type: 'progress', ...data })
+    }
+    const logCb = (line: string) => {
+      event.sender.send('extractor:event', { type: 'log', message: line })
+    }
+    return extractMultipleSubtitleTracks(params, progressCb, logCb)
+  })
+
+  ipcMain.handle('extractor:cancel', () => {
+    cancelExtraction()
+    return true
+  })
+
+  ipcMain.handle('dialog:selectFolder', async (_event, defaultPath?: string) => {
+    if (!mainWindow) return null
+    const res = await dialog.showOpenDialog(mainWindow, {
+      title: 'Select Destination Folder for Extracted Subtitles',
+      defaultPath: defaultPath && fs.existsSync(defaultPath) ? defaultPath : undefined,
+      properties: ['openDirectory', 'createDirectory']
+    })
+    return res.canceled ? null : res.filePaths[0]
+  })
+
+  ipcMain.handle('dialog:saveSrt', async (_event, defaultPath: string) => {
+    if (!mainWindow) return null
+    const res = await dialog.showSaveDialog(mainWindow, {
+      title: 'Save Extracted Subtitle As',
+      defaultPath,
+      filters: [{ name: 'SubRip Subtitle (*.srt)', extensions: ['srt'] }]
+    })
+    return res.canceled ? null : res.filePath
   })
 
   createWindow()
