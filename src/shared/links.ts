@@ -14,6 +14,7 @@ export const EXTERNAL_LINKS = {
 
   // Developer & API Key Portals
   GEMINI_API_KEY_PORTAL: 'https://aistudio.google.com/app/apikey',
+  OPENAI_API_KEY_PORTAL: 'https://platform.openai.com/api-keys',
 
   // AI Service Endpoints
   GEMINI_MODELS_API: 'https://generativelanguage.googleapis.com/v1beta/models',

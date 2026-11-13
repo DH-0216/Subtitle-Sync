@@ -76,7 +76,7 @@ export const SubtitleModeSelector: React.FC<SubtitleModeSelectorProps> = ({
           <FileDown className="w-3.5 h-3.5 shrink-0" />
           <span>Extract Subtitle</span>
           <span
-            className={`text-[9px] font-bold px-1.5 py-0.2 rounded shrink-0 ${
+            className={`text-[9px] font-bold px-1.5 py-0.5 rounded shrink-0 ${
               action === 'extract'
                 ? 'bg-blue-950 text-white'
                 : 'bg-slate-300 text-slate-900 dark:bg-slate-800 dark:text-slate-300'
@@ -98,13 +98,13 @@ export const SubtitleModeSelector: React.FC<SubtitleModeSelectorProps> = ({
           <Sparkles className="w-3.5 h-3.5 shrink-0" />
           <span>Generate Subtitle</span>
           <span
-            className={`text-[9px] font-bold px-1.5 py-0.2 rounded shrink-0 ${
+            className={`text-[9px] font-extrabold uppercase tracking-wider px-1.5 py-0.5 rounded shrink-0 ${
               action === 'generate'
                 ? 'bg-blue-950 text-white'
-                : 'bg-slate-300 text-slate-900 dark:bg-slate-800 dark:text-slate-300'
+                : 'bg-amber-100 text-amber-900 border border-amber-300/80 dark:bg-amber-500/15 dark:text-amber-300 dark:border-amber-400/30'
             }`}
           >
-            AI
+            BETA
           </span>
         </button>
       </div>

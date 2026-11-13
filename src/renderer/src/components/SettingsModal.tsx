@@ -21,6 +21,7 @@ import toast from 'react-hot-toast'
 import { EXTERNAL_LINKS, getGeminiVerifyUrl } from '@shared/links'
 import { formatUserFriendlyError } from '@shared/errorUtils'
 import { APP_VERSION } from '@shared/version'
+import { AiProviderId, AI_PROVIDER_LIST, getAiProvider } from '@shared/aiModels'
 
 export const DEFAULT_AI_PROMPT = `You are an expert subtitle translator specializing in natural, authentic spoken colloquial Sinhala (ස්වාභාවික කථාබහ සිංහල) for cinema and movies.
 Translate the following movie subtitle lines into natural, spoken Sinhala as people actually speak in day-to-day life.
@@ -48,8 +49,8 @@ interface SettingsModalProps {
   setCheckUpdates: (c: boolean) => void
   aiApiKey: string
   setAiApiKey: (k: string) => void
-  aiProvider: 'gemini' | 'openai'
-  setAiProvider: (p: 'gemini' | 'openai') => void
+  aiProvider: AiProviderId
+  setAiProvider: (p: AiProviderId) => void
   aiModel?: string
   setAiModel?: (m: string) => void
   aiPrompt: string
@@ -71,7 +72,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   setAiApiKey,
   aiProvider,
   setAiProvider,
-  aiModel = 'gemini-3.8-flash',
+  aiModel = 'auto',
   setAiModel,
   aiPrompt,
   setAiPrompt,
@@ -87,7 +88,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
 
   // Local draft state for AI settings (only committed when user clicks "Save Changes")
   const [draftApiKey, setDraftApiKey] = useState(aiApiKey)
-  const [draftProvider, setDraftProvider] = useState<'gemini' | 'openai'>(aiProvider)
+  const [draftProvider, setDraftProvider] = useState<AiProviderId>(aiProvider)
   const [draftModel, setDraftModel] = useState(aiModel)
   const [draftPrompt, setDraftPrompt] = useState(aiPrompt)
   const [isVerifyingKey, setIsVerifyingKey] = useState(false)
@@ -95,7 +96,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   const [availableModels, setAvailableModels] = useState<Array<{ id: string; name: string }>>([])
   const [isLoadingModels, setIsLoadingModels] = useState(false)
 
-  const handleFetchModels = async (provider: 'gemini' | 'openai', key: string, silent: boolean = false) => {
+  const handleFetchModels = async (provider: AiProviderId, key: string, silent: boolean = false) => {
     if (!key.trim()) return
     if (!navigator.onLine) {
       if (!silent) {
@@ -112,10 +113,12 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
           if (!silent) {
             toast.success(`Loaded ${res.models.length} live models!`, { duration: 2500 })
           }
-          // If current draftModel isn't in fetched models, select the top one
-          const exists = res.models.some((m) => m.id === draftModel)
-          if (!exists && res.models[0]) {
-            setDraftModel(res.models[0].id)
+          // If current draftModel is a specific model that is no longer in fetched models, revert to auto
+          if (draftModel && draftModel !== 'auto') {
+            const exists = res.models.some((m) => m.id === draftModel)
+            if (!exists) {
+              setDraftModel('auto')
+            }
           }
           return
         }
@@ -237,31 +240,33 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
         res = await window.api.ai.verifyKey(draftProvider, cleanKey)
         if (res.valid && res.models && res.models.length > 0) {
           setAvailableModels(res.models)
-          const exists = res.models.some((m) => m.id === draftModel)
-          if (!exists && res.models[0]) {
-            setDraftModel(res.models[0].id)
+          if (draftModel && draftModel !== 'auto') {
+            const exists = res.models.some((m) => m.id === draftModel)
+            if (!exists) {
+              setDraftModel('auto')
+            }
           }
         }
       } else {
         // Direct browser fetch fallback (works even if Electron process hasn't been restarted yet)
+        const providerMeta = getAiProvider(draftProvider)
         if (draftProvider === 'gemini') {
           const response = await fetch(getGeminiVerifyUrl(cleanKey))
           if (response.ok) {
             const data = await response.json().catch(() => null)
-            const models = (data?.models || [])
+            const rawModels = (data?.models || [])
               .filter((m: any) => m.supportedGenerationMethods?.includes('generateContent'))
-              .map((m: any) => ({
-                id: (m.name || '').replace(/^models\//, ''),
-                name: m.displayName ? `${m.displayName} (${(m.name || '').replace(/^models\//, '')})` : (m.name || '').replace(/^models\//, '')
-              }))
+              .map((m: any) => (m.name || '').replace(/^models\//, ''))
+            const ordered = providerMeta.buildDynamicChain(rawModels)
+            const models = ordered.map((id) => ({ id, name: id }))
             if (models.length > 0) {
               setAvailableModels(models)
             }
-            res = { valid: true, message: 'Gemini API Key is valid and active!', models }
+            res = { valid: true, message: `${providerMeta.name} API Key is valid and active!`, models }
           } else {
             const data = await response.json().catch(() => null)
             const errMsg = data?.error?.message || `HTTP ${response.status}`
-            res = { valid: false, message: `Invalid Gemini Key: ${errMsg}` }
+            res = { valid: false, message: `Invalid ${providerMeta.name} Key: ${errMsg}` }
           }
         } else {
           const response = await fetch(EXTERNAL_LINKS.OPENAI_MODELS_API, {
@@ -269,23 +274,17 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
           })
           if (response.ok) {
             const data = await response.json().catch(() => null)
-            const models = (data?.data || [])
-              .filter((m: any) => {
-                const id = m.id || ''
-                return (id.startsWith('gpt-') || id.startsWith('o1-') || id.startsWith('o3-') || id.startsWith('chatgpt-')) &&
-                  !id.includes('instruct') &&
-                  !id.includes('realtime') &&
-                  !id.includes('audio')
-              })
-              .map((m: any) => ({ id: m.id, name: m.id }))
+            const rawIds = (data?.data || []).map((m: any) => m.id || '')
+            const ordered = providerMeta.buildDynamicChain(rawIds)
+            const models = ordered.map((id) => ({ id, name: id }))
             if (models.length > 0) {
               setAvailableModels(models)
             }
-            res = { valid: true, message: 'OpenAI API Key is valid and active!', models }
+            res = { valid: true, message: `${providerMeta.name} API Key is valid and active!`, models }
           } else {
             const data = await response.json().catch(() => null)
             const errMsg = data?.error?.message || `HTTP ${response.status}`
-            res = { valid: false, message: `Invalid OpenAI Key: ${errMsg}` }
+            res = { valid: false, message: `Invalid ${providerMeta.name} Key: ${errMsg}` }
           }
         }
       }
@@ -398,8 +397,8 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
     }
   }
 
-  const handleOpenGeminiKey = () => {
-    const url = EXTERNAL_LINKS.GEMINI_API_KEY_PORTAL
+  const handleOpenKeyPortal = (url?: string) => {
+    if (!url) return
     if (window.api?.shell?.openExternal) {
       window.api.shell.openExternal(url)
     } else {
@@ -642,7 +641,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                     <select
                       value={draftProvider}
                       onChange={(e) => {
-                        const newProvider = e.target.value as 'gemini' | 'openai'
+                        const newProvider = e.target.value as AiProviderId
                         setDraftProvider(newProvider)
                         setVerifyStatus(null)
                         setAvailableModels([])
@@ -653,25 +652,25 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                       }}
                       className="text-xs font-semibold px-2.5 py-1.5 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200 cursor-pointer"
                     >
-                      <option value="gemini">Google Gemini</option>
-                      <option value="openai">OpenAI</option>
+                      {AI_PROVIDER_LIST.map((p) => (
+                        <option key={p.id} value={p.id}>
+                          {p.name}
+                        </option>
+                      ))}
                     </select>
                   </div>
 
                   <div className="space-y-1.5">
                     <div className="flex items-center justify-between text-xs font-semibold text-slate-700 dark:text-slate-300">
-                      {/* Removed Key icon in front of Gemini API Key */}
-                      <label>
-                        {draftProvider === 'gemini' ? 'Gemini API Key' : 'OpenAI API Key'}
-                      </label>
+                      <label>{getAiProvider(draftProvider).label}</label>
 
-                      {draftProvider === 'gemini' && (
+                      {getAiProvider(draftProvider).portalUrl && (
                         <button
                           type="button"
-                          onClick={handleOpenGeminiKey}
+                          onClick={() => handleOpenKeyPortal(getAiProvider(draftProvider).portalUrl)}
                           className="text-[11px] text-blue-600 dark:text-blue-400 hover:underline flex items-center gap-1 cursor-pointer"
                         >
-                          <span>Get free key ↗</span>
+                          <span>{getAiProvider(draftProvider).portalLabel || 'Get API key'} ↗</span>
                         </button>
                       )}
                     </div>
@@ -680,7 +679,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                       <div className="relative flex-1">
                         <input
                           type={showKey ? 'text' : 'password'}
-                          placeholder={draftProvider === 'gemini' ? 'AIzaSy...' : 'sk-...'}
+                          placeholder={getAiProvider(draftProvider).keyPlaceholder}
                           value={draftApiKey}
                           onChange={(e) => {
                             setDraftApiKey(e.target.value)
@@ -795,9 +794,10 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                         onChange={(e) => setDraftModel(e.target.value)}
                         className="w-full px-3 py-2 text-xs rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 cursor-pointer focus:outline-hidden focus:ring-2 focus:ring-blue-500/30 font-medium"
                       >
+                        <option value="auto">Auto-detect latest active model from provider (Recommended)</option>
                         {availableModels.length > 0 ? (
                           <>
-                            {draftModel && !availableModels.some((m) => m.id === draftModel) && (
+                            {draftModel && draftModel !== 'auto' && !availableModels.some((m) => m.id === draftModel) && (
                               <option value={draftModel}>{draftModel} (Current selection)</option>
                             )}
                             {availableModels.map((m) => (
@@ -807,24 +807,23 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                             ))}
                           </>
                         ) : (
-                          <>
-                            {draftModel && draftModel !== 'auto' && (
-                              <option value={draftModel}>{draftModel} (Current selection)</option>
-                            )}
-                            <option value="auto">Auto-detect latest active model from provider</option>
-                          </>
+                          draftModel && draftModel !== 'auto' && (
+                            <option value={draftModel}>{draftModel} (Current selection)</option>
+                          )
                         )}
                       </select>
                       {availableModels.length === 0 && (
                         <p className="text-[10px] text-slate-400">
-                          Tip: Click &quot;Fetch Models&quot; or &quot;Verify&quot; to auto-load all current models from {draftProvider === 'gemini' ? 'Google' : 'OpenAI'}.
+                          Tip: Click &quot;Fetch Models&quot; or &quot;Verify&quot; to auto-load all current models from {getAiProvider(draftProvider).company}.
                         </p>
                       )}
                     </div>
 
-                    <p className="text-[10px] text-slate-500 dark:text-slate-400">
-                      Stored securely on your local device only. Google Gemini offers a free daily quota.
-                    </p>
+                    {getAiProvider(draftProvider).notice && (
+                      <p className="text-[10px] text-slate-500 dark:text-slate-400">
+                        {getAiProvider(draftProvider).notice}
+                      </p>
+                    )}
                   </div>
                 </div>
 

@@ -1,3 +1,5 @@
+import type { AiProviderId } from '../shared/aiModels'
+
 export interface IElectronAPI {
   dialog: {
     openVideo: () => Promise<string | null>
@@ -19,12 +21,12 @@ export interface IElectronAPI {
     writeText: (text: string) => Promise<void>
   }
   ai: {
-    verifyKey: (provider: 'gemini' | 'openai', apiKey: string) => Promise<{
+    verifyKey: (provider: AiProviderId, apiKey: string) => Promise<{
       valid: boolean
       message: string
       models?: Array<{ id: string; name: string; description?: string }>
     }>
-    fetchModels: (provider: 'gemini' | 'openai', apiKey: string) => Promise<{
+    fetchModels: (provider: AiProviderId, apiKey: string) => Promise<{
       success: boolean
       models: Array<{ id: string; name: string; description?: string }>
       error?: string

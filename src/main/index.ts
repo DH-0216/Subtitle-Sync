@@ -15,6 +15,13 @@ import {
   getAvailableWhisperModels
 } from './generatorEngine'
 import {
+  isGeminiModelExcluded,
+  buildDynamicGeminiChain,
+  buildDynamicOpenAiChain,
+  AiProviderId,
+  getAiProvider
+} from '@shared/aiModels'
+import {
   extractSingleSubtitleTrack,
   extractMultipleSubtitleTracks,
   cancelExtraction
@@ -248,9 +255,84 @@ app.whenReady().then(() => {
   ipcMain.handle('clipboard:readText', () => clipboard.readText())
   ipcMain.handle('clipboard:writeText', (_event, text: string) => clipboard.writeText(text))
 
+  // Helper types & registry for provider model fetchers
+  type ModelFetcher = (
+    apiKey: string
+  ) => Promise<{ success: boolean; models: Array<{ id: string; name: string; description?: string }>; error?: string }>
+
+  const fetchGeminiModels: ModelFetcher = async (cleanKey) => {
+    const url = getGeminiVerifyUrl(cleanKey)
+    const res = await fetch(url)
+    if (!res.ok) {
+      const errJson = await res.json().catch(() => null)
+      const errMsg = errJson?.error?.message || `HTTP ${res.status}`
+      return { success: false, models: [], error: errMsg }
+    }
+    const data = await res.json()
+    const rawList = Array.isArray(data?.models) ? data.models : []
+
+    const supported = rawList.filter((m: any) => {
+      const methods = Array.isArray(m?.supportedGenerationMethods) ? m.supportedGenerationMethods : []
+      return methods.includes('generateContent')
+    })
+    const rawIds = supported.map((m: any) => (m.name || '').replace(/^models\//, ''))
+    const orderedChain = buildDynamicGeminiChain(rawIds)
+
+    const rawMap = new Map<string, any>()
+    for (const m of supported) {
+      const id = (m.name || '').replace(/^models\//, '')
+      rawMap.set(id, m)
+    }
+
+    const formatted = orderedChain.map((id) => {
+      const m = rawMap.get(id)
+      const displayName = m?.displayName || id
+      return {
+        id,
+        name: displayName !== id ? `${displayName} (${id})` : id,
+        description: m?.description || ''
+      }
+    })
+
+    return { success: true, models: formatted }
+  }
+
+  const fetchOpenAiModels: ModelFetcher = async (cleanKey) => {
+    const url = EXTERNAL_LINKS.OPENAI_MODELS_API
+    const res = await fetch(url, {
+      headers: { Authorization: `Bearer ${cleanKey}` }
+    })
+    if (!res.ok) {
+      const errJson = await res.json().catch(() => null)
+      const errMsg = errJson?.error?.message || `HTTP ${res.status}`
+      return { success: false, models: [], error: errMsg }
+    }
+    const data = await res.json()
+    const rawList = Array.isArray(data?.data) ? data.data : []
+    const rawIds = rawList.map((m: any) => m.id || '')
+
+    const orderedChain = buildDynamicOpenAiChain(rawIds)
+    const formatted = orderedChain.map((id) => ({
+      id,
+      name: id,
+      description: ''
+    }))
+
+    return { success: true, models: formatted }
+  }
+
+  /**
+   * Extensible Model Fetchers Registry
+   * To add a new provider in the future, simply add its fetcher function here.
+   */
+  const AI_MODEL_FETCHERS: Record<AiProviderId, ModelFetcher> = {
+    gemini: fetchGeminiModels,
+    openai: fetchOpenAiModels
+  }
+
   // Helper: Fetch available models from AI Provider
   const fetchAvailableModels = async (
-    provider: 'gemini' | 'openai',
+    provider: AiProviderId,
     apiKey: string
   ): Promise<{ success: boolean; models: Array<{ id: string; name: string; description?: string }>; error?: string }> => {
     const cleanKey = apiKey.trim()
@@ -258,83 +340,13 @@ app.whenReady().then(() => {
       return { success: false, models: [], error: 'Please enter an API Key first.' }
     }
 
+    const fetcher = AI_MODEL_FETCHERS[provider]
+    if (!fetcher) {
+      return { success: false, models: [], error: `Unsupported AI provider: ${provider}` }
+    }
+
     try {
-      if (provider === 'gemini') {
-        const url = getGeminiVerifyUrl(cleanKey)
-        const res = await fetch(url)
-        if (!res.ok) {
-          const errJson = await res.json().catch(() => null)
-          const errMsg = errJson?.error?.message || `HTTP ${res.status}`
-          return { success: false, models: [], error: errMsg }
-        }
-        const data = await res.json()
-        const rawList = Array.isArray(data?.models) ? data.models : []
-
-        // Filter for generation models that support generateContent
-        const filtered = rawList.filter((m: any) => {
-          const methods = Array.isArray(m?.supportedGenerationMethods) ? m.supportedGenerationMethods : []
-          return methods.includes('generateContent')
-        })
-
-        const formatted = filtered.map((m: any) => {
-          const rawId = (m.name || '').replace(/^models\//, '')
-          const displayName = m.displayName || rawId
-          return {
-            id: rawId,
-            name: displayName !== rawId ? `${displayName} (${rawId})` : rawId,
-            description: m.description || ''
-          }
-        })
-
-        // Sort dynamically: prioritize 'flash' models (fast & high quota), newer versions first
-        formatted.sort((a, b) => {
-          const aFlash = a.id.toLowerCase().includes('flash')
-          const bFlash = b.id.toLowerCase().includes('flash')
-          if (aFlash && !bFlash) return -1
-          if (!aFlash && bFlash) return 1
-          return b.id.localeCompare(a.id, undefined, { numeric: true, sensitivity: 'base' })
-        })
-
-        return { success: true, models: formatted }
-      } else {
-        const url = EXTERNAL_LINKS.OPENAI_MODELS_API
-        const res = await fetch(url, {
-          headers: { Authorization: `Bearer ${cleanKey}` }
-        })
-        if (!res.ok) {
-          const errJson = await res.json().catch(() => null)
-          const errMsg = errJson?.error?.message || `HTTP ${res.status}`
-          return { success: false, models: [], error: errMsg }
-        }
-        const data = await res.json()
-        const rawList = Array.isArray(data?.data) ? data.data : []
-
-        // Filter for chat completion models (gpt-4, gpt-3.5, o1, o3, chatgpt-)
-        const validPrefixes = ['gpt-4', 'gpt-3.5', 'o1', 'o3', 'chatgpt-']
-        const exclude = ['realtime', 'audio', 'tts', 'transcription', 'whisper', 'embedding', 'dall-e']
-
-        const formatted = rawList
-          .filter((m: any) => {
-            const id = (m.id || '').toLowerCase()
-            const matchesPrefix = validPrefixes.some((p) => id.startsWith(p))
-            const isExcluded = exclude.some((e) => id.includes(e))
-            return matchesPrefix && !isExcluded
-          })
-          .map((m: any) => ({
-            id: m.id,
-            name: m.id,
-            description: ''
-          }))
-          .sort((a, b) => {
-            const aMini = a.id.includes('mini')
-            const bMini = b.id.includes('mini')
-            if (aMini && !bMini) return -1
-            if (!aMini && bMini) return 1
-            return b.id.localeCompare(a.id, undefined, { numeric: true, sensitivity: 'base' })
-          })
-
-        return { success: true, models: formatted }
-      }
+      return await fetcher(cleanKey)
     } catch (err: any) {
       const friendlyErr = formatUserFriendlyError(err)
       return { success: false, models: [], error: friendlyErr }
@@ -342,7 +354,7 @@ app.whenReady().then(() => {
   }
 
   // IPC: Verify AI API Key
-  ipcMain.handle('ai:verifyKey', async (_event, { provider, apiKey }: { provider: 'gemini' | 'openai'; apiKey: string }) => {
+  ipcMain.handle('ai:verifyKey', async (_event, { provider, apiKey }: { provider: AiProviderId; apiKey: string }) => {
     if (!apiKey || !apiKey.trim()) {
       return { valid: false, message: 'Please enter an API Key first.' }
     }
@@ -350,10 +362,10 @@ app.whenReady().then(() => {
     const result = await fetchAvailableModels(provider, cleanKey)
 
     if (result.success) {
-      const providerName = provider === 'gemini' ? 'Gemini' : 'OpenAI'
+      const providerMeta = getAiProvider(provider)
       return {
         valid: true,
-        message: `${providerName} API Key is valid and active (${result.models.length} models detected)!`,
+        message: `${providerMeta.name} API Key is valid and active (${result.models.length} models detected)!`,
         models: result.models
       }
     } else {
@@ -367,7 +379,7 @@ app.whenReady().then(() => {
   })
 
   // IPC: Fetch Available AI Models
-  ipcMain.handle('ai:fetchModels', async (_event, { provider, apiKey }: { provider: 'gemini' | 'openai'; apiKey: string }) => {
+  ipcMain.handle('ai:fetchModels', async (_event, { provider, apiKey }: { provider: AiProviderId; apiKey: string }) => {
     return fetchAvailableModels(provider, apiKey)
   })
 

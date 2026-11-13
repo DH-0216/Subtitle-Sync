@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import {
   Cpu,
   FileText,
@@ -13,9 +13,11 @@ import {
   CloudDownload,
   Sparkles,
   FolderOpen,
-  Mic
+  Mic,
+  Zap,
+  Loader2
 } from 'lucide-react'
-import { AudioTrack } from './Step1Video'
+import { AudioTrack, SubtitleTrack } from './Step1Video'
 import { ExtractedFileItem } from './Step3Extract'
 
 export interface WhisperModelItem {
@@ -55,6 +57,10 @@ interface Step2GenerateProps {
   modelsSource?: 'remote' | 'cached' | 'fallback'
   extractedFiles?: ExtractedFileItem[]
   onBrowseSubtitle?: () => void
+  subtitleTracks?: SubtitleTrack[]
+  onExtractAndUseSubtitle?: (track: SubtitleTrack) => Promise<void> | void
+  isExtracting?: boolean
+  isGenerating?: boolean
 }
 
 export const Step2Generate: React.FC<Step2GenerateProps> = ({
@@ -70,9 +76,25 @@ export const Step2Generate: React.FC<Step2GenerateProps> = ({
   onRefreshModels,
   modelsSource = 'fallback',
   extractedFiles = [],
-  onBrowseSubtitle
+  onBrowseSubtitle,
+  subtitleTracks = [],
+  onExtractAndUseSubtitle,
+  isExtracting = false,
+  isGenerating = false
 }) => {
   const [showAdvanced, setShowAdvanced] = useState(false)
+
+  const textSubtitleTracks = subtitleTracks.filter((t) => t.isText)
+  const [selectedEmbeddedTrackIndex, setSelectedEmbeddedTrackIndex] = useState<number>(
+    textSubtitleTracks[0]?.index ?? 0
+  )
+
+  // Keep selected embedded track updated if tracks change
+  useEffect(() => {
+    if (textSubtitleTracks.length > 0 && !textSubtitleTracks.some((t) => t.index === selectedEmbeddedTrackIndex)) {
+      setSelectedEmbeddedTrackIndex(textSubtitleTracks[0].index)
+    }
+  }, [subtitleTracks])
 
   const isSubtitleSource = config.sourceType === 'subtitle'
   const currentTrackIndex = selectedTrack !== null ? selectedTrack : (audioTracks[0]?.index ?? 0)
@@ -174,25 +196,112 @@ export const Step2Generate: React.FC<Step2GenerateProps> = ({
       {/* Row 1: Source Specific Input */}
       {isSubtitleSource ? (
         /* Subtitle File Source Controls */
-        <div className="p-4 rounded-xl border border-slate-300 dark:border-slate-800 bg-slate-50 dark:bg-[#0B0F19] mb-4 space-y-3">
+        <div className="p-4 rounded-xl border border-slate-300 dark:border-slate-800 bg-slate-50 dark:bg-[#0B0F19] mb-4 space-y-3.5">
           <div className="flex items-center justify-between">
             <span className="text-xs font-bold text-slate-800 dark:text-slate-200 flex items-center gap-1.5">
               <FileText className="w-4 h-4 text-blue-700 dark:text-blue-400" />
               <span>Select Subtitle File to Translate</span>
             </span>
 
-            {extractedFiles.length > 0 && (
-              <span className="text-[11px] font-semibold text-slate-600 dark:text-slate-400">
-                {extractedFiles.length} extracted {extractedFiles.length === 1 ? 'track' : 'tracks'} available
+            {sourceFileName && (
+              <span className="text-[11px] font-bold text-emerald-700 dark:text-emerald-400 flex items-center gap-1">
+                <CheckCircle2 className="w-3.5 h-3.5" /> Ready for Translation
               </span>
             )}
           </div>
 
-          {/* Quick select from extracted files if any exist */}
+          {/* Option A: Embedded Subtitle Detected in Selected Movie */}
+          {textSubtitleTracks.length > 0 ? (
+            <div className="p-3.5 rounded-xl border border-blue-200 dark:border-blue-900/60 bg-blue-50/80 dark:bg-blue-950/30 space-y-2.5">
+              <div className="flex items-center justify-between flex-wrap gap-2">
+                <div className="flex items-center gap-2">
+                  <Sparkles className="w-4 h-4 text-blue-600 dark:text-blue-400 shrink-0" />
+                  <span className="text-xs font-bold text-blue-950 dark:text-blue-100">
+                    Embedded Subtitles Detected in Movie ({textSubtitleTracks.length})
+                  </span>
+                </div>
+                <span className="text-[10px] font-semibold text-blue-700 dark:text-blue-300 bg-blue-100 dark:bg-blue-900/60 px-2 py-0.5 rounded-full border border-blue-200 dark:border-blue-800">
+                  No external .SRT required
+                </span>
+              </div>
+
+              <p className="text-[11px] text-blue-900/80 dark:text-blue-300/80 leading-relaxed">
+                This movie already contains embedded text subtitles. Extract and use it directly for AI translation:
+              </p>
+
+              <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 pt-0.5">
+                <select
+                  value={selectedEmbeddedTrackIndex}
+                  onChange={(e) => setSelectedEmbeddedTrackIndex(Number(e.target.value))}
+                  disabled={isExtracting}
+                  className="flex-1 text-xs font-semibold px-3 py-2 rounded-xl border border-blue-300 dark:border-blue-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 focus:outline-hidden focus:ring-2 focus:ring-blue-500/30 cursor-pointer disabled:opacity-60"
+                >
+                  {textSubtitleTracks.map((t) => (
+                    <option key={t.index} value={t.index}>
+                      Track #{t.index + 1}: {t.language.toUpperCase()} ({t.codec}){t.title ? ` - ${t.title}` : ''}{t.isDefault ? ' [Default]' : ''}
+                    </option>
+                  ))}
+                </select>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    const trk = textSubtitleTracks.find((t) => t.index === selectedEmbeddedTrackIndex) || textSubtitleTracks[0]
+                    if (trk && onExtractAndUseSubtitle) {
+                      onExtractAndUseSubtitle(trk)
+                    }
+                  }}
+                  disabled={isExtracting || isGenerating}
+                  className="px-4 py-2 rounded-xl bg-blue-800 hover:bg-blue-700 dark:bg-blue-600 dark:hover:bg-blue-500 text-white text-xs font-bold flex items-center justify-center gap-1.5 transition-all cursor-pointer shrink-0 shadow-2xs disabled:opacity-50"
+                  title="Extract this embedded subtitle track and start AI translation immediately"
+                >
+                  {isExtracting ? (
+                    <>
+                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                      <span>Extracting Track...</span>
+                    </>
+                  ) : isGenerating ? (
+                    <>
+                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                      <span>Translating with AI...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Zap className="w-3.5 h-3.5" />
+                      <span>Extract &amp; Translate</span>
+                    </>
+                  )}
+                </button>
+              </div>
+            </div>
+          ) : videoPath ? (
+            <div className="p-3 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-100/60 dark:bg-slate-900/50 text-xs text-slate-500 dark:text-slate-400 flex items-center gap-2">
+              <AlertCircle className="w-4 h-4 shrink-0 text-slate-400" />
+              <span>No embedded text subtitles found in this movie. Please choose or browse an external .SRT file below.</span>
+            </div>
+          ) : (
+            <div className="p-3 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-100/60 dark:bg-slate-900/50 text-xs text-slate-500 dark:text-slate-400 flex items-center gap-2">
+              <AlertCircle className="w-4 h-4 shrink-0 text-slate-400" />
+              <span>Tip: If you select a movie in Step 1, its embedded subtitles will be detected automatically here.</span>
+            </div>
+          )}
+
+          {/* Divider if embedded tracks exist */}
+          {textSubtitleTracks.length > 0 && (
+            <div className="flex items-center gap-3 py-1">
+              <div className="flex-1 h-px bg-slate-200 dark:bg-slate-800" />
+              <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500">
+                Or Use Existing .SRT File
+              </span>
+              <div className="flex-1 h-px bg-slate-200 dark:bg-slate-800" />
+            </div>
+          )}
+
+          {/* Option B: Quick select from previously extracted files if any exist */}
           {extractedFiles.length > 0 && (
             <div className="space-y-1">
               <label className="text-[11px] font-semibold text-slate-600 dark:text-slate-400">
-                Choose from extracted tracks:
+                Choose from previously extracted tracks:
               </label>
               <select
                 value={config.sourceSubPath || ''}
@@ -209,18 +318,23 @@ export const Step2Generate: React.FC<Step2GenerateProps> = ({
             </div>
           )}
 
-          {/* Selected file display / Browse custom file */}
-          <div className="flex items-center gap-2 pt-1">
+          {/* Option C: Selected file display & Browse custom .SRT */}
+          <div className="flex items-center gap-2 pt-0.5">
             <div className="flex-1 p-2.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 flex items-center gap-2 min-w-0">
               <FileText className="w-4 h-4 text-blue-700 dark:text-blue-400 shrink-0" />
               <div className="min-w-0 flex-1">
                 {sourceFileName ? (
-                  <p className="text-xs font-bold text-slate-900 dark:text-slate-100 truncate" title={config.sourceSubPath || ''}>
-                    {sourceFileName}
-                  </p>
+                  <div className="flex items-center gap-2">
+                    <p className="text-xs font-bold text-slate-900 dark:text-slate-100 truncate" title={config.sourceSubPath || ''}>
+                      {sourceFileName}
+                    </p>
+                    <span className="text-[10px] font-bold text-emerald-700 dark:text-emerald-400 bg-emerald-100 dark:bg-emerald-950/60 px-1.5 py-0.2 rounded shrink-0">
+                      Active
+                    </span>
+                  </div>
                 ) : (
                   <p className="text-xs text-slate-400 dark:text-slate-500 italic">
-                    No subtitle file selected yet. Choose an extracted track above or browse below.
+                    No subtitle file selected yet. Extract an embedded track above or browse below.
                   </p>
                 )}
               </div>

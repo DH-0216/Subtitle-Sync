@@ -1,4 +1,5 @@
 import { contextBridge, ipcRenderer } from 'electron'
+import type { AiProviderId } from '../shared/aiModels'
 
 const api = {
   dialog: {
@@ -21,9 +22,9 @@ const api = {
     writeText: (text: string) => ipcRenderer.invoke('clipboard:writeText', text)
   },
   ai: {
-    verifyKey: (provider: 'gemini' | 'openai', apiKey: string) =>
+    verifyKey: (provider: AiProviderId, apiKey: string) =>
       ipcRenderer.invoke('ai:verifyKey', { provider, apiKey }),
-    fetchModels: (provider: 'gemini' | 'openai', apiKey: string) =>
+    fetchModels: (provider: AiProviderId, apiKey: string) =>
       ipcRenderer.invoke('ai:fetchModels', { provider, apiKey })
   },
   engine: {
