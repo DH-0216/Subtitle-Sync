@@ -669,12 +669,99 @@ export default function App() {
     setLogs((prev) => [...prev, `[AI TRANSLATION] Switched to AI Translate for extracted track: ${item.fileName}`])
   }
 
+  const handleSwitchToTranslate = () => {
+    setSubtitleAction('generate')
+    setGenerateConfig((prev) => ({
+      ...prev,
+      sourceType: 'subtitle',
+      language: 'si'
+    }))
+  }
+
+  const handleExtractAndUseSubtitle = async (track: SubtitleTrack) => {
+    if (!videoPath) return
+
+    // Pre-check AI API Key if translating to Spoken Sinhala
+    if (!aiApiKey.trim()) {
+      toast.error('Please enter your AI API Key in Settings to translate subtitles into Spoken Sinhala!', {
+        duration: 5000,
+        icon: '🔑'
+      })
+      setSettingsInitialTab('ai')
+      setSettingsModalOpen(true)
+      return
+    }
+
+    if (!navigator.onLine) {
+      toast.error('Internet connection required for AI Spoken Sinhala translation.', { icon: '📡' })
+      return
+    }
+
+    setIsExtracting(true)
+    setExtractStatusMessage(`Extracting Track #${track.index + 1} (${track.language.toUpperCase()})...`)
+    setLogs((prev) => [
+      ...prev,
+      `[EXTRACT] Extracting embedded subtitle track #${track.index + 1} (${track.language.toUpperCase()}) for AI translation from ${videoPath}`
+    ])
+
+    try {
+      const res = await window.api.extractor.extractSingle({
+        videoPath,
+        track,
+        outputDir: extractOutputDir || undefined,
+        cleanTags: extractCleanTags
+      })
+
+      if (res.success && res.outputPath) {
+        const fileItem: ExtractedFileItem = {
+          outputPath: res.outputPath,
+          fileName: res.outputPath.split(/[/\\]/).pop() || 'subtitle.extracted.srt',
+          trackIndex: res.trackIndex,
+          language: res.language,
+          title: res.title,
+          cuesCount: res.cuesCount,
+          durationStr: res.durationStr
+        }
+        setExtractedFiles((prev) => [
+          fileItem,
+          ...prev.filter((f) => f.outputPath !== fileItem.outputPath)
+        ])
+        setGenerateConfig((prev) => ({
+          ...prev,
+          sourceType: 'subtitle',
+          sourceSubPath: res.outputPath,
+          language: 'si'
+        }))
+        setSubtitleAction('generate')
+        toast.success(`Track #${track.index + 1} extracted! Starting AI Translation...`, { duration: 3000, icon: '🚀' })
+        setLogs((prev) => [...prev, `[AI TRANSLATION] Subtitle extracted. Launching AI translation immediately: ${fileItem.fileName}`])
+
+        // Immediately start AI translation on the extracted track!
+        await handleStartGenerate({
+          sourceType: 'subtitle',
+          sourceSubPath: res.outputPath,
+          language: 'si'
+        })
+      } else {
+        toast.error(res.error || 'Failed to extract embedded subtitle track')
+      }
+    } catch (err: any) {
+      toast.error(err.message || 'Failed to extract embedded subtitle track')
+    } finally {
+      setIsExtracting(false)
+    }
+  }
+
   // Start Generate / Translate Execution
-  const handleStartGenerate = async () => {
-    const isSubtitleSource = generateConfig.sourceType === 'subtitle'
+  const handleStartGenerate = async (overrideConfig?: Partial<GenerateConfig>) => {
+    const effectiveConfig = {
+      ...generateConfig,
+      ...overrideConfig
+    }
+    const isSubtitleSource = effectiveConfig.sourceType === 'subtitle'
 
     if (isSubtitleSource) {
-      if (!generateConfig.sourceSubPath) {
+      if (!effectiveConfig.sourceSubPath) {
         toast.error('Please choose a subtitle file (.srt) to translate in Step 2!')
         return
       }
@@ -698,7 +785,7 @@ export default function App() {
     }
 
     // Guard: Check internet connection & AI API Key if target language is Spoken Sinhala
-    if (generateConfig.language === 'si') {
+    if (effectiveConfig.language === 'si') {
       if (!navigator.onLine) {
         toast.error(
           'Internet connection required for AI Spoken Sinhala translation. You can still generate subtitles offline by selecting "Movie\'s Language"!',
@@ -726,7 +813,7 @@ export default function App() {
     if (!isSubtitleSource) {
       // Check if Whisper model exists
       try {
-        const modelCheck = await window.api.generator.checkModel(generateConfig.modelQuality)
+        const modelCheck = await window.api.generator.checkModel(effectiveConfig.modelQuality)
         if (!modelCheck?.exists) {
           setDownloadModalOpen(true)
           return
@@ -765,11 +852,11 @@ export default function App() {
       isSubtitleSource
         ? `=== Starting Subtitle Translation ===`
         : `=== Starting Subtitle Generation ===`,
-      isSubtitleSource ? `Source Subtitle: ${generateConfig.sourceSubPath}` : `Movie: ${videoPath}`,
+      isSubtitleSource ? `Source Subtitle: ${effectiveConfig.sourceSubPath}` : `Movie: ${videoPath}`,
       !isSubtitleSource ? `Selected Audio Track: #${selectedTrack ?? 0}` : `Bypassing Whisper: Direct text translation mode`,
-      `Target Language: ${generateConfig.language}`,
-      !isSubtitleSource ? `Model Quality: ${generateConfig.modelQuality}` : `Model: Cloud AI (${aiModel || 'Auto'})`,
-      `Output Format: .${generateConfig.format}`
+      `Target Language: ${effectiveConfig.language}`,
+      !isSubtitleSource ? `Model Quality: ${effectiveConfig.modelQuality}` : `Model: Cloud AI (${aiModel || 'Auto'})`,
+      `Output Format: .${effectiveConfig.format}`
     ])
 
     const activeTrack = audioTracks.find((t) => t.index === selectedTrack)
@@ -781,7 +868,7 @@ export default function App() {
         trackIndex: selectedTrack,
         trackLanguage,
         durationSec: videoDetails?.durationSec,
-        ...generateConfig,
+        ...effectiveConfig,
         aiApiKey,
         aiProvider,
         aiModel,
@@ -1156,6 +1243,7 @@ export default function App() {
           }}
           onSelectTrackModal={() => setAudioModalOpen(true)}
           onDropFile={(path) => handleSelectVideo(path)}
+          onSwitchToTranslate={handleSwitchToTranslate}
         />
 
         {/* Selection Option above Step 2 */}
@@ -1217,6 +1305,10 @@ export default function App() {
             modelsSource={whisperModelsSource}
             extractedFiles={extractedFiles}
             onBrowseSubtitle={handleBrowseGenerateSubtitle}
+            subtitleTracks={subtitleTracks}
+            onExtractAndUseSubtitle={handleExtractAndUseSubtitle}
+            isExtracting={isExtracting}
+            isGenerating={isGenerating}
           />
         ) : (
           <Step2Extract
