@@ -454,7 +454,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                 onClick={() => setActiveTab('general')}
                 className={`w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-xs font-semibold transition-all cursor-pointer ${
                   activeTab === 'general'
-                    ? 'bg-blue-600 text-white shadow-xs shadow-blue-600/30 font-bold'
+                    ? 'bg-blue-800 text-white shadow-2xs font-bold dark:bg-blue-600'
                     : 'text-slate-600 dark:text-slate-400 hover:bg-slate-200/60 dark:hover:bg-slate-800/60 hover:text-slate-900 dark:hover:text-slate-100'
                 }`}
               >
@@ -467,7 +467,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                 onClick={() => setActiveTab('ai')}
                 className={`w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-xs font-semibold transition-all cursor-pointer ${
                   activeTab === 'ai'
-                    ? 'bg-blue-600 text-white shadow-xs shadow-blue-600/30 font-bold'
+                    ? 'bg-blue-800 text-white shadow-2xs font-bold dark:bg-blue-600'
                     : 'text-slate-600 dark:text-slate-400 hover:bg-slate-200/60 dark:hover:bg-slate-800/60 hover:text-slate-900 dark:hover:text-slate-100'
                 }`}
               >
@@ -510,7 +510,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                     </span>
                     <div
                       className={`w-11 h-6 flex items-center rounded-full p-1 transition-colors duration-200 ${
-                        theme === 'dark' ? 'bg-blue-600' : 'bg-slate-300 dark:bg-slate-700'
+                        theme === 'dark' ? 'bg-blue-800 dark:bg-blue-600' : 'bg-slate-300 dark:bg-slate-700'
                       }`}
                     >
                       <div
@@ -545,7 +545,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                       </span>
                       <div
                         className={`w-11 h-6 flex items-center rounded-full p-1 transition-colors duration-200 ${
-                          checkUpdates ? 'bg-blue-600' : 'bg-slate-300 dark:bg-slate-700'
+                          checkUpdates ? 'bg-blue-800 dark:bg-blue-600' : 'bg-slate-300 dark:bg-slate-700'
                         }`}
                       >
                         <div
@@ -874,7 +874,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                   <button
                     type="button"
                     onClick={handleSaveAiSettings}
-                    className="px-5 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs transition-all shadow-md shadow-blue-600/25 active:scale-[0.99] flex items-center gap-1.5 cursor-pointer"
+                    className="px-5 py-2 rounded-xl bg-blue-800 hover:bg-blue-900 dark:bg-blue-600 dark:hover:bg-blue-500 text-white font-semibold text-xs transition-all shadow-2xs active:scale-[0.99] flex items-center gap-1.5 cursor-pointer"
                   >
                     {savedSuccess ? (
                       <>

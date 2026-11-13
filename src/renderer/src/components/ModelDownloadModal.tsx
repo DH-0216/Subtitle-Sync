@@ -202,7 +202,7 @@ export const ModelDownloadModal: React.FC<ModelDownloadModalProps> = ({
             <button
               type="button"
               onClick={onStartDownload}
-              className="flex-1 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs flex items-center justify-center gap-2 transition-all shadow-md shadow-blue-600/30 active:scale-[0.99] cursor-pointer"
+              className="flex-1 py-2.5 rounded-xl bg-blue-800 hover:bg-blue-900 dark:bg-blue-600 dark:hover:bg-blue-500 text-white font-semibold text-xs flex items-center justify-center gap-2 transition-all shadow-2xs active:scale-[0.99] cursor-pointer"
             >
               <Download className="w-4 h-4" />
               <span>Start Download ({currentInfo.size})</span>

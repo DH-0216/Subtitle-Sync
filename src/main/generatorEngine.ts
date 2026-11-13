@@ -25,11 +25,13 @@ export interface WhisperModelInfo {
 }
 
 export interface GenerateParams {
-  video: string
+  video?: string
+  sourceType?: 'video' | 'subtitle'
+  sourceSubPath?: string
   trackIndex?: number | null
   trackLanguage?: string | null
   durationSec?: number | null
-  modelQuality: string
+  modelQuality?: string
   format: 'srt' | 'vtt'
   language: string
   aiApiKey?: string
@@ -977,7 +979,89 @@ export async function executeSubtitleGeneration(
   isGenerationCancelled = false
   cleanupActiveGenerationFiles()
 
-  const { video, trackIndex, modelQuality, format, language, aiApiKey, aiProvider, aiModel, customPrompt } = params
+  const { video, trackIndex, modelQuality = 'base', format, language, aiApiKey, aiProvider, aiModel, customPrompt, sourceType, sourceSubPath } = params
+
+  // Workflow A: Translate an existing subtitle file (.srt) directly via AI
+  if (sourceType === 'subtitle' || (!video && sourceSubPath)) {
+    if (!sourceSubPath || !fs.existsSync(sourceSubPath)) {
+      throw new Error(`Subtitle file not found: ${sourceSubPath || 'None'}`)
+    }
+
+    onEvent({ type: 'status', message: 'Reading subtitle file...' })
+    onEvent({ type: 'progress', percent: 10, message: 'Reading subtitle cues...' })
+    onEvent({ type: 'log', message: `[SUBTITLE] Translating existing subtitle file: ${sourceSubPath}` })
+
+    const rawSrt = fs.readFileSync(sourceSubPath, 'utf-8')
+    const cues = parseSrt(rawSrt)
+    if (!cues || cues.length === 0) {
+      throw new Error('No valid subtitle cues found in the chosen subtitle file.')
+    }
+
+    onEvent({ type: 'log', message: `[SUBTITLE] Loaded ${cues.length} cues from ${sourceSubPath}` })
+
+    let processedCues = removeHallucinationLoops(cues)
+    let finalSrtPath = sourceSubPath
+
+    if (language === 'si') {
+      if (!aiApiKey) {
+        throw new Error('AI API Key required for Spoken Sinhala translation. Please configure your Gemini or OpenAI API Key in Settings.')
+      }
+
+      onEvent({ type: 'status', message: 'Translating subtitles into Spoken Sinhala via AI...' })
+      onEvent({ type: 'progress', percent: 20, message: 'Translating dialogue into Spoken Sinhala...' })
+
+      const translatedCues = await translateCuesViaAi(
+        processedCues,
+        aiProvider || 'gemini',
+        aiApiKey,
+        aiModel,
+        customPrompt,
+        (msg) => {
+          onEvent({ type: 'log', message: msg })
+        },
+        (batchIdx, totalBatches) => {
+          const translatePct = Math.min(95, Math.round(20 + (batchIdx / totalBatches) * 75))
+          onEvent({
+            type: 'progress',
+            percent: translatePct,
+            message: `Translating to Spoken Sinhala (${batchIdx}/${totalBatches})...`
+          })
+        }
+      )
+
+      if (isGenerationCancelled) {
+        throw new Error('Subtitle translation cancelled by user.')
+      }
+
+      processedCues = removeHallucinationLoops(translatedCues)
+      finalSrtPath = sourceSubPath.replace(/\.[^/.]+$/, '') + '.sinhala.translated.srt'
+    } else {
+      finalSrtPath = sourceSubPath.replace(/\.[^/.]+$/, '') + `.${language}.translated.srt`
+    }
+
+    let finalContent = writeSrt(processedCues)
+    let finalOutputPath = finalSrtPath
+
+    if (format === 'vtt') {
+      const vttContent = `WEBVTT\n\n${finalContent.replace(/(\d{2}:\d{2}:\d{2}),(\d{3})/g, '$1.$2')}`
+      finalOutputPath = finalSrtPath.replace(/\.srt$/, '.vtt')
+      fs.writeFileSync(finalOutputPath, vttContent, 'utf-8')
+    } else {
+      fs.writeFileSync(finalOutputPath, finalContent, 'utf-8')
+    }
+
+    activeCreatedFiles.add(finalOutputPath)
+    onEvent({ type: 'progress', percent: 100, message: 'Subtitle translation complete!' })
+    onEvent({ type: 'status', message: 'Subtitle translation complete!' })
+    onEvent({ type: 'log', message: `[SUBTITLE] Translated subtitle saved: ${finalOutputPath}` })
+
+    return { success: true, output: finalOutputPath }
+  }
+
+  // Workflow B: Transcribe video audio via Whisper speech-to-text
+  if (!video) {
+    throw new Error('Video path is required to generate subtitles from video.')
+  }
 
   const ffmpeg = findBinary('ffmpeg')
   if (!ffmpeg) {

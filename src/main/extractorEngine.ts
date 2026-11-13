@@ -84,7 +84,7 @@ export function buildDefaultSrtOutputPath(
   const videoExt = extname(videoPath)
   const videoBaseName = basename(videoPath, videoExt)
 
-  const parts: string[] = [videoBaseName]
+  const parts: string[] = [videoBaseName, 'extracted']
 
   // Add language tag (e.g. 'eng', 'spa', 'und')
   const cleanLang = (track.language || '').toLowerCase().trim()
@@ -103,9 +103,6 @@ export function buildDefaultSrtOutputPath(
   } else if (track.isForced) {
     parts.push('forced')
   }
-
-  // Always append 'extracted' tag to the filename
-  parts.push('extracted')
 
   let fileName = `${parts.join('.')}.srt`
   let fullPath = join(targetDir, fileName)

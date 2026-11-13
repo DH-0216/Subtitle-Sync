@@ -97,6 +97,8 @@ export default function App() {
 
   // Step 2 (Generate Mode): Generation Settings
   const [generateConfig, setGenerateConfig] = useState<GenerateConfig>({
+    sourceType: 'video',
+    sourceSubPath: null,
     language: 'original',
     modelQuality: 'base',
     format: 'srt'
@@ -566,11 +568,50 @@ export default function App() {
     toast('Model download cancelled')
   }
 
-  // Start Generate Execution
+  const handleBrowseGenerateSubtitle = async () => {
+    try {
+      const files = await window.api.dialog.openSubtitles()
+      if (files && files.length > 0) {
+        setGenerateConfig((prev) => ({
+          ...prev,
+          sourceType: 'subtitle',
+          sourceSubPath: files[0]
+        }))
+        const fileName = files[0].split(/[/\\]/).pop()
+        toast.success(`Selected subtitle: ${fileName}`)
+        setLogs((prev) => [...prev, `[SUBTITLE] Selected file for AI translation: ${files[0]}`])
+      }
+    } catch (e: any) {
+      toast.error('Failed to open subtitle: ' + e?.message)
+    }
+  }
+
+  const handleTranslateExtractedWithAi = (item: ExtractedFileItem) => {
+    setGenerateConfig((prev) => ({
+      ...prev,
+      sourceType: 'subtitle',
+      sourceSubPath: item.outputPath,
+      language: 'si'
+    }))
+    setSubtitleAction('generate')
+    toast.success(`Loaded "${item.fileName}" for AI Translation!`, { icon: '✨' })
+    setLogs((prev) => [...prev, `[AI TRANSLATION] Switched to AI Translate for extracted track: ${item.fileName}`])
+  }
+
+  // Start Generate / Translate Execution
   const handleStartGenerate = async () => {
-    if (!videoPath) {
-      toast.error('Please select a reference movie in Step 1 first!')
-      return
+    const isSubtitleSource = generateConfig.sourceType === 'subtitle'
+
+    if (isSubtitleSource) {
+      if (!generateConfig.sourceSubPath) {
+        toast.error('Please choose a subtitle file (.srt) to translate in Step 2!')
+        return
+      }
+    } else {
+      if (!videoPath) {
+        toast.error('Please select a reference movie in Step 1 first!')
+        return
+      }
     }
 
     if (!window.api?.generator?.startGenerate) {
@@ -594,7 +635,7 @@ export default function App() {
         )
         setLogs((prev) => [
           ...prev,
-          '[NETWORK] Offline: Internet connection required for AI Spoken Sinhala translation. You can still generate subtitles in "Movie\'s Language" 100% offline.'
+          '[NETWORK] Offline: Internet connection required for AI Spoken Sinhala translation.'
         ])
         return
       }
@@ -610,47 +651,52 @@ export default function App() {
       }
     }
 
-    // Check if Whisper model exists
-    try {
-      const modelCheck = await window.api.generator.checkModel(generateConfig.modelQuality)
-      if (!modelCheck?.exists) {
-        setDownloadModalOpen(true)
-        return
+    // Only verify Whisper binaries & models if generating from video!
+    if (!isSubtitleSource) {
+      // Check if Whisper model exists
+      try {
+        const modelCheck = await window.api.generator.checkModel(generateConfig.modelQuality)
+        if (!modelCheck?.exists) {
+          setDownloadModalOpen(true)
+          return
+        }
+      } catch (e) {
+        // ignore
       }
-    } catch (e) {
-      // ignore
-    }
 
-    // Check if Whisper binary exists
-    try {
-      const whisperCheck = await window.api.generator.checkWhisper()
-      if (!whisperCheck?.exists) {
-        toast.error('whisper.exe not found in bin/ folder. Please place whisper.exe into the bin/ directory.', {
-          duration: 6000,
-          icon: '⚠️'
-        })
-        setLogs((prev) => [
-          ...prev,
-          '[ERROR] whisper.exe (or whisper-cli.exe) not found in bin/. Please place the whisper executable into the bin/ directory.'
-        ])
-        return
+      // Check if Whisper binary exists
+      try {
+        const whisperCheck = await window.api.generator.checkWhisper()
+        if (!whisperCheck?.exists) {
+          toast.error('whisper.exe not found in bin/ folder. Please place whisper.exe into the bin/ directory.', {
+            duration: 6000,
+            icon: '⚠️'
+          })
+          setLogs((prev) => [
+            ...prev,
+            '[ERROR] whisper.exe (or whisper-cli.exe) not found in bin/. Please place the whisper executable into the bin/ directory.'
+          ])
+          return
+        }
+      } catch (e) {
+        // ignore
       }
-    } catch (e) {
-      // ignore
     }
 
     setIsGenerating(true)
     setGenerateProgress(5)
     setLastOutputDir(null)
     setLastOutputFile(null)
-    setGenerateStatusMessage('Starting subtitle generation...')
+    setGenerateStatusMessage(isSubtitleSource ? 'Starting AI dialogue translation...' : 'Starting subtitle generation...')
     setLogs((prev) => [
       ...prev,
-      `=== Starting Subtitle Generation ===`,
-      `Movie: ${videoPath}`,
-      `Selected Audio Track: #${selectedTrack ?? 0}`,
+      isSubtitleSource
+        ? `=== Starting Subtitle Translation ===`
+        : `=== Starting Subtitle Generation ===`,
+      isSubtitleSource ? `Source Subtitle: ${generateConfig.sourceSubPath}` : `Movie: ${videoPath}`,
+      !isSubtitleSource ? `Selected Audio Track: #${selectedTrack ?? 0}` : `Bypassing Whisper: Direct text translation mode`,
       `Target Language: ${generateConfig.language}`,
-      `Model Quality: ${generateConfig.modelQuality}`,
+      !isSubtitleSource ? `Model Quality: ${generateConfig.modelQuality}` : `Model: Cloud AI (${aiModel || 'Auto'})`,
       `Output Format: .${generateConfig.format}`
     ])
 
@@ -672,8 +718,8 @@ export default function App() {
 
       if (res?.success) {
         setGenerateProgress(100)
-        setGenerateStatusMessage('Subtitles generated successfully!')
-        toast.success('Subtitle generated successfully!', { duration: 4000 })
+        setGenerateStatusMessage(isSubtitleSource ? 'Subtitle translation complete!' : 'Subtitles generated successfully!')
+        toast.success(isSubtitleSource ? 'Subtitle translated successfully!' : 'Subtitle generated successfully!', { duration: 4000 })
         if (res.output) {
           const folder = res.output.substring(
             0,
@@ -687,11 +733,11 @@ export default function App() {
         setLastOutputDir(null)
         setLastOutputFile(null)
         const isCancelled = res?.message?.toLowerCase().includes('cancel')
-        const friendlyMsg = formatUserFriendlyError(res?.message || 'Generation failed')
-        setGenerateStatusMessage(isCancelled ? 'Generation cancelled by user' : friendlyMsg)
+        const friendlyMsg = formatUserFriendlyError(res?.message || (isSubtitleSource ? 'Translation failed' : 'Generation failed'))
+        setGenerateStatusMessage(isCancelled ? 'Cancelled by user' : friendlyMsg)
         if (!isCancelled) {
           toast.error(friendlyMsg, { duration: 5000 })
-          setLogs((prev) => [...prev, `[ERROR] ${res?.message || 'Generation failed'}`])
+          setLogs((prev) => [...prev, `[ERROR] ${res?.message || 'Processing failed'}`])
         }
       }
     } catch (err: any) {
@@ -700,7 +746,7 @@ export default function App() {
       setLastOutputFile(null)
       const isCancelled = err.message?.toLowerCase().includes('cancel')
       if (isCancelled) {
-        setGenerateStatusMessage('Generation cancelled by user')
+        setGenerateStatusMessage('Cancelled by user')
       } else {
         const friendlyMsg = formatUserFriendlyError(err)
         setLogs((prev) => [...prev, `[ERROR] ${err.message}`])
@@ -982,7 +1028,7 @@ export default function App() {
   return (
     <div
       className={`min-h-screen ${
-        theme === 'dark' ? 'dark bg-[#0B0F19] text-slate-100' : 'bg-gradient-to-br from-[#EBF2FE] via-[#F0F5FF] to-[#E5EDFD] text-slate-900'
+        theme === 'dark' ? 'dark bg-[#0B0F19] text-slate-100' : 'bg-slate-100 text-slate-900'
       } ${isAnyModalOpen ? 'overflow-hidden max-h-screen' : ''} flex flex-col font-sans transition-colors duration-200`}
     >
       <Header
@@ -1025,7 +1071,7 @@ export default function App() {
           action={subtitleAction}
           hasVideo={Boolean(videoPath)}
           onSelectAction={(action) => {
-            if (action === 'generate' && !videoPath) return
+            if ((action === 'generate' || action === 'extract') && !videoPath) return
             setSubtitleAction(action)
             if (action === 'extract' && videoPath && subtitleTracks.length === 0) {
               handleSelectVideo(videoPath)
@@ -1070,6 +1116,8 @@ export default function App() {
             isLoadingModels={isLoadingWhisperModels}
             onRefreshModels={() => loadWhisperModels(true)}
             modelsSource={whisperModelsSource}
+            extractedFiles={extractedFiles}
+            onBrowseSubtitle={handleBrowseGenerateSubtitle}
           />
         ) : (
           <Step2Extract
@@ -1108,7 +1156,11 @@ export default function App() {
           />
         ) : subtitleAction === 'generate' ? (
           <Step3Generate
-            unlocked={Boolean(videoPath)}
+            unlocked={
+              generateConfig.sourceType === 'subtitle'
+                ? Boolean(generateConfig.sourceSubPath)
+                : Boolean(videoPath)
+            }
             isGenerating={isGenerating}
             config={generateConfig}
             selectedTrack={selectedTrack}
@@ -1134,6 +1186,7 @@ export default function App() {
             onCancelExtract={handleCancelExtract}
             onOpenFolder={handleOpenFolder}
             onSendToSync={handleSendExtractedToSync}
+            onTranslateWithAi={handleTranslateExtractedWithAi}
           />
         )}
 
@@ -1144,15 +1197,16 @@ export default function App() {
       {/* ---------------- FOOTER ---------------- */}
       <footer className="max-w-5xl xl:max-w-6xl 2xl:max-w-[1400px] w-full mx-auto px-6 pb-6 pt-1 space-y-2.5">
         {/* Status bar row */}
-        <div className="flex items-center justify-between text-xs py-2 px-3.5 rounded-xl bg-blue-100/60 dark:bg-transparent border border-blue-200/80 dark:border-transparent">
-          <div className="flex items-center gap-2 text-blue-950 dark:text-slate-400 font-semibold">
+        {/* Bottom Status & Destination bar */}
+        <div className="flex items-center justify-between text-xs py-2 px-3.5 rounded-xl bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-800 shadow-xs">
+          <div className="flex items-center gap-2 text-slate-900 dark:text-slate-100 font-bold">
             <span
               className={`text-sm leading-none ${
                 (subtitleAction === 'sync' ? isSyncing : subtitleAction === 'generate' ? isGenerating : isExtracting)
-                  ? 'text-blue-600 animate-pulse'
+                  ? 'text-blue-800 dark:text-blue-400 animate-pulse'
                   : (subtitleAction === 'sync' ? progress === 100 : subtitleAction === 'generate' ? generateProgress === 100 : extractProgress === 100) && lastOutputDir
-                  ? 'text-emerald-600'
-                  : 'text-blue-400 dark:text-slate-500'
+                  ? 'text-emerald-700 dark:text-emerald-400'
+                  : 'text-slate-500 dark:text-slate-400'
               }`}
             >
               ●
@@ -1169,10 +1223,10 @@ export default function App() {
           <button
             onClick={handleOpenFolder}
             disabled={!lastOutputDir && subtitles.length === 0 && !videoPath}
-            className={`flex items-center gap-2 px-3.5 py-1.5 rounded-lg border font-semibold text-xs transition-all duration-200 ${
+            className={`flex items-center gap-2 px-3.5 py-1.5 rounded-lg border font-bold text-xs transition-all duration-200 ${
               lastOutputDir || subtitles.length > 0 || videoPath
-                ? 'border-blue-600 bg-blue-600 hover:bg-blue-500 text-white shadow-sm shadow-blue-600/30 dark:bg-blue-600/25 dark:hover:bg-blue-600/35 dark:border-blue-500/50 dark:text-blue-300 dark:hover:text-blue-100 cursor-pointer active:scale-98'
-                : 'border-blue-200/70 bg-blue-50/50 text-blue-900/40 dark:border-slate-800/80 dark:bg-[#111625]/60 dark:text-slate-500 cursor-not-allowed shadow-none'
+                ? 'border-blue-800 bg-blue-800 hover:bg-blue-900 text-white shadow-xs dark:bg-blue-600 dark:hover:bg-blue-500 dark:border-blue-600 cursor-pointer active:scale-98'
+                : 'border-slate-300 bg-slate-100 text-slate-600 dark:border-slate-800 dark:bg-slate-800 dark:text-slate-400 cursor-not-allowed shadow-none'
             }`}
             title={
               lastOutputDir
@@ -1188,7 +1242,7 @@ export default function App() {
               className={`w-3.5 h-3.5 ${
                 lastOutputDir || subtitles.length > 0 || videoPath
                   ? 'text-white dark:text-blue-400'
-                  : 'text-blue-900/35 dark:text-slate-500'
+                  : 'text-slate-500 dark:text-slate-400'
               }`}
             />
             <span>Open Output Folder</span>
@@ -1196,8 +1250,8 @@ export default function App() {
         </div>
 
         {/* Developer attribution & GitHub row */}
-        <div className="flex items-center justify-between text-[11px] pt-2 border-t border-blue-100 dark:border-slate-800/80 text-slate-500 dark:text-slate-400">
-          <span className="font-medium text-slate-600 dark:text-slate-400">Developed by DH-0216</span>
+        <div className="flex items-center justify-between text-[11px] pt-2 border-t border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-400 font-semibold">
+          <span>Developed by DH-0216</span>
           <button
             onClick={() => {
               const url = EXTERNAL_LINKS.GITHUB_REPO
