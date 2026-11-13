@@ -150,6 +150,8 @@ export default function App() {
   const subtitlesRef = React.useRef<SubtitleItem[]>([])
   const currentSubIndexRef = React.useRef(0)
   const syncCancelledRef = React.useRef(false)
+  const isGeneratingRef = React.useRef(false)
+  const isSyncingRef = React.useRef(false)
 
   useEffect(() => {
     subtitlesRef.current = subtitles
@@ -166,6 +168,14 @@ export default function App() {
   const [statusMessage, setStatusMessage] = useState('')
   const [lastOutputDir, setLastOutputDir] = useState<string | null>(null)
   const [lastOutputFile, setLastOutputFile] = useState<string | null>(null)
+
+  useEffect(() => {
+    isGeneratingRef.current = isGenerating
+  }, [isGenerating])
+
+  useEffect(() => {
+    isSyncingRef.current = isSyncing
+  }, [isSyncing])
 
   // Console Logs
   const [logs, setLogs] = useState<string[]>([])
@@ -252,29 +262,37 @@ export default function App() {
       if (event.type === 'log') {
         setLogs((prev) => [...prev, event.message])
       } else if (event.type === 'status') {
-        setStatusMessage(event.message)
-        setGenerateStatusMessage(event.message)
+        if (isGeneratingRef.current) {
+          setGenerateStatusMessage(event.message)
+        } else {
+          setStatusMessage(event.message)
+        }
       } else if (event.type === 'progress') {
         const filePct = typeof event.percent === 'number' ? event.percent : 0
-        setGenerateProgress(filePct)
-        if (event.message) {
-          setGenerateStatusMessage(event.message)
-        }
-        const subIdx = currentSubIndexRef.current
-        const total = subtitlesRef.current.length || 1
-        const overallPct = Math.min(100, Math.max(0, Math.round(((subIdx * 100) + filePct) / total)))
-        setProgress(overallPct)
-        if (event.message) {
-          if (total > 1) {
-            setStatusMessage(`[${subIdx + 1}/${total}] ${event.message}`)
-          } else {
-            setStatusMessage(event.message)
+        if (isGeneratingRef.current) {
+          setGenerateProgress(filePct)
+          if (event.message) {
+            setGenerateStatusMessage(event.message)
+          }
+        } else {
+          const subIdx = currentSubIndexRef.current
+          const total = subtitlesRef.current.length || 1
+          const overallPct = Math.min(100, Math.max(0, Math.round(((subIdx * 100) + filePct) / total)))
+          setProgress(overallPct)
+          if (event.message) {
+            if (total > 1) {
+              setStatusMessage(`[${subIdx + 1}/${total}] ${event.message}`)
+            } else {
+              setStatusMessage(event.message)
+            }
           }
         }
       } else if (event.type === 'done') {
         if (event.success) {
-          setGenerateProgress(100)
-          setGenerateStatusMessage('Subtitle generation complete!')
+          if (isGeneratingRef.current) {
+            setGenerateProgress(100)
+            setGenerateStatusMessage('Subtitle generation complete!')
+          }
           setLogs((prev) => [
             ...prev,
             `[SUCCESS] Output generated: ${event.output} (Score: ${event.score !== null ? event.score : 'N/A'})`
@@ -405,7 +423,16 @@ export default function App() {
   }
 
   const handleRemoveSubtitle = (id: string) => {
-    setSubtitles((prev) => prev.filter((s) => s.id !== id))
+    setSubtitles((prev) => {
+      const next = prev.filter((s) => s.id !== id)
+      if (next.length === 0) {
+        setProgress(0)
+        setStatusMessage('')
+        setLastOutputDir(null)
+        setLastOutputFile(null)
+      }
+      return next
+    })
   }
 
   // Intelligent Recommender Trigger
@@ -474,10 +501,11 @@ export default function App() {
       }
       if (res?.success) {
         successCount++
-        setLastOutputFile(outPath)
-        const folder = outPath.substring(
+        const savedOut = (res as any)?.out || outPath
+        setLastOutputFile(savedOut)
+        const folder = savedOut.substring(
           0,
-          Math.max(outPath.lastIndexOf('/'), outPath.lastIndexOf('\\'))
+          Math.max(savedOut.lastIndexOf('/'), savedOut.lastIndexOf('\\'))
         )
         setLastOutputDir(folder)
       }
@@ -1095,7 +1123,13 @@ export default function App() {
             subtitles={subtitles}
             onBrowse={handleBrowseSubtitles}
             onRemove={handleRemoveSubtitle}
-            onClearAll={() => setSubtitles([])}
+            onClearAll={() => {
+              setSubtitles([])
+              setProgress(0)
+              setStatusMessage('')
+              setLastOutputDir(null)
+              setLastOutputFile(null)
+            }}
             onDropFiles={(paths) => handleAddSubtitles(paths)}
           />
         ) : subtitleAction === 'generate' ? (

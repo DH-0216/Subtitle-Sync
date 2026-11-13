@@ -1,3 +1,6 @@
+import * as fs from 'fs'
+import * as path from 'path'
+
 /**
  * Pure TypeScript SRT parser, formatter, and timestamp manipulation tools.
  * Zero external dependencies.
@@ -196,4 +199,26 @@ export function removeHallucinationLoops(cues: SrtCue[]): SrtCue[] {
     ...c,
     index: i + 1
   }))
+}
+
+/**
+ * Generates an available unique file path by adding " (1)", " (2)", etc. before the extension
+ * if a file already exists at targetPath.
+ * Example: "movie.sinhala.translated.srt" -> "movie.sinhala.translated (1).srt"
+ */
+export function getUniqueFilePath(targetPath: string): string {
+  if (!fs.existsSync(targetPath)) {
+    return targetPath
+  }
+  const ext = path.extname(targetPath)
+  const dir = path.dirname(targetPath)
+  const base = path.basename(targetPath, ext)
+
+  let counter = 1
+  let candidate = path.join(dir, `${base} (${counter})${ext}`)
+  while (fs.existsSync(candidate)) {
+    counter++
+    candidate = path.join(dir, `${base} (${counter})${ext}`)
+  }
+  return candidate
 }

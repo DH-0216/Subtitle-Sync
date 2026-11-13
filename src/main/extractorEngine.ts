@@ -110,7 +110,7 @@ export function buildDefaultSrtOutputPath(
   // Avoid unintended overwrite if file exists with identical name
   let counter = 1
   while (fs.existsSync(fullPath)) {
-    fileName = `${parts.join('.')}.${counter}.srt`
+    fileName = `${parts.join('.')} (${counter}).srt`
     fullPath = join(targetDir, fileName)
     counter++
   }

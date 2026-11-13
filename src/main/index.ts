@@ -3,7 +3,7 @@ import { join, basename } from 'path'
 import * as fs from 'fs'
 import { probeVideoFile, findBinary, getSubtitleSyncDetails } from './media'
 import { SyncEngine } from './syncEngine'
-import { parseSrt } from './srtTools'
+import { parseSrt, getUniqueFilePath } from './srtTools'
 import { analyzeRecommendation } from './recommender'
 import {
   getWhisperModelPath,
@@ -447,6 +447,9 @@ app.whenReady().then(() => {
       activeSyncEngine.cancel()
     }
 
+    // Auto-increment (1), (2), etc. if output file already exists
+    params.out = getUniqueFilePath(params.out)
+
     const logCb = (line: string) => {
       event.sender.send('sync:event', { type: 'log', message: line })
     }
@@ -494,7 +497,7 @@ app.whenReady().then(() => {
         })
       }
       activeSyncEngine = null
-      return { success: result.success }
+      return { success: result.success, out: params.out }
     } catch (e: any) {
       event.sender.send('sync:event', { type: 'error', message: e.message })
       activeSyncEngine = null

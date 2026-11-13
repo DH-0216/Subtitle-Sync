@@ -66,7 +66,11 @@ export const Step3Sync: React.FC<Step3SyncProps> = ({
 
   return (
     <div
-      className="bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-800 rounded-2xl p-5 transition-all duration-300 shadow-xs"
+      className={`border rounded-2xl p-5 shadow-xs transition-all ${
+        unlocked
+          ? 'bg-white dark:bg-slate-900 border-slate-300 dark:border-slate-800'
+          : 'bg-slate-50/70 dark:bg-slate-900 border-slate-300 dark:border-slate-800 opacity-80'
+      }`}
     >
       <div className="flex items-center justify-between pb-3 mb-3.5 border-b border-slate-200 dark:border-slate-800">
         <div className="flex items-center gap-2.5">
@@ -74,7 +78,7 @@ export const Step3Sync: React.FC<Step3SyncProps> = ({
             className={`w-6 h-6 rounded-full font-bold text-xs flex items-center justify-center border shadow-xs ${
               unlocked
                 ? 'bg-blue-800 text-white border-blue-800 dark:bg-blue-600 dark:border-blue-600'
-                : 'bg-slate-200 text-slate-800 border-slate-300 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700'
+                : 'bg-slate-100 text-slate-500 border-slate-300 dark:bg-slate-800 dark:text-slate-400 dark:border-slate-700'
             }`}
           >
             3
@@ -92,7 +96,7 @@ export const Step3Sync: React.FC<Step3SyncProps> = ({
       </div>
 
       {/* Dedicated Analysis & Mode Recommendation Banner (From Previous App) */}
-      {recommendation && (
+      {recommendation && unlocked && (
         <div
           className={`mb-4 p-4 rounded-xl border transition-all duration-300 shadow-xs flex flex-col gap-2.5 ${
             recommendation.type === 'warning'
@@ -152,13 +156,17 @@ export const Step3Sync: React.FC<Step3SyncProps> = ({
             <div
               key={m.id}
               onClick={() => unlocked && !isSyncing && setSyncMode(m.id)}
-              className={`p-3.5 rounded-xl border relative cursor-pointer transition-all duration-200 ${
-                selected
-                  ? 'bg-blue-50 border-2 border-blue-800 shadow-xs dark:bg-blue-950/50 dark:border-blue-500'
-                  : 'bg-white hover:bg-slate-50 border-slate-300 dark:bg-[#0B0F19] dark:border-slate-800 dark:hover:border-slate-700 shadow-2xs'
+              className={`p-3.5 rounded-xl border relative transition-all duration-200 ${
+                unlocked
+                  ? selected
+                    ? 'bg-blue-50 border-2 border-blue-800 shadow-xs dark:bg-blue-950/50 dark:border-blue-500 cursor-pointer'
+                    : 'bg-white hover:bg-slate-50 border-slate-300 dark:bg-[#0B0F19] dark:border-slate-800 dark:hover:border-slate-700 shadow-2xs cursor-pointer'
+                  : selected
+                    ? 'bg-slate-100/80 dark:bg-slate-800/40 border-2 border-slate-300 dark:border-slate-700'
+                    : 'bg-slate-50/60 dark:bg-slate-900/40 border border-slate-200 dark:border-slate-800'
               } ${!unlocked || isSyncing ? 'cursor-not-allowed pointer-events-none' : ''}`}
             >
-              {isRec && (
+              {isRec && unlocked && (
                 <span className="absolute -top-2.5 right-2 text-[10px] font-bold uppercase tracking-wider bg-blue-800 text-white dark:bg-blue-600 px-2 py-0.5 rounded-full shadow-xs flex items-center gap-1">
                   <Sparkles className="w-2.5 h-2.5" /> Best Match
                 </span>
@@ -166,18 +174,18 @@ export const Step3Sync: React.FC<Step3SyncProps> = ({
               <div className="flex items-center gap-2.5 mb-1.5">
                 <div
                   className={`p-1.5 rounded-lg transition-colors ${
-                    selected
+                    unlocked && selected
                       ? 'bg-blue-800 dark:bg-blue-600 text-white shadow-2xs'
-                      : 'bg-slate-100 border border-slate-200 text-slate-800 dark:bg-slate-800 dark:border-transparent dark:text-slate-300'
+                      : 'bg-slate-100 text-slate-600 border border-slate-200 dark:bg-slate-800 dark:text-slate-400 dark:border-slate-700'
                   }`}
                 >
                   <Icon className="w-4 h-4" />
                 </div>
-                <h3 className="text-sm font-bold text-slate-900 dark:text-slate-100">
+                <h3 className={`text-sm font-bold ${unlocked ? 'text-slate-900 dark:text-slate-100' : 'text-slate-700 dark:text-slate-300'}`}>
                   {m.title}
                 </h3>
               </div>
-              <p className={`text-xs leading-relaxed ${selected ? 'text-slate-800 dark:text-blue-200 font-medium' : 'text-slate-600 dark:text-slate-400'}`}>
+              <p className={`text-xs leading-relaxed ${unlocked ? 'text-slate-600 dark:text-slate-400' : 'text-slate-500 dark:text-slate-400'}`}>
                 {m.desc}
               </p>
             </div>
@@ -186,7 +194,7 @@ export const Step3Sync: React.FC<Step3SyncProps> = ({
       </div>
 
       {/* Live Progress Bar with Percentage */}
-      {(isSyncing || (progress === 100 && lastOutputDir)) && (
+      {unlocked && (isSyncing || (progress === 100 && lastOutputDir)) && (
         <div className="mb-4 p-3.5 rounded-xl bg-slate-50 border border-slate-300 dark:bg-[#0B0F19] dark:border-slate-800 shadow-2xs transition-all duration-300">
           <div className="flex items-center justify-between text-xs mb-2">
             <div className="flex items-center gap-2 min-w-0">

@@ -6,7 +6,7 @@ import * as https from 'https'
 import * as http from 'http'
 import { spawn } from 'child_process'
 import { findBinary } from './media'
-import { parseSrt, SrtCue, writeSrt, removeHallucinationLoops } from './srtTools'
+import { parseSrt, SrtCue, writeSrt, removeHallucinationLoops, getUniqueFilePath } from './srtTools'
 import { getWhisperModelDownloadUrl, getGeminiGenerateUrl, EXTERNAL_LINKS } from '@shared/links'
 
 export interface WhisperModelInfo {
@@ -977,7 +977,8 @@ export async function executeSubtitleGeneration(
   onEvent: (data: any) => void
 ): Promise<{ success: boolean; output?: string; message?: string }> {
   isGenerationCancelled = false
-  cleanupActiveGenerationFiles()
+  // Clean slate for tracking only current temporary scratch files (never delete previously saved user files)
+  activeCreatedFiles.clear()
 
   const { video, trackIndex, modelQuality = 'base', format, language, aiApiKey, aiProvider, aiModel, customPrompt, sourceType, sourceSubPath } = params
 
@@ -1039,18 +1040,22 @@ export async function executeSubtitleGeneration(
       finalSrtPath = sourceSubPath.replace(/\.[^/.]+$/, '') + `.${language}.translated.srt`
     }
 
+    // Auto-increment (1), (2), etc. if file already exists so previous subtitles are never overwritten
+    finalSrtPath = getUniqueFilePath(finalSrtPath)
+
     let finalContent = writeSrt(processedCues)
     let finalOutputPath = finalSrtPath
 
     if (format === 'vtt') {
       const vttContent = `WEBVTT\n\n${finalContent.replace(/(\d{2}:\d{2}:\d{2}),(\d{3})/g, '$1.$2')}`
-      finalOutputPath = finalSrtPath.replace(/\.srt$/, '.vtt')
+      finalOutputPath = getUniqueFilePath(finalSrtPath.replace(/\.srt$/, '.vtt'))
       fs.writeFileSync(finalOutputPath, vttContent, 'utf-8')
     } else {
       fs.writeFileSync(finalOutputPath, finalContent, 'utf-8')
     }
 
-    activeCreatedFiles.add(finalOutputPath)
+    // Clear cancellation tracker: successfully generated file should never be deleted
+    activeCreatedFiles.clear()
     onEvent({ type: 'progress', percent: 100, message: 'Subtitle translation complete!' })
     onEvent({ type: 'status', message: 'Subtitle translation complete!' })
     onEvent({ type: 'log', message: `[SUBTITLE] Translated subtitle saved: ${finalOutputPath}` })
@@ -1174,8 +1179,8 @@ export async function executeSubtitleGeneration(
     // For Sinhala, Whisper creates a temporary English translation bridge file first.
     // For English or Original, Whisper outputs directly with the language name.
     const outBase = language === 'si'
-      ? video.replace(/\.[^/.]+$/, `.temp_en.generated`)
-      : video.replace(/\.[^/.]+$/, `.${langSlug}.generated`)
+      ? video.replace(/\.[^/.]+$/, `.temp_en_${Date.now()}`)
+      : getUniqueFilePath(video.replace(/\.[^/.]+$/, `.${langSlug}.generated.srt`)).replace(/\.srt$/, '')
 
     const generatedSrt = `${outBase}.srt`
     activeCreatedFiles.add(generatedSrt)
@@ -1413,8 +1418,7 @@ export async function executeSubtitleGeneration(
         }
 
         const finalSinhalaSrt = writeSrt(translatedCues)
-        finalSrtPath = video.replace(/\.[^/.]+$/, `.sinhala.generated.srt`)
-        activeCreatedFiles.add(finalSrtPath)
+        finalSrtPath = getUniqueFilePath(video.replace(/\.[^/.]+$/, `.sinhala.generated.srt`))
         fs.writeFileSync(finalSrtPath, finalSinhalaSrt, 'utf-8')
         onEvent({ type: 'log', message: `[AI TRANSLATION] Translated subtitle saved: ${finalSrtPath}` })
 
@@ -1455,8 +1459,7 @@ export async function executeSubtitleGeneration(
       }
       const srtContent = fs.readFileSync(finalSrtPath, 'utf-8')
       const vttContent = `WEBVTT\n\n${srtContent.replace(/(\d{2}:\d{2}:\d{2}),(\d{3})/g, '$1.$2')}`
-      finalOutputPath = finalSrtPath.replace(/\.srt$/, '.vtt')
-      activeCreatedFiles.add(finalOutputPath)
+      finalOutputPath = getUniqueFilePath(finalSrtPath.replace(/\.srt$/, '.vtt'))
       fs.writeFileSync(finalOutputPath, vttContent, 'utf-8')
     }
 

@@ -55,7 +55,11 @@ export const Step3Extract: React.FC<Step3ExtractProps> = ({
 }) => {
   return (
     <div
-      className="bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-800 rounded-2xl p-5 shadow-xs transition-all"
+      className={`border rounded-2xl p-5 shadow-xs transition-all ${
+        unlocked
+          ? 'bg-white dark:bg-slate-900 border-slate-300 dark:border-slate-800'
+          : 'bg-slate-50/70 dark:bg-slate-900 border-slate-300 dark:border-slate-800 opacity-80'
+      }`}
     >
       <div className="flex items-center justify-between pb-3 mb-3.5 border-b border-slate-200 dark:border-slate-800">
         <div className="flex items-center gap-2.5">
