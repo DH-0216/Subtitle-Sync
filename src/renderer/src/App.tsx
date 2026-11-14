@@ -15,9 +15,11 @@ import { AudioTrackModal } from './components/AudioTrackModal'
 import { SettingsModal, DEFAULT_AI_PROMPT } from './components/SettingsModal'
 import { AboutModal } from './components/AboutModal'
 import { ModelDownloadModal } from './components/ModelDownloadModal'
+import { UpdateModal, AppUpdateData } from './components/UpdateModal'
 import { EXTERNAL_LINKS } from '@shared/links'
 import { formatUserFriendlyError } from '@shared/errorUtils'
 import { AiProviderId, isValidAiProvider } from '@shared/aiModels'
+import { APP_VERSION } from '@shared/version'
 
 export default function App() {
   // Theme & Preferences
@@ -42,6 +44,16 @@ export default function App() {
   const [modelDownloadedBytes, setModelDownloadedBytes] = useState(0)
   const [modelTotalBytes, setModelTotalBytes] = useState(0)
   const [modelDownloadError, setModelDownloadError] = useState<string | null>(null)
+
+  // In-App Auto-Updater States
+  const [updateModalOpen, setUpdateModalOpen] = useState(false)
+  const [appUpdateInfo, setAppUpdateInfo] = useState<AppUpdateData | null>(null)
+  const [isDownloadingUpdate, setIsDownloadingUpdate] = useState(false)
+  const [updateDownloadProgress, setUpdateDownloadProgress] = useState(0)
+  const [updateDownloadSpeed, setUpdateDownloadSpeed] = useState('')
+  const [updateDownloadedBytes, setUpdateDownloadedBytes] = useState(0)
+  const [updateTotalBytes, setUpdateTotalBytes] = useState(0)
+  const [updateErrorMessage, setUpdateErrorMessage] = useState<string | null>(null)
   const [isOnline, setIsOnline] = useState(typeof navigator !== 'undefined' ? navigator.onLine : true)
 
   // Track online/offline network connectivity
@@ -70,7 +82,91 @@ export default function App() {
     audioModalOpen ||
     settingsModalOpen ||
     aboutModalOpen ||
-    downloadModalOpen
+    downloadModalOpen ||
+    updateModalOpen
+
+  // Listen to in-app updater download progress events from Electron main process
+  useEffect(() => {
+    if (window.api?.updater?.onProgress) {
+      const unsub = window.api.updater.onProgress((data: any) => {
+        setUpdateDownloadProgress(data.percent || 0)
+        setUpdateDownloadSpeed(data.speed || '')
+        setUpdateDownloadedBytes(data.downloaded || 0)
+        setUpdateTotalBytes(data.total || 0)
+      })
+      return () => unsub()
+    }
+  }, [])
+
+  const handleCheckForAppUpdates = async (silent: boolean = false) => {
+    if (!navigator.onLine) {
+      if (!silent) {
+        toast.error('You are offline. Connect to the internet to check for updates.', { icon: '📡' })
+      }
+      return
+    }
+
+    try {
+      if (window.api?.updater?.check) {
+        const info = await window.api.updater.check()
+        if (info.updateAvailable) {
+          setAppUpdateInfo(info)
+          setUpdateModalOpen(true)
+          if (!silent) {
+            toast.success(`Update available: v${info.latestVersion}!`, { duration: 4000, icon: '🚀' })
+          }
+          setLogs((prev) => [...prev, `[UPDATER] New version available: v${info.latestVersion}`])
+        } else {
+          if (!silent) {
+            toast.success(`You're on the latest version (v${APP_VERSION})!`, { duration: 3000, icon: '✅' })
+          }
+        }
+      }
+    } catch (err: any) {
+      if (!silent) {
+        toast.error('Failed to check for updates: ' + (err?.message || 'Network error'))
+      }
+    }
+  }
+
+  const handleDownloadAndInstallUpdate = async (downloadUrl: string) => {
+    if (!downloadUrl) return
+    setIsDownloadingUpdate(true)
+    setUpdateDownloadProgress(0)
+    setUpdateErrorMessage(null)
+    setLogs((prev) => [...prev, `[UPDATER] Starting in-app download: ${downloadUrl}`])
+
+    try {
+      if (window.api?.updater?.downloadAndInstall) {
+        const res = await window.api.updater.downloadAndInstall(downloadUrl)
+        if (!res.success && res.error) {
+          if (!res.error.toLowerCase().includes('cancel')) {
+            setUpdateErrorMessage(res.error)
+            toast.error(res.error)
+            setLogs((prev) => [...prev, `[UPDATER] Download failed: ${res.error}`])
+          }
+        }
+      }
+    } catch (err: any) {
+      if (!err?.message?.toLowerCase().includes('cancel')) {
+        setUpdateErrorMessage(err?.message || 'Failed to download update.')
+        toast.error(err?.message || 'Failed to download update.')
+      }
+    } finally {
+      setIsDownloadingUpdate(false)
+    }
+  }
+
+  const handleCancelUpdateDownload = async () => {
+    try {
+      if (window.api?.updater?.cancel) {
+        await window.api.updater.cancel()
+      }
+    } catch {}
+    setIsDownloadingUpdate(false)
+    setUpdateDownloadProgress(0)
+    toast('Update download cancelled.')
+  }
 
   // Lock behind-window scroll whenever any modal (settings, audio track, about) is open
   useEffect(() => {
@@ -242,6 +338,18 @@ export default function App() {
         }
       }
     })
+
+    // Non-blocking auto-check for updates on launch (runs after 2.5s)
+    const startupTimer = setTimeout(() => {
+      window.api?.settings?.load().then((s: any) => {
+        const shouldCheck = s?.checkUpdates !== undefined ? s.checkUpdates : true
+        if (shouldCheck && navigator.onLine) {
+          handleCheckForAppUpdates(true)
+        }
+      })
+    }, 2500)
+
+    return () => clearTimeout(startupTimer)
   }, [])
 
   // Load available Whisper models dynamically
@@ -1488,6 +1596,10 @@ export default function App() {
         aiPrompt={aiPrompt}
         setAiPrompt={setAiPrompt}
         onSave={handleSaveSettings}
+        onOpenUpdateModal={(info) => {
+          setAppUpdateInfo(info)
+          setUpdateModalOpen(true)
+        }}
       />
 
       <AboutModal
@@ -1508,6 +1620,20 @@ export default function App() {
         errorMessage={modelDownloadError}
         onStartDownload={handleStartDownloadModel}
         onCancelDownload={handleCancelDownloadModel}
+      />
+
+      <UpdateModal
+        isOpen={updateModalOpen}
+        onClose={() => setUpdateModalOpen(false)}
+        updateInfo={appUpdateInfo}
+        isDownloading={isDownloadingUpdate}
+        downloadProgress={updateDownloadProgress}
+        downloadSpeed={updateDownloadSpeed}
+        downloadedBytes={updateDownloadedBytes}
+        totalBytes={updateTotalBytes}
+        errorMessage={updateErrorMessage}
+        onDownloadAndInstall={handleDownloadAndInstallUpdate}
+        onCancelDownload={handleCancelUpdateDownload}
       />
 
       {/* Toast Notifications */}

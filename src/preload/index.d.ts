@@ -192,6 +192,23 @@ export interface IElectronAPI {
     cancel: () => Promise<boolean>
     onEvent: (callback: (data: any) => void) => () => void
   }
+  updater: {
+    check: () => Promise<{
+      updateAvailable: boolean
+      currentVersion: string
+      latestVersion?: string
+      releaseName?: string
+      releaseNotes?: string
+      publishedAt?: string
+      downloadUrl?: string
+      assetName?: string
+      assetSize?: number
+      releaseUrl?: string
+    }>
+    downloadAndInstall: (downloadUrl: string) => Promise<{ success: boolean; error?: string }>
+    cancel: () => Promise<boolean>
+    onProgress: (callback: (data: { percent: number; downloaded: number; total: number; speed: string }) => void) => () => void
+  }
 }
 
 declare global {

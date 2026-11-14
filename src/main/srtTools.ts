@@ -184,16 +184,73 @@ export function sanitizeSinhalaScript(text: string): string {
 }
 
 export function cleanAndSortCues(cues: SrtCue[]): SrtCue[] {
-  // Filter out invalid durations and sort chronologically
-  const valid = cues
-    .filter((c) => c.endMs > c.startMs && c.text.trim().length > 0)
+  if (!cues || cues.length === 0) return []
+
+  // Filter out negative timestamps and empty text, and sort chronologically
+  const sorted = cues
+    .filter((c) => c.startMs >= 0 && c.text.trim().length > 0)
     .sort((a, b) => a.startMs - b.startMs)
 
-  // Re-index
-  return valid.map((c, i) => ({
-    ...c,
-    index: i + 1
-  }))
+  const cleaned: SrtCue[] = []
+  let prevEndMs = -1
+
+  for (let i = 0; i < sorted.length; i++) {
+    const cue = sorted[i]
+    let startMs = cue.startMs
+    let endMs = cue.endMs
+
+    // Ensure end is strictly after start (minimum 1.5s default if corrupted/inverted)
+    if (endMs <= startMs) {
+      endMs = startMs + 1500
+    }
+
+    // Eliminate overlap: if cue starts before the previous cue finishes
+    if (startMs < prevEndMs) {
+      startMs = prevEndMs + 50 // 50ms smooth gap
+      if (endMs <= startMs) {
+        endMs = startMs + 1000 // minimum 1s duration
+      }
+    }
+
+    cleaned.push({
+      index: cleaned.length + 1,
+      startMs,
+      endMs,
+      text: cue.text
+    })
+
+    prevEndMs = endMs
+  }
+
+  return cleaned
+}
+
+/**
+ * Sanitizes an SRT file directly on disk:
+ * - Drops negative timestamp cues (< 0 ms)
+ * - Eliminates overlapping cues after shift adjustments
+ * - Ensures startMs < endMs
+ * - Writes clean, sorted, sequentially re-indexed SRT
+ */
+export function sanitizeOutputSrt(filePath: string): boolean {
+  if (!fs.existsSync(filePath) || !filePath.toLowerCase().endsWith('.srt')) {
+    return false
+  }
+  try {
+    const content = fs.readFileSync(filePath, 'utf-8')
+    const rawCues = parseSrt(content)
+    if (!rawCues || rawCues.length === 0) return false
+
+    const cleaned = cleanAndSortCues(rawCues)
+    if (cleaned.length === 0) return false
+
+    const newContent = writeSrt(cleaned)
+    fs.writeFileSync(filePath, newContent, 'utf-8')
+    return true
+  } catch (err) {
+    console.warn(`[SRT] Failed to sanitize output SRT (${filePath}):`, err)
+    return false
+  }
 }
 
 /**
