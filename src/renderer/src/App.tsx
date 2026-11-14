@@ -26,6 +26,7 @@ export default function App() {
   const [theme, setTheme] = useState<'dark' | 'light'>('dark')
   const [defaultMode, setDefaultMode] = useState<SyncMode>('Standard')
   const [checkUpdates, setCheckUpdates] = useState(true)
+  const [notificationsEnabled, setNotificationsEnabled] = useState(true)
   const [engineReady, setEngineReady] = useState(false)
   const [aiApiKey, setAiApiKey] = useState('')
   const [aiProvider, setAiProvider] = useState<AiProviderId>('gemini')
@@ -288,12 +289,19 @@ export default function App() {
     }
   }, [theme])
 
+  const notifyJobComplete = (title: string, body: string) => {
+    if (notificationsEnabled && window.api?.notification?.show) {
+      window.api.notification.show(title, body)
+    }
+  }
+
   const handleSetTheme = (newTheme: 'dark' | 'light') => {
     setTheme(newTheme)
     window.api?.settings?.save({
       theme: newTheme,
       defaultMode,
-      checkUpdates
+      checkUpdates,
+      notificationsEnabled
     })
   }
 
@@ -307,6 +315,7 @@ export default function App() {
           setSyncMode(s.defaultMode)
         }
         if (s.checkUpdates !== undefined) setCheckUpdates(s.checkUpdates)
+        if (s.notificationsEnabled !== undefined) setNotificationsEnabled(s.notificationsEnabled)
         if (s.aiApiKey) setAiApiKey(s.aiApiKey)
         if (s.aiProvider && isValidAiProvider(s.aiProvider)) setAiProvider(s.aiProvider)
         if (s.aiModel) setAiModel(s.aiModel)
@@ -674,10 +683,12 @@ export default function App() {
       const msg = `All ${subtitles.length} subtitle(s) synchronized successfully!`
       setStatusMessage(msg)
       toast.success(msg, { duration: 4000 })
+      notifyJobComplete('Subtitles Synchronized', msg)
     } else if (successCount > 0) {
       const msg = `Completed: ${successCount}/${subtitles.length} synchronized.`
       setStatusMessage(msg)
       toast.success(msg, { duration: 4000 })
+      notifyJobComplete('Subtitles Synchronized', msg)
     } else {
       setStatusMessage('Synchronization failed.')
       toast.error('Synchronization failed. Please check logs or try another sync mode.', { duration: 4000 })
@@ -722,6 +733,10 @@ export default function App() {
       setIsDownloadingModel(false)
       if (res?.success) {
         toast.success(`Whisper model (${generateConfig.modelQuality}) ready!`)
+        notifyJobComplete(
+          'Whisper Model Ready',
+          `Whisper ${generateConfig.modelQuality.toUpperCase()} model downloaded and ready!`
+        )
         setDownloadModalOpen(false)
         loadWhisperModels(false)
         handleStartGenerate()
@@ -994,6 +1009,12 @@ export default function App() {
         setGenerateProgress(100)
         setGenerateStatusMessage(isSubtitleSource ? 'Subtitle translation complete!' : 'Subtitles generated successfully!')
         toast.success(isSubtitleSource ? 'Subtitle translated successfully!' : 'Subtitle generated successfully!', { duration: 4000 })
+        notifyJobComplete(
+          isSubtitleSource ? 'Subtitle Translation Complete' : 'Subtitle Generation Complete',
+          isSubtitleSource
+            ? 'Your translated Spoken Sinhala subtitle is ready!'
+            : 'Your generated subtitle has been saved successfully!'
+        )
         if (res.output) {
           const folder = res.output.substring(
             0,
@@ -1127,6 +1148,10 @@ export default function App() {
         setExtractProgress(100)
         setExtractStatusMessage(`Extracted ${fileItems.length} subtitle file(s) successfully!`)
         toast.success(`Extracted ${fileItems.length} subtitle(s) to .SRT!`, { duration: 4500 })
+        notifyJobComplete(
+          'Subtitle Extraction Complete',
+          `Successfully extracted ${fileItems.length} subtitle track(s) to .SRT!`
+        )
 
         const lastFile = fileItems[fileItems.length - 1].outputPath
         const folder = lastFile.substring(
@@ -1305,6 +1330,7 @@ export default function App() {
       theme,
       defaultMode,
       checkUpdates,
+      notificationsEnabled,
       aiApiKey,
       aiProvider,
       aiModel,
@@ -1594,6 +1620,8 @@ export default function App() {
         setTheme={handleSetTheme}
         checkUpdates={checkUpdates}
         setCheckUpdates={setCheckUpdates}
+        notificationsEnabled={notificationsEnabled}
+        setNotificationsEnabled={setNotificationsEnabled}
         aiApiKey={aiApiKey}
         setAiApiKey={setAiApiKey}
         aiProvider={aiProvider}

@@ -15,7 +15,8 @@ import {
   ShieldCheck,
   CheckCircle2,
   AlertCircle,
-  Loader2
+  Loader2,
+  Bell
 } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { EXTERNAL_LINKS, getGeminiVerifyUrl } from '@shared/links'
@@ -47,6 +48,8 @@ interface SettingsModalProps {
   setTheme: (t: 'dark' | 'light') => void
   checkUpdates: boolean
   setCheckUpdates: (c: boolean) => void
+  notificationsEnabled?: boolean
+  setNotificationsEnabled?: (n: boolean) => void
   aiApiKey: string
   setAiApiKey: (k: string) => void
   aiProvider: AiProviderId
@@ -69,6 +72,8 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   setTheme,
   checkUpdates,
   setCheckUpdates,
+  notificationsEnabled = true,
+  setNotificationsEnabled,
   aiApiKey,
   setAiApiKey,
   aiProvider,
@@ -340,10 +345,26 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
     window.api?.settings?.save({
       theme,
       check_updates_startup: enabled,
+      notificationsEnabled,
       aiApiKey,
       aiProvider,
       aiPrompt
     })
+  }
+
+  const handleToggleNotifications = (enabled: boolean) => {
+    if (setNotificationsEnabled) {
+      setNotificationsEnabled(enabled)
+    }
+    window.api?.settings?.save({
+      theme,
+      check_updates_startup: checkUpdates,
+      notificationsEnabled: enabled,
+      aiApiKey,
+      aiProvider,
+      aiPrompt
+    })
+    toast.success(enabled ? 'Desktop notifications enabled' : 'Desktop notifications disabled')
   }
 
 
@@ -624,7 +645,42 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                   </div>
                 </div>
 
-                {/* Card 3: About & Developer */}
+                {/* Card 3: Desktop Notifications */}
+                <div className="p-4 rounded-xl border border-slate-200/90 dark:border-slate-800/80 bg-slate-50/70 dark:bg-[#111625]/80 flex items-center justify-between transition-colors">
+                  <div>
+                    <h3 className="font-bold text-sm text-slate-900 dark:text-slate-100 flex items-center gap-2">
+                      <Bell className="w-4 h-4 text-blue-800 dark:text-blue-400" />
+                      Desktop Notifications
+                    </h3>
+                    <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                      Notify me when jobs finish (synchronization, translation, extraction)
+                    </p>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() => handleToggleNotifications(!notificationsEnabled)}
+                    className="flex items-center gap-2.5 cursor-pointer select-none group"
+                    title="Toggle desktop notifications"
+                  >
+                    <span className="text-xs font-semibold text-slate-700 dark:text-slate-300">
+                      {notificationsEnabled ? 'Enabled' : 'Disabled'}
+                    </span>
+                    <div
+                      className={`w-11 h-6 flex items-center rounded-full p-1 transition-colors duration-200 ${
+                        notificationsEnabled ? 'bg-blue-800 dark:bg-blue-600' : 'bg-slate-300 dark:bg-slate-700'
+                      }`}
+                    >
+                      <div
+                        className={`bg-white w-4 h-4 rounded-full shadow-md transform transition-transform duration-200 ${
+                          notificationsEnabled ? 'translate-x-5' : 'translate-x-0'
+                        }`}
+                      />
+                    </div>
+                  </button>
+                </div>
+
+                {/* Card 4: About & Developer */}
                 <div className="p-4 rounded-xl border border-slate-200/90 dark:border-slate-800/80 bg-slate-50/70 dark:bg-[#111625]/80 flex items-center justify-between transition-colors">
                   <div>
                     <h3 className="font-bold text-sm text-slate-900 dark:text-slate-100">
