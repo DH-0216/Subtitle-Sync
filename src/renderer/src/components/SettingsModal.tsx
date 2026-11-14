@@ -56,6 +56,7 @@ interface SettingsModalProps {
   aiPrompt: string
   setAiPrompt: (p: string) => void
   onSave?: () => void
+  onOpenUpdateModal?: (info: any) => void
 }
 
 const GITHUB_REPO = EXTERNAL_LINKS.REPO_SLUG
@@ -76,7 +77,8 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   setAiModel,
   aiPrompt,
   setAiPrompt,
-  onSave
+  onSave,
+  onOpenUpdateModal
 }) => {
   const [activeTab, setActiveTab] = useState<'general' | 'ai'>(initialTab)
   const [checkingUpdate, setCheckingUpdate] = useState(false)
@@ -375,6 +377,27 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
         setUpdateStatus(`Update available: ${latestTag}`)
         setUpdateStatusType('success')
         setUpdateUrl(data.html_url || EXTERNAL_LINKS.GITHUB_RELEASES_PAGE)
+
+        if (onOpenUpdateModal) {
+          const assets = Array.isArray(data.assets) ? data.assets : []
+          const setupAsset =
+            assets.find((a: any) => (a.name || '').toLowerCase() === 'subtitlesync-setup.exe') ||
+            assets.find((a: any) => (a.name || '').toLowerCase().includes('setup') && (a.name || '').endsWith('.exe')) ||
+            assets.find((a: any) => (a.name || '').endsWith('.exe'))
+
+          onOpenUpdateModal({
+            updateAvailable: true,
+            currentVersion: cleanCurrent,
+            latestVersion: cleanLatest,
+            releaseName: data.name || latestTag,
+            releaseNotes: data.body || 'No release notes provided for this version.',
+            publishedAt: data.published_at,
+            downloadUrl: setupAsset?.browser_download_url,
+            assetName: setupAsset?.name || 'SubtitleSync-Setup.exe',
+            assetSize: setupAsset?.size,
+            releaseUrl: data.html_url || EXTERNAL_LINKS.GITHUB_RELEASES_PAGE
+          })
+        }
       } else {
         setUpdateStatus(`✅ You're on the latest version (v${APP_VERSION})`)
         setUpdateStatusType('success')
