@@ -49,7 +49,7 @@ if %errorlevel% neq 0 (
 
 set "APP_VERSION="
 for /f %%v in ('node -e "console.log(require('./package.json').version)" 2^>nul') do set "APP_VERSION=%%v"
-if not defined APP_VERSION set "APP_VERSION=2.1.0"
+if not defined APP_VERSION set "APP_VERSION=2.1.1"
 echo [INFO] Detected Version: v!APP_VERSION!
 echo.
 
