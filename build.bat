@@ -5,12 +5,19 @@ cd /d "%~dp0"
 :: ---------------------------------------------------------------------------
 :: Auto-Elevation: Automatically request Administrator privileges if not elevated
 :: ---------------------------------------------------------------------------
+if "%~1"=="--no-elevate" (
+    shift
+    goto :start_build
+)
+
 net session >nul 2>&1
 if %errorlevel% neq 0 (
     echo [INFO] Requesting Administrator privileges to build and package...
     powershell -NoProfile -Command "Start-Process cmd.exe -ArgumentList '/k \""""%~f0"""" %*' -Verb RunAs"
     exit /b
 )
+
+:start_build
 
 echo =======================================================
 echo     Subtitle Sync Studio - Electron Edition Builder
@@ -42,7 +49,7 @@ if %errorlevel% neq 0 (
 
 set "APP_VERSION="
 for /f %%v in ('node -e "console.log(require('./package.json').version)" 2^>nul') do set "APP_VERSION=%%v"
-if not defined APP_VERSION set "APP_VERSION=2.0.0"
+if not defined APP_VERSION set "APP_VERSION=2.1.0"
 echo [INFO] Detected Version: v!APP_VERSION!
 echo.
 
@@ -72,7 +79,7 @@ if not exist "bin" mkdir "bin"
 
 :: 3.1 FFmpeg Check / Auto-acquisition
 if exist "bin\ffmpeg.exe" (
-    echo [INFO] bin\ffmpeg.exe is ready!
+    echo [INFO] bin\ffmpeg.exe is ready.
     goto :check_ffsubsync
 )
 
@@ -97,10 +104,10 @@ if not exist "bin\ffmpeg.exe" (
 if exist "bin\ffsubsync.exe" (
     for %%A in ("bin\ffsubsync.exe") do (
         if %%~zA GTR 5000000 (
-            echo [INFO] bin\ffsubsync.exe is ready!
-            goto :binaries_done
+            echo [INFO] bin\ffsubsync.exe is ready.
+            goto :check_whisper
         ) else (
-            echo [WARNING] Found pip stub in bin\ffsubsync.exe (%%~zA bytes). Rebuilding standalone binary...
+            echo [WARNING] Found pip stub in bin\ffsubsync.exe [%%~zA bytes] - Rebuilding standalone binary...
             del /q "bin\ffsubsync.exe"
         )
     )
@@ -110,8 +117,8 @@ echo [INFO] bin\ffsubsync.exe not found. Checking Python environment to build st
 where python >nul 2>nul
 if %errorlevel% neq 0 (
     echo [WARNING] Python is not found on PATH. Cannot automatically compile ffsubsync.exe.
-    echo Please install Python with ffsubsync or place the standalone ffsubsync.exe (~43 MB) into bin\
-    goto :binaries_done
+    echo Please install Python with ffsubsync or place the standalone ffsubsync.exe [~43 MB] into bin\
+    goto :check_whisper
 )
 
 echo [INFO] Compiling standalone ffsubsync.exe with PyInstaller...
@@ -137,7 +144,7 @@ pyinstaller --onefile --clean --name ffsubsync --additional-hooks-dir pyinstalle
 
 if exist "dist\ffsubsync.exe" (
     copy /y "dist\ffsubsync.exe" "bin\ffsubsync.exe" >nul
-    echo [SUCCESS] bin\ffsubsync.exe (standalone) compiled successfully!
+    echo [SUCCESS] bin\ffsubsync.exe [standalone] compiled successfully.
 ) else (
     echo [ERROR] Failed to compile bin\ffsubsync.exe.
 )
@@ -153,11 +160,72 @@ if not exist "bin\ffsubsync.exe" (
     echo [WARNING] bin\ffsubsync.exe is missing. Synchronization engine requires bin\ffsubsync.exe.
 )
 
+:check_whisper
+:: 3.3 Whisper AI & GGML Check / Auto-acquisition
+if exist "bin\whisper.exe" (
+    if exist "bin\whisper.dll" (
+        echo [INFO] bin\whisper.exe and AI backend libraries are ready.
+        goto :check_vcredist
+    )
+)
+
+echo [INFO] bin\whisper.exe or backend DLLs not found in workspace. Checking system PATH...
+for /f "delims=" %%W in ('where.exe whisper.exe 2^>nul') do (
+    copy /y "%%W" "bin\whisper.exe" >nul
+    echo [SUCCESS] Auto-copied whisper.exe from: %%W
+)
+
+if exist "bin\whisper.exe" (
+    if exist "bin\whisper.dll" goto :check_vcredist
+)
+
+echo [INFO] Local Whisper AI binaries not found. Downloading official whisper.cpp release (Windows x64)...
+powershell -NoProfile -Command "$ProgressPreference = 'SilentlyContinue'; [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12; $zip = '%~dp0bin\whisper_temp.zip'; $extDir = '%~dp0bin\whisper_extract'; $urls = @(); try { $releases = Invoke-RestMethod -Uri 'https://api.github.com/repos/ggml-org/whisper.cpp/releases' -Headers @{'User-Agent'='PowerShell'} -TimeoutSec 10 -UseBasicParsing; foreach ($r in $releases) { $a = $r.assets | Where-Object { $_.name -eq 'whisper-bin-x64.zip' } | Select-Object -First 1; if ($a) { $urls += $a.browser_download_url; break; } } } catch {}; $urls += 'https://github.com/ggml-org/whisper.cpp/releases/download/b5454/whisper-bin-x64.zip'; $urls += 'https://github.com/ggml-org/whisper.cpp/releases/download/b5130/whisper-bin-x64.zip'; try { $downloaded = $false; foreach ($u in $urls) { try { Write-Host ('Connecting to: ' + $u); Invoke-WebRequest -Uri $u -OutFile $zip -TimeoutSec 60 -UseBasicParsing; if ((Test-Path $zip) -and ((Get-Item $zip).Length -gt 1000000)) { $downloaded = $true; break; } } catch { continue; } }; if (-not $downloaded) { throw 'Unable to download valid whisper-bin-x64.zip from any source.'; }; Write-Host 'Extracting Whisper executables and CPU backend DLLs...'; Expand-Archive -Path $zip -DestinationPath $extDir -Force; Get-ChildItem -Path $extDir -Recurse | Where-Object { $_.Extension -in '.exe', '.dll' } | ForEach-Object { Copy-Item -Path $_.FullName -Destination '%~dp0bin\' -Force }; if (Test-Path '%~dp0bin\whisper-cli.exe') { Copy-Item -Path '%~dp0bin\whisper-cli.exe' -Destination '%~dp0bin\whisper.exe' -Force }; Write-Host '[SUCCESS] Whisper AI binaries & DLLs placed in bin\ folder.'; } catch { Write-Host ('[ERROR] Whisper download failed: ' + $_.Exception.Message); } finally { if (Test-Path $extDir) { Remove-Item -Path $extDir -Recurse -Force -ErrorAction SilentlyContinue }; if (Test-Path $zip) { Remove-Item -Path $zip -Force -ErrorAction SilentlyContinue }; }"
+
+:: Clean up extraneous whisper.cpp unit-test executables to keep installer lean
+if exist "bin\test-*.exe" del /q "bin\test-*.exe" >nul 2>&1
+
+if not exist "bin\whisper.exe" (
+    if exist "bin-backup\whisper.exe" (
+        echo [INFO] Restoring Whisper AI binaries and libraries from bin-backup...
+        copy /y "bin-backup\*.dll" "bin\" >nul 2>&1
+        copy /y "bin-backup\*.exe" "bin\" >nul 2>&1
+    )
+)
+
+if not exist "bin\whisper.exe" (
+    if exist "bin\whisper-cli.exe" (
+        copy /y "bin\whisper-cli.exe" "bin\whisper.exe" >nul
+    ) else (
+        echo [WARNING] bin\whisper.exe is missing. AI speech-to-subtitle generation will be unavailable.
+    )
+)
+
+:check_vcredist
+:: 3.4 Microsoft Visual C++ 2015-2022 Runtime Bundling (Ensures Fresh PC Compatibility)
+if exist "bin\msvcp140.dll" (
+    if exist "bin\vcruntime140.dll" (
+        echo [INFO] Microsoft Visual C++ runtime libraries are bundled in bin.
+        goto :binaries_done
+    )
+)
+
+echo [INFO] Bundling Visual C++ runtime DLLs from System32 into bin\ for fresh PC compatibility...
+if exist "%SystemRoot%\System32\msvcp140.dll" (
+    copy /y "%SystemRoot%\System32\msvcp140*.dll" "bin\" >nul 2>&1
+    copy /y "%SystemRoot%\System32\vcruntime140*.dll" "bin\" >nul 2>&1
+    copy /y "%SystemRoot%\System32\vcomp140.dll" "bin\" >nul 2>&1
+    del /q "bin\*140d*.dll" "bin\*140_*d*.dll" "bin\*140_threadsd.dll" >nul 2>&1
+    echo [SUCCESS] Bundled MSVC 2015-2022 runtime DLLs into bin\ folder.
+) else (
+    echo [WARNING] System32 does not contain MSVC 140 runtime. Target fresh PCs may require VC Redistributable.
+)
+
 :binaries_done
 :: If user passed flag --binaries, stop here
 if "%1"=="--binaries" (
     echo.
-    echo [SUCCESS] Engine binaries checked in bin\ folder!
+    echo [SUCCESS] Engine binaries checked in bin\ folder.
     exit /b 0
 )
 echo.
@@ -229,7 +297,7 @@ if defined SHORTCUT_TARGET (
 
 echo.
 echo =======================================================
-echo [SUCCESS] Build process completed successfully!
+echo [SUCCESS] Build process completed successfully.
 if exist "dist\SubtitleSync-Portable.exe" (
     echo Portable:  dist\SubtitleSync-Portable.exe
 )

@@ -1,6 +1,8 @@
 import React from 'react'
 import { Github, ExternalLink } from 'lucide-react'
 import appIcon from '../assets/app_icon.png'
+import { EXTERNAL_LINKS } from '@shared/links'
+import { APP_VERSION } from '@shared/version'
 
 interface AboutModalProps {
   isOpen: boolean
@@ -36,7 +38,7 @@ export const AboutModal: React.FC<AboutModalProps> = ({ isOpen, onClose }) => {
           />
 
           <h3 className="font-bold text-lg text-slate-900 dark:text-slate-100 tracking-tight">Subtitle Sync Studio</h3>
-          <p className="text-xs text-blue-600 dark:text-blue-400 font-semibold mb-3">Version 2.0.0 (Electron Edition)</p>
+          <p className="text-xs text-blue-600 dark:text-blue-400 font-semibold mb-3">Version {APP_VERSION} (Electron Edition)</p>
 
           <p className="text-xs text-slate-600 dark:text-slate-400 leading-relaxed mb-4">
             A modern, high-precision desktop application to automatically synchronize out-of-sync
@@ -49,7 +51,7 @@ export const AboutModal: React.FC<AboutModalProps> = ({ isOpen, onClose }) => {
           </div>
 
           <a
-            href="https://github.com/DH-0216/Subtitle-Sync"
+            href={EXTERNAL_LINKS.GITHUB_REPO}
             target="_blank"
             rel="noreferrer"
             className="w-full py-2.5 px-4 rounded-xl text-xs font-semibold bg-slate-100 hover:bg-slate-200 text-slate-800 dark:bg-slate-800 dark:hover:bg-slate-700 dark:text-slate-200 hover:text-slate-900 dark:hover:text-white flex items-center justify-center gap-2 border border-slate-200 dark:border-slate-700/80 transition-colors shadow-2xs"

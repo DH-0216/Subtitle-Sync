@@ -5,8 +5,8 @@
 import { spawn, ChildProcess } from 'child_process'
 import * as fs from 'fs'
 import * as os from 'os'
-import { join } from 'path'
-import { getFfsubsyncPath } from './media'
+import { join, dirname } from 'path'
+import { getFfsubsyncPath, getFfmpegPath, killProcessTree } from './media'
 import { parseSrt } from './srtTools'
 
 export interface SyncOptions {
@@ -28,6 +28,8 @@ const PERCENT_REGEX = /(?:^|\D)(\d{1,3})%(?:\D|$)/
 export class SyncEngine {
   private currentProc: ChildProcess | null = null
   private cancelled = false
+  private currentOut: string | null = null
+  private pendingPassResolve: ((val: { code: number; score: number | null }) => void) | null = null
 
   constructor(
     private onLog: LogCallback,
@@ -37,11 +39,21 @@ export class SyncEngine {
 
   public cancel(): void {
     this.cancelled = true
-    if (this.currentProc) {
+    const proc = this.currentProc
+    this.currentProc = null
+    if (proc) {
+      killProcessTree(proc)
+    }
+    if (this.pendingPassResolve) {
+      const res = this.pendingPassResolve
+      this.pendingPassResolve = null
+      res({ code: -1, score: null })
+    }
+    // Delete any partial output file if it was created on disk
+    if (this.currentOut && fs.existsSync(this.currentOut)) {
       try {
-        this.currentProc.kill()
+        fs.unlinkSync(this.currentOut)
       } catch (e) {}
-      this.currentProc = null
     }
   }
 
@@ -70,12 +82,28 @@ export class SyncEngine {
         return
       }
 
+      this.pendingPassResolve = resolve
+
       const ffsubsync = getFfsubsyncPath()
+      const ffmpeg = getFfmpegPath()
+      const binDir = dirname(ffsubsync)
+      const ffmpegDir = dirname(ffmpeg)
+      const augmentedPath = [
+        binDir,
+        ffmpegDir,
+        process.env.PATH || ''
+      ].filter(Boolean).join(process.platform === 'win32' ? ';' : ':')
+
       const args = this.buildArgs(video, sub, out, extra)
 
       const proc = spawn(ffsubsync, args, {
         windowsHide: true,
-        env: { ...process.env, PYTHONIOENCODING: 'utf-8' }
+        cwd: binDir,
+        env: {
+          ...process.env,
+          PYTHONIOENCODING: 'utf-8',
+          PATH: augmentedPath
+        }
       })
       this.currentProc = proc
 
@@ -83,6 +111,7 @@ export class SyncEngine {
       let estimatedProgress = 10
 
       proc.stdout?.on('data', (d) => {
+        if (this.cancelled) return
         const text = d.toString('utf-8')
         for (const line of text.split(/\r?\n/)) {
           const trimmed = line.trim()
@@ -126,6 +155,7 @@ export class SyncEngine {
       })
 
       proc.stderr?.on('data', (d) => {
+        if (this.cancelled) return
         const text = d.toString('utf-8')
         for (const line of text.split(/\r?\n/)) {
           const trimmed = line.trim()
@@ -143,14 +173,25 @@ export class SyncEngine {
       })
 
       proc.on('close', (code) => {
-        this.currentProc = null
-        onPassProgress?.(100)
-        resolve({ code: code || 0, score })
+        if (this.currentProc === proc) {
+          this.currentProc = null
+        }
+        if (this.pendingPassResolve === resolve) {
+          this.pendingPassResolve = null
+          onPassProgress?.(100)
+          resolve({ code: code || 0, score })
+        }
       })
 
       proc.on('error', (err) => {
-        this.onLog(`[ERROR] Failed to launch ffsubsync: ${err.message}`)
-        resolve({ code: 1, score: null })
+        if (this.currentProc === proc) {
+          this.currentProc = null
+        }
+        if (this.pendingPassResolve === resolve) {
+          this.pendingPassResolve = null
+          this.onLog(`[ERROR] Failed to launch ffsubsync: ${err.message}`)
+          resolve({ code: 1, score: null })
+        }
       })
     })
   }
@@ -159,6 +200,7 @@ export class SyncEngine {
    * 1. Standard Sync: Fast single pass alignment
    */
   public async runStandard(options: SyncOptions): Promise<{ success: boolean; score: number | null }> {
+    this.currentOut = options.out
     this.onStatus('Running Standard 1-pass synchronization...')
     this.onProgress(5, 'Initializing alignment engine...')
     const extra: string[] = []
@@ -181,14 +223,25 @@ export class SyncEngine {
       }
     )
 
+    // If cancelled or failed, remove partial output file
+    if (this.cancelled || code !== 0) {
+      if (fs.existsSync(options.out)) {
+        try {
+          fs.unlinkSync(options.out)
+        } catch (e) {}
+      }
+      return { success: false, score: null }
+    }
+
     this.onProgress(100, 'Synchronization complete!')
-    return { success: code === 0, score }
+    return { success: true, score }
   }
 
   /**
    * 2. Smart Sync: 4-Pass scoring algorithm
    */
   public async runSmart(options: SyncOptions): Promise<{ success: boolean; score: number | null }> {
+    this.currentOut = options.out
     const extraBase: string[] = []
     if (options.trackIndex !== undefined && options.trackIndex !== null) {
       extraBase.push('--reference-stream', `0:a:${options.trackIndex}`)
@@ -209,10 +262,11 @@ export class SyncEngine {
     let bestFile: string | null = null
 
     try {
+      const passWeight = 100 / passes.length
       for (let i = 0; i < passes.length; i++) {
         if (this.cancelled) break
         const p = passes[i]
-        const passBasePct = i * 25
+        const passBasePct = Math.round(i * passWeight)
         const statusText = `Smart Sync: Pass ${i + 1}/${passes.length} (${p.name})`
         this.onStatus(statusText)
         this.onLog(`\n--- Pass ${i + 1}/${passes.length}: ${p.name} ---`)
@@ -226,7 +280,7 @@ export class SyncEngine {
           passOut,
           flags,
           (passPct) => {
-            const overallPct = Math.min(98, Math.round(passBasePct + (passPct * 0.25)))
+            const overallPct = Math.min(98, Math.round(passBasePct + passPct * (passWeight / 100)))
             this.onProgress(overallPct, `${statusText} - ${overallPct}%`)
           }
         )
@@ -240,7 +294,7 @@ export class SyncEngine {
         }
       }
 
-      if (bestFile && fs.existsSync(bestFile)) {
+      if (!this.cancelled && bestFile && fs.existsSync(bestFile)) {
         fs.copyFileSync(bestFile, options.out)
         this.onProgress(100, 'Smart sync complete!')
         return { success: true, score: bestScore > -Infinity ? bestScore : null }
@@ -249,6 +303,11 @@ export class SyncEngine {
       try {
         fs.rmSync(tempDir, { recursive: true, force: true })
       } catch (e) {}
+      if (this.cancelled && fs.existsSync(options.out)) {
+        try {
+          fs.unlinkSync(options.out)
+        } catch (e) {}
+      }
     }
 
     return { success: false, score: null }
@@ -258,6 +317,7 @@ export class SyncEngine {
    * 3. Split Sync: Piecewise 2-minute chunk alignment
    */
   public async runSplit(options: SyncOptions): Promise<{ success: boolean; score: number | null }> {
+    this.currentOut = options.out
     this.onStatus('Split Sync: Slicing subtitles into 2-minute parts...')
     this.onProgress(10, 'Analyzing subtitle cues...')
     const content = fs.readFileSync(options.sub, 'utf-8')
@@ -284,7 +344,7 @@ export class SyncEngine {
         }
       )
 
-      if (baseRes.code === 0 && fs.existsSync(baseOut)) {
+      if (!this.cancelled && baseRes.code === 0 && fs.existsSync(baseOut)) {
         fs.copyFileSync(baseOut, options.out)
         this.onProgress(100, 'Split sync complete!')
         return { success: true, score: baseRes.score }
@@ -293,6 +353,11 @@ export class SyncEngine {
       try {
         fs.rmSync(tempDir, { recursive: true, force: true })
       } catch (e) {}
+      if (this.cancelled && fs.existsSync(options.out)) {
+        try {
+          fs.unlinkSync(options.out)
+        } catch (e) {}
+      }
     }
 
     return { success: false, score: null }

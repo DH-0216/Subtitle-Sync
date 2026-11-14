@@ -43,19 +43,18 @@ export const ActivityConsole: React.FC<ActivityConsoleProps> = ({ logs, onClear,
   }
 
   return (
-    <div className="bg-white dark:bg-[#0B0F19] border-2 border-blue-200/90 dark:border-slate-800/90 rounded-2xl overflow-hidden shadow-sm shadow-blue-500/10 dark:shadow-md transition-all duration-300">
+    <div className="bg-white dark:bg-[#0B0F19] border border-slate-300 dark:border-slate-800 rounded-2xl overflow-hidden shadow-xs transition-all duration-300">
       {/* Header Bar */}
       <div
-        className="bg-blue-600 dark:bg-slate-900/80 text-white px-4 py-2.5 flex items-center justify-between border-b border-transparent transition-colors data-[expanded=true]:border-blue-700 dark:data-[expanded=true]:border-slate-800"
-        data-expanded={isExpanded}
+        className="bg-slate-100 dark:bg-slate-900 text-slate-900 dark:text-slate-100 px-4 py-2.5 flex items-center justify-between border-b border-slate-300 dark:border-slate-800 transition-colors"
       >
         <div className="flex items-center gap-2.5">
-          <Terminal className="w-4 h-4 text-blue-200 dark:text-blue-400" />
-          <span className="font-extrabold text-xs uppercase tracking-wider text-white dark:text-slate-300">
-            CONSOLE ACTIVITY
+          <Terminal className="w-4 h-4 text-slate-700 dark:text-slate-300" />
+          <span className="font-bold text-xs uppercase tracking-wider text-slate-900 dark:text-slate-100">
+            Console Activity
           </span>
           {logs.length > 0 && (
-            <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded-full bg-blue-700/80 text-blue-100 border border-blue-400/50 dark:bg-blue-500/10 dark:text-blue-400 dark:border-blue-500/25">
+            <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded-full bg-slate-200 text-slate-900 dark:bg-slate-800 dark:text-slate-200 border border-slate-300 dark:border-slate-700">
               {logs.length} lines
             </span>
           )}
@@ -67,25 +66,25 @@ export const ActivityConsole: React.FC<ActivityConsoleProps> = ({ logs, onClear,
             <>
               <button
                 onClick={handleCopy}
-                className="p-1.5 rounded-lg text-blue-100 hover:text-white hover:bg-blue-700/80 dark:text-slate-400 dark:hover:text-slate-200 dark:hover:bg-slate-800 transition-colors"
+                className="p-1.5 rounded-lg text-slate-700 hover:text-slate-900 hover:bg-slate-200 dark:text-slate-400 dark:hover:text-slate-200 dark:hover:bg-slate-800 transition-colors cursor-pointer"
                 title="Copy all logs"
               >
                 {copied ? (
-                  <Check className="w-3.5 h-3.5 text-emerald-300 dark:text-emerald-400" />
+                  <Check className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
                 ) : (
                   <Copy className="w-3.5 h-3.5" />
                 )}
               </button>
               <button
                 onClick={onClear}
-                className="p-1.5 rounded-lg text-blue-100 hover:text-rose-200 hover:bg-blue-700/80 dark:text-slate-400 dark:hover:text-rose-400 dark:hover:bg-slate-800 transition-colors"
+                className="p-1.5 rounded-lg text-slate-700 hover:text-rose-600 hover:bg-slate-200 dark:text-slate-400 dark:hover:text-rose-400 dark:hover:bg-slate-800 transition-colors cursor-pointer"
                 title="Clear console"
               >
                 <Trash2 className="w-3.5 h-3.5" />
               </button>
               <button
                 onClick={() => setIsMaximized((prev) => !prev)}
-                className="p-1.5 rounded-lg text-blue-100 hover:text-white hover:bg-blue-700/80 dark:text-slate-400 dark:hover:text-slate-200 dark:hover:bg-slate-800 transition-colors"
+                className="p-1.5 rounded-lg text-slate-700 hover:text-slate-900 hover:bg-slate-200 dark:text-slate-400 dark:hover:text-slate-200 dark:hover:bg-slate-800 transition-colors cursor-pointer"
                 title={isMaximized ? 'Restore height' : 'Expand height'}
               >
                 {isMaximized ? (
@@ -100,13 +99,13 @@ export const ActivityConsole: React.FC<ActivityConsoleProps> = ({ logs, onClear,
           {/* Expand / Collapse Button */}
           <button
             onClick={toggleExpand}
-            className="flex items-center gap-1.5 px-3 py-1 rounded-lg border border-white/40 bg-white hover:bg-blue-50 dark:border-slate-700 dark:bg-slate-800 dark:hover:bg-slate-700 text-blue-700 dark:text-slate-200 text-xs font-bold transition-all shadow-xs"
+            className="flex items-center gap-1.5 px-3 py-1 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700/80 text-slate-900 dark:text-slate-200 text-xs font-bold transition-all shadow-xs cursor-pointer"
           >
             <span>{isExpanded ? 'Hide Log' : 'Show Log'}</span>
             {isExpanded ? (
-              <ChevronUp className="w-3.5 h-3.5 text-blue-700 dark:text-slate-200" />
+              <ChevronUp className="w-3.5 h-3.5 text-slate-700 dark:text-slate-300" />
             ) : (
-              <ChevronDown className="w-3.5 h-3.5 text-blue-700 dark:text-slate-200" />
+              <ChevronDown className="w-3.5 h-3.5 text-slate-700 dark:text-slate-300" />
             )}
           </button>
         </div>
