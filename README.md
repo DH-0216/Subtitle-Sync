@@ -14,8 +14,8 @@
   <img src="https://img.shields.io/badge/Version-v2.1.1-2563EB?logo=github&logoColor=white" alt="Version 2.1.1">
   <img src="https://img.shields.io/badge/Framework-Electron--Vite-2563EB?logo=electron&logoColor=white" alt="Electron">
   <img src="https://img.shields.io/badge/UI-React_18_%2B_Tailwind-06B6D4?logo=react&logoColor=white" alt="React 18 + Tailwind">
-  <img src="https://img.shields.io/badge/Engine-ffsubsync-6C5CE7" alt="ffsubsync">
-  <img src="https://img.shields.io/badge/Platform-Windows-0078D6?logo=windows&logoColor=white" alt="Windows">
+  <img src="https://img.shields.io/badge/Engines-FFmpeg_%7C_ffsubsync_%7C_Whisper-6C5CE7" alt="Engines">
+  <a href="https://github.com/DH-0216/Subtitle-Sync/releases"><img src="https://img.shields.io/badge/Platform-Windows-0078D6?logo=windows&logoColor=white" alt="Windows"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/License-GPLv3-blue.svg" alt="License: GPL v3"></a>
 </p>
 
@@ -30,12 +30,16 @@
   - **Standard**: Fast 1-pass alignment for matching video and subtitle cuts.
   - **Smart**: 4-pass scoring algorithm (wide $\pm$15 min search, frame-rate drift fix with `--gss`, and alternate `auditok` speech detector) to fix subtitles that slowly drift (e.g. 23.976 vs 25 fps).
   - **Split sync**: Slices subtitles and audio into 2-minute parts to align different video cuts (WEBRip vs HDTV with commercial ads or recaps added/removed).
+- **🎙️ Offline AI Subtitle Generation (Whisper.cpp)**: Automatically transcribe speech from videos into synchronized `.srt` subtitles completely offline using local Whisper models (Tiny, Base, Small, Medium, Large-v3-Turbo) — 100% private with no cloud uploads required.
+- **🌐 AI Subtitle Translation**: Translate subtitles into any target language with one click using Google Gemini or OpenAI API keys.
+- **📦 Embedded Subtitle Track Extractor**: Easily extract existing embedded subtitle streams (SRT, ASS, VTT, etc.) directly from multi-track MKV/MP4 files without needing external tools.
 - **Audio Track Picker**: Detects multi-track video streams via ffprobe and allows picking the exact audio track (language, codec, channels) matching your subtitle.
 - **Guided Step-by-Step Workflow**: Clear 3-step interface with intelligent lock states until video and subtitle files are loaded.
 - **Batch Processing**: Add multiple subtitle files at once and synchronize them in sequence.
+- **🔄 In-App Auto-Updater**: Instant notification when a new release is available, featuring a user-friendly changelog viewer and 1-click installer download with live progress.
 - **Modern UI & Dark Mode**: Sleek cards, clean typography, dynamic status indicators, and one-click Dark/Light mode toggle.
-- **Embedded Activity Console**: View speech alignment progress in real time with detailed exit reports.
-- **Direct Output Access**: Quickly open the destination folder containing your `.synced` subtitles with one click.
+- **Embedded Activity Console**: View speech alignment and transcription progress in real time with detailed exit reports.
+- **Direct Output Access**: Quickly open the destination folder containing your output subtitles with one click.
 - **Standalone Portable App**: Available as a single double-clickable Windows `.exe` with zero installation required.
 
 ---
@@ -65,7 +69,7 @@ Download the latest version directly or pick your package from the [**GitHub Rel
 
 ### For General Users (Downloading Releases)
 > [!NOTE]
-> **No prerequisites required!** If you download **`SubtitleSync-Setup.exe`** or **`SubtitleSync-Portable.exe`**, all engines (`ffmpeg.exe` and `ffsubsync.exe`) are bundled inside. You do not need to install Python, Node.js, or FFmpeg.
+> **No prerequisites required!** If you download **`SubtitleSync-Setup.exe`** or **`SubtitleSync-Portable.exe`**, all engines (`ffmpeg.exe`, `ffsubsync.exe`, and Whisper AI speech engine) are bundled inside. You do not need to install Python, Node.js, or FFmpeg.
 
 ---
 
@@ -133,12 +137,13 @@ npm run package
 
 ```text
 ├── src/                     # Electron + React source code
-│   ├── main/                # Electron main process (IPC, child processes, window management)
+│   ├── main/                # Electron main process (IPC, engines, window & updater management)
 │   ├── preload/             # Electron preload context bridge
+│   ├── shared/              # Shared AI model definitions, links, version & error utils
 │   └── renderer/            # React 18 + Tailwind CSS frontend UI
-│       ├── components/      # Step cards, modals, ActivityConsole, etc.
-│       ├── types/           # Subtitle & synchronization type definitions
-│       └── utils/           # Analysis, formatters & recommendation engine
+│       ├── assets/          # App icons and media assets
+│       ├── components/      # Step cards, modals, ActivityConsole, ReleaseNotes, etc.
+│       └── App.tsx          # Main React application component
 ├── electron.vite.config.ts  # Vite configuration for main, preload and renderer
 ├── package.json             # App manifest, dependencies & electron-builder targets
 ├── app_icon.ico             # Windows multi-resolution icon
@@ -146,7 +151,7 @@ npm run package
 ├── app_preview.png          # Desktop application preview screenshot
 ├── LICENSE                  # GNU General Public License v3.0
 ├── build.bat                # All-in-One builder (Electron Builder + engine binary management)
-├── bin/                     # Standalone engine binaries (ffmpeg.exe, ffsubsync.exe)
+├── bin/                     # Standalone engine binaries (ffmpeg.exe, ffsubsync.exe, whisper.cpp & DLLs)
 ├── dist/                    # Compiled distribution output folder
 │   ├── SubtitleSync-Setup.exe            # Standard Windows Setup Installer
 │   └── SubtitleSync-Portable.exe         # Standalone portable application
@@ -157,9 +162,10 @@ npm run package
 
 ## 📄 Output Files
 
-Synchronized subtitle files are automatically saved in the same directory as the original subtitle files with a `.synced` suffix:
-- Original: `Movie.Title.srt`
-- Synchronized: `Movie.Title.synced.srt`
+Output subtitle files are automatically saved in the same directory as the original video or subtitle files:
+- **Synchronized Subtitles**: `Movie.Title.synced.srt`
+- **AI Generated Subtitles**: `Movie.Title.generated.srt`
+- **Extracted Subtitle Tracks**: `Movie.Title.track1.eng.srt`
 
 ---
 
@@ -167,9 +173,10 @@ Synchronized subtitle files are automatically saved in the same directory as the
 
 Subtitle Sync Studio relies on the following open-source projects:
 
-- **[FFmpeg](https://ffmpeg.org/)**: Multimedia framework used to extract and analyze audio tracks from video files. FFmpeg is licensed under the [GNU LGPL / GPL](https://ffmpeg.org/legal.html). Its source code can be downloaded from [ffmpeg.org/download.html](https://ffmpeg.org/download.html).
+- **[FFmpeg](https://ffmpeg.org/)**: Multimedia framework used to extract, probe, and analyze audio and subtitle streams from video files. FFmpeg is licensed under the [GNU LGPL / GPL](https://ffmpeg.org/legal.html). Its source code can be downloaded from [ffmpeg.org/download.html](https://ffmpeg.org/download.html).
 - **[ffsubsync](https://github.com/smacke/ffsubsync)**: Speech-to-subtitle alignment engine powered by [ffsubsync](https://github.com/smacke/ffsubsync) (MIT License).
-- **[CustomTkinter](https://github.com/TomSchimansky/CustomTkinter)**: Desktop UI interface built with [CustomTkinter](https://github.com/TomSchimansky/CustomTkinter) (Creative Commons Zero / MIT License).
+- **[whisper.cpp](https://github.com/ggerganov/whisper.cpp)**: High-performance C/C++ port of OpenAI's Whisper model by Georgi Gerganov for offline speech recognition (MIT License).
+- **[Electron](https://www.electronjs.org/)** & **[React](https://react.dev/)**: Desktop application shell and modern reactive user interface (MIT License).
 
 ---
 
