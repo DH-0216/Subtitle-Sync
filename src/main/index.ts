@@ -26,6 +26,11 @@ import {
   extractMultipleSubtitleTracks,
   cancelExtraction
 } from './extractorEngine'
+import {
+  checkForAppUpdate,
+  downloadAndInstallUpdate,
+  cancelUpdateDownload
+} from './updater'
 import { EXTERNAL_LINKS, getGeminiVerifyUrl } from '@shared/links'
 import { formatUserFriendlyError } from '@shared/errorUtils'
 
@@ -621,6 +626,26 @@ app.whenReady().then(() => {
       filters: [{ name: 'SubRip Subtitle (*.srt)', extensions: ['srt'] }]
     })
     return res.canceled ? null : res.filePath
+  })
+
+  // IPC: In-App Auto-Updater Handlers
+  ipcMain.handle('updater:check', async () => {
+    return checkForAppUpdate()
+  })
+
+  ipcMain.handle('updater:downloadAndInstall', async (event, { downloadUrl }: { downloadUrl: string }) => {
+    try {
+      const res = await downloadAndInstallUpdate(downloadUrl, (progress) => {
+        event.sender.send('updater:progress', progress)
+      })
+      return res
+    } catch (err: any) {
+      return { success: false, error: err.message || 'Failed to download update' }
+    }
+  })
+
+  ipcMain.handle('updater:cancel', () => {
+    return cancelUpdateDownload()
   })
 
   createWindow()

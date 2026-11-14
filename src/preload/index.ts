@@ -81,6 +81,16 @@ const api = {
       ipcRenderer.on('extractor:event', sub)
       return () => ipcRenderer.removeListener('extractor:event', sub)
     }
+  },
+  updater: {
+    check: () => ipcRenderer.invoke('updater:check'),
+    downloadAndInstall: (downloadUrl: string) => ipcRenderer.invoke('updater:downloadAndInstall', { downloadUrl }),
+    cancel: () => ipcRenderer.invoke('updater:cancel'),
+    onProgress: (callback: (data: any) => void) => {
+      const sub = (_: any, data: any) => callback(data)
+      ipcRenderer.on('updater:progress', sub)
+      return () => ipcRenderer.removeListener('updater:progress', sub)
+    }
   }
 }
 
