@@ -41,12 +41,14 @@ export const Step2Subtitles: React.FC<Step2SubtitlesProps> = ({
 
   const handleDrop = (e: React.DragEvent) => {
     e.preventDefault()
+    e.stopPropagation()
     setIsDragOver(false)
     if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
       const paths: string[] = []
       for (let i = 0; i < e.dataTransfer.files.length; i++) {
         const f = e.dataTransfer.files[i]
-        paths.push((f as any).path || f.name)
+        const fullPath = window.api.getPathForFile ? window.api.getPathForFile(f) : ((f as any).path || f.name)
+        paths.push(fullPath || f.name)
       }
       onDropFiles(paths)
     }

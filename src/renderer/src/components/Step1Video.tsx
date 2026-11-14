@@ -65,10 +65,12 @@ export const Step1Video: React.FC<Step1VideoProps> = ({
 
   const handleDrop = (e: React.DragEvent) => {
     e.preventDefault()
+    e.stopPropagation()
     setIsDragOver(false)
     if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
       const file = e.dataTransfer.files[0]
-      onDropFile((file as any).path || file.name)
+      const fullPath = window.api.getPathForFile ? window.api.getPathForFile(file) : ((file as any).path || file.name)
+      onDropFile(fullPath || file.name)
     }
   }
 
