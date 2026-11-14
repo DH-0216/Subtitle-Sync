@@ -1,7 +1,14 @@
-import { contextBridge, ipcRenderer } from 'electron'
+import { contextBridge, ipcRenderer, webUtils } from 'electron'
 import type { AiProviderId } from '../shared/aiModels'
 
 const api = {
+  getPathForFile: (file: File): string => {
+    try {
+      return webUtils.getPathForFile(file)
+    } catch {
+      return (file as any).path || ''
+    }
+  },
   dialog: {
     openVideo: () => ipcRenderer.invoke('dialog:openVideo'),
     openSubtitles: () => ipcRenderer.invoke('dialog:openSubtitles'),

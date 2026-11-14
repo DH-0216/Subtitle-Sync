@@ -477,6 +477,28 @@ app.whenReady().then(() => {
       event.sender.send('sync:event', { type: 'progress', percent, message })
     }
 
+    if (!params.video || !fs.existsSync(params.video)) {
+      logCb(`[ERROR] Video file does not exist or cannot be accessed: "${params.video}"`)
+      statusCb('Failed: Video file not found')
+      event.sender.send('sync:event', {
+        type: 'done',
+        success: false,
+        score: null
+      })
+      return { success: false, error: 'Video file not found' }
+    }
+
+    if (!params.sub || !fs.existsSync(params.sub)) {
+      logCb(`[ERROR] Subtitle file does not exist or cannot be accessed: "${params.sub}"`)
+      statusCb('Failed: Subtitle file not found')
+      event.sender.send('sync:event', {
+        type: 'done',
+        success: false,
+        score: null
+      })
+      return { success: false, error: 'Subtitle file not found' }
+    }
+
     const currentEngine = new SyncEngine(logCb, statusCb, progressCb)
     activeSyncEngine = currentEngine
 

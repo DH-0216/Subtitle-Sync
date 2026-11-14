@@ -1,6 +1,7 @@
 import type { AiProviderId } from '../shared/aiModels'
 
 export interface IElectronAPI {
+  getPathForFile: (file: File) => string
   dialog: {
     openVideo: () => Promise<string | null>
     openSubtitles: () => Promise<string[]>

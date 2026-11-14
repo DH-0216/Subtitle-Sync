@@ -119,6 +119,21 @@ export async function probeVideoFile(videoPath: string): Promise<{
   subtitleTracks: SubtitleTrackInfo[]
   details: VideoSyncDetails
 }> {
+  if (!videoPath || !fs.existsSync(videoPath)) {
+    return {
+      tracks: [],
+      subtitleTracks: [],
+      details: {
+        fps: null,
+        duration: 'Unknown',
+        durationSec: null,
+        resolution: 'Unknown',
+        audioCount: 0,
+        subtitleCount: 0
+      }
+    }
+  }
+
   let probeRes: {
     tracks: AudioTrackInfo[]
     subtitleTracks: SubtitleTrackInfo[]
