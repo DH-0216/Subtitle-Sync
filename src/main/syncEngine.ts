@@ -7,7 +7,7 @@ import * as fs from 'fs'
 import * as os from 'os'
 import { join, dirname } from 'path'
 import { getFfsubsyncPath, getFfmpegPath, killProcessTree } from './media'
-import { parseSrt } from './srtTools'
+import { parseSrt, sanitizeOutputSrt } from './srtTools'
 
 export interface SyncOptions {
   video: string
@@ -233,6 +233,10 @@ export class SyncEngine {
       return { success: false, score: null }
     }
 
+    if (fs.existsSync(options.out)) {
+      sanitizeOutputSrt(options.out)
+    }
+
     this.onProgress(100, 'Synchronization complete!')
     return { success: true, score }
   }
@@ -296,6 +300,7 @@ export class SyncEngine {
 
       if (!this.cancelled && bestFile && fs.existsSync(bestFile)) {
         fs.copyFileSync(bestFile, options.out)
+        sanitizeOutputSrt(options.out)
         this.onProgress(100, 'Smart sync complete!')
         return { success: true, score: bestScore > -Infinity ? bestScore : null }
       }
@@ -346,6 +351,7 @@ export class SyncEngine {
 
       if (!this.cancelled && baseRes.code === 0 && fs.existsSync(baseOut)) {
         fs.copyFileSync(baseOut, options.out)
+        sanitizeOutputSrt(options.out)
         this.onProgress(100, 'Split sync complete!')
         return { success: true, score: baseRes.score }
       }
