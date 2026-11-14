@@ -208,8 +208,10 @@ export interface IElectronAPI {
       assetName?: string
       assetSize?: number
       releaseUrl?: string
+      error?: string
     }>
-    downloadAndInstall: (downloadUrl: string) => Promise<{ success: boolean; error?: string }>
+    downloadAndInstall: (downloadUrl: string) => Promise<{ success: boolean; readyToInstall?: boolean; error?: string }>
+    restartAndInstall: () => Promise<boolean>
     cancel: () => Promise<boolean>
     onProgress: (callback: (data: { percent: number; downloaded: number; total: number; speed: string }) => void) => () => void
   }

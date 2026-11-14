@@ -11,7 +11,7 @@
 <p align="center">
   <a href="https://github.com/DH-0216/Subtitle-Sync/releases"><img src="https://img.shields.io/github/downloads/DH-0216/Subtitle-Sync/total?color=2ea44f&logo=github" alt="Total Downloads"></a>
   <a href="https://github.com/DH-0216/Subtitle-Sync/releases"><img src="https://img.shields.io/github/v/release/DH-0216/Subtitle-Sync?logo=github" alt="Latest Release"></a>
-  <img src="https://img.shields.io/badge/Version-v2.1.2-2563EB?logo=github&logoColor=white" alt="Version 2.1.2">
+  <img src="https://img.shields.io/badge/Version-v2.2.0-2563EB?logo=github&logoColor=white" alt="Version 2.2.0">
   <img src="https://img.shields.io/badge/Framework-Electron--Vite-2563EB?logo=electron&logoColor=white" alt="Electron">
   <img src="https://img.shields.io/badge/UI-React_18_%2B_Tailwind-06B6D4?logo=react&logoColor=white" alt="React 18 + Tailwind">
   <img src="https://img.shields.io/badge/Engines-FFmpeg_%7C_ffsubsync_%7C_Whisper-6C5CE7" alt="Engines">

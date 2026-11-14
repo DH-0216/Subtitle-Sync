@@ -4,8 +4,36 @@ import * as fs from 'fs'
 import { join } from 'path'
 import { app } from 'electron'
 import { spawn } from 'child_process'
+import { autoUpdater, CancellationToken } from 'electron-updater'
 import { EXTERNAL_LINKS } from '../shared/links'
-import { APP_VERSION } from '../shared/version'
+import { APP_VERSION, compareVersions } from '../shared/version'
+
+// Configure differential auto-updater
+autoUpdater.autoDownload = false
+autoUpdater.autoInstallOnAppQuit = true
+autoUpdater.allowDowngrade = false
+autoUpdater.allowPrerelease = false
+
+// Silence internal logger and handle offline network safely
+autoUpdater.logger = {
+  info: (msg: any) => console.log('[UPDATER]', msg),
+  warn: (msg: any) => console.warn('[UPDATER]', msg),
+  error: (msg: any) => console.warn('[UPDATER]', msg),
+  debug: () => {}
+}
+
+// Permanent safety handler: Never crash app if network is offline
+export function registerPermanentErrorHandler(): void {
+  autoUpdater.removeAllListeners('error')
+  autoUpdater.on('error', (err) => {
+    console.warn('[UPDATER] Handled background updater event (offline or network unavailable):', err?.message || err)
+  })
+}
+
+registerPermanentErrorHandler()
+
+let activeCancellationToken: CancellationToken | null = null
+let downloadedInstallerPath: string | null = null
 
 export interface UpdateInfo {
   updateAvailable: boolean
@@ -18,6 +46,7 @@ export interface UpdateInfo {
   assetName?: string
   assetSize?: number
   releaseUrl?: string
+  error?: string
 }
 
 export interface UpdateProgress {
@@ -27,27 +56,17 @@ export interface UpdateProgress {
   speed: string
 }
 
+export interface UpdateDownloadResult {
+  success: boolean
+  readyToInstall?: boolean
+  error?: string
+}
+
 let activeRequest: http.ClientRequest | null = null
 let activeFileStream: fs.WriteStream | null = null
 let isDownloadCancelled = false
 
-/**
- * Compare semantic versions (e.g., "2.2.0" vs "2.1.0")
- * Returns 1 if v1 > v2, -1 if v1 < v2, and 0 if equal.
- */
-export function compareVersions(v1: string, v2: string): number {
-  const p1 = (v1 || '').replace(/^v/i, '').split('.').map((n) => parseInt(n, 10) || 0)
-  const p2 = (v2 || '').replace(/^v/i, '').split('.').map((n) => parseInt(n, 10) || 0)
-  const len = Math.max(p1.length, p2.length)
-
-  for (let i = 0; i < len; i++) {
-    const num1 = p1[i] || 0
-    const num2 = p2[i] || 0
-    if (num1 > num2) return 1
-    if (num1 < num2) return -1
-  }
-  return 0
-}
+export { compareVersions }
 
 /**
  * Check GitHub Releases for newer version of Subtitle Sync Studio
@@ -104,18 +123,19 @@ export async function checkForAppUpdate(): Promise<UpdateInfo> {
     console.warn('[UPDATER] Failed to check for updates:', err?.message || err)
     return {
       updateAvailable: false,
-      currentVersion
+      currentVersion,
+      error: err?.message || 'Could not connect to update server'
     }
   }
 }
 
 /**
- * Download update installer to %TEMP% with progress, then launch and quit.
+ * Direct HTTP installer download (fallback when differential update is unavailable or in development mode)
  */
-export function downloadAndInstallUpdate(
+function executeDirectDownload(
   downloadUrl: string,
   onProgress: (progress: UpdateProgress) => void
-): Promise<{ success: boolean; error?: string }> {
+): Promise<UpdateDownloadResult> {
   return new Promise((resolve, reject) => {
     isDownloadCancelled = false
     const tempDir = app.getPath('temp')
@@ -218,22 +238,11 @@ export function downloadAndInstallUpdate(
                   fs.unlinkSync(targetFile)
                 }
                 fs.renameSync(partFile, targetFile)
+                downloadedInstallerPath = targetFile
 
-                // Launch setup wizard detached from this process, then cleanly quit this app
-                const installerProcess = spawn(targetFile, [], {
-                  detached: true,
-                  stdio: 'ignore'
-                })
-                installerProcess.unref()
-
-                // Small delay to allow spawn to detach before exiting
-                setTimeout(() => {
-                  app.quit()
-                }, 500)
-
-                resolve({ success: true })
+                resolve({ success: true, readyToInstall: true })
               } catch (err: any) {
-                reject(new Error(`Failed to launch installer: ${err.message}`))
+                reject(new Error(`Failed to save installer: ${err.message}`))
               }
             })
           })
@@ -260,10 +269,114 @@ export function downloadAndInstallUpdate(
 }
 
 /**
+ * Download update with differential delta support when packaged, with seamless fallback.
+ */
+export function downloadAndInstallUpdate(
+  downloadUrl: string,
+  onProgress: (progress: UpdateProgress) => void
+): Promise<UpdateDownloadResult> {
+  isDownloadCancelled = false
+
+  if (app.isPackaged) {
+    return new Promise((resolve) => {
+      activeCancellationToken = new CancellationToken()
+
+      autoUpdater.removeAllListeners('download-progress')
+      autoUpdater.removeAllListeners('update-downloaded')
+      autoUpdater.removeAllListeners('error')
+
+      autoUpdater.on('download-progress', (progressObj) => {
+        const speedMb = (progressObj.bytesPerSecond / (1024 * 1024)).toFixed(1)
+        onProgress({
+          percent: progressObj.percent,
+          downloaded: progressObj.transferred,
+          total: progressObj.total,
+          speed: `${speedMb} MB/s`
+        })
+      })
+
+      autoUpdater.once('update-downloaded', () => {
+        registerPermanentErrorHandler()
+        resolve({ success: true, readyToInstall: true })
+      })
+
+      let fallbackTriggered = false
+      const handleFallback = (err?: any) => {
+        if (fallbackTriggered) return
+        fallbackTriggered = true
+        registerPermanentErrorHandler()
+        console.warn('[UPDATER] Differential update not available or failed, falling back to full download:', err?.message || err)
+        executeDirectDownload(downloadUrl, onProgress)
+          .then(resolve)
+          .catch((e) => resolve({ success: false, error: e?.message || 'Download failed' }))
+      }
+
+      autoUpdater.once('error', handleFallback)
+
+      try {
+        autoUpdater.setFeedURL({
+          provider: 'github',
+          owner: 'DH-0216',
+          repo: 'Subtitle-Sync'
+        })
+        autoUpdater.checkForUpdates()
+          .then(() => autoUpdater.downloadUpdate(activeCancellationToken))
+          .catch(handleFallback)
+      } catch (e) {
+        handleFallback(e)
+      }
+    })
+  }
+
+  return executeDirectDownload(downloadUrl, onProgress)
+}
+
+/**
+ * Restart the app to apply the downloaded update (never called automatically or unexpectedly)
+ */
+export function restartAndInstallApp(): void {
+  if (app.isPackaged) {
+    try {
+      autoUpdater.quitAndInstall(false, true)
+      return
+    } catch (e) {
+      console.warn('[UPDATER] autoUpdater.quitAndInstall failed, checking direct installer:', e)
+    }
+  }
+
+  if (downloadedInstallerPath && fs.existsSync(downloadedInstallerPath)) {
+    try {
+      const installerProcess = spawn(downloadedInstallerPath, [], {
+        detached: true,
+        stdio: 'ignore'
+      })
+      installerProcess.unref()
+      setTimeout(() => {
+        app.quit()
+      }, 400)
+      return
+    } catch (e) {
+      console.warn('[UPDATER] Failed to spawn direct installer:', e)
+    }
+  }
+
+  app.relaunch()
+  app.quit()
+}
+
+/**
  * Cancel currently active update download
  */
 export function cancelUpdateDownload(): boolean {
   isDownloadCancelled = true
+
+  if (activeCancellationToken) {
+    try {
+      activeCancellationToken.cancel()
+    } catch {}
+    activeCancellationToken = null
+  }
+
   if (activeRequest) {
     try {
       activeRequest.destroy()

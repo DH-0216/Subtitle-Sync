@@ -11,6 +11,7 @@ import {
   ShieldCheck
 } from 'lucide-react'
 import { UserFriendlyReleaseNotes } from './UserFriendlyReleaseNotes'
+import { compareVersions } from '@shared/version'
 
 export interface AppUpdateData {
   updateAvailable: boolean
@@ -34,6 +35,8 @@ interface UpdateModalProps {
   downloadSpeed?: string
   downloadedBytes?: number
   totalBytes?: number
+  isUpdateReady?: boolean
+  onRestartToApply?: () => void
   errorMessage?: string | null
   onDownloadAndInstall: (downloadUrl: string) => void
   onCancelDownload: () => void
@@ -57,6 +60,8 @@ export const UpdateModal: React.FC<UpdateModalProps> = ({
   downloadSpeed = '0 MB/s',
   downloadedBytes = 0,
   totalBytes = 0,
+  isUpdateReady = false,
+  onRestartToApply,
   errorMessage,
   onDownloadAndInstall,
   onCancelDownload
@@ -73,7 +78,16 @@ export const UpdateModal: React.FC<UpdateModalProps> = ({
     return () => window.removeEventListener('keydown', handleKeyDown)
   }, [isOpen, isDownloading, onClose])
 
-  if (!isOpen || !updateInfo) return null
+  if (!isOpen || !updateInfo || !updateInfo.updateAvailable) return null
+
+  // Safety guard: Never show update modal if latest version is not strictly newer than current version
+  if (
+    updateInfo.latestVersion &&
+    updateInfo.currentVersion &&
+    compareVersions(updateInfo.latestVersion, updateInfo.currentVersion) <= 0
+  ) {
+    return null
+  }
 
   const targetUrl = updateInfo.downloadUrl || updateInfo.releaseUrl || ''
 
@@ -183,7 +197,11 @@ export const UpdateModal: React.FC<UpdateModalProps> = ({
 
           <div className="flex items-center gap-2 text-[11px] text-slate-500 dark:text-slate-400">
             <ShieldCheck className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400 shrink-0" />
-            <span>Official release verified from GitHub. Once downloaded, the installer will run automatically.</span>
+            <span>
+              {isUpdateReady
+                ? 'Update is downloaded and ready. Restart whenever you are ready to apply.'
+                : 'Official release verified from GitHub. Once downloaded, you can restart anytime to apply.'}
+            </span>
           </div>
         </div>
 
@@ -199,6 +217,25 @@ export const UpdateModal: React.FC<UpdateModalProps> = ({
                 Cancel Download
               </button>
             </div>
+          ) : isUpdateReady ? (
+            <>
+              <button
+                type="button"
+                onClick={onClose}
+                className="px-4 py-2 text-xs font-semibold rounded-xl border border-slate-300 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-200/60 dark:hover:bg-slate-800 transition-colors cursor-pointer"
+              >
+                Restart Later
+              </button>
+
+              <button
+                type="button"
+                onClick={onRestartToApply}
+                className="px-4 py-2 text-xs font-bold rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white flex items-center gap-1.5 transition-all cursor-pointer shadow-xs"
+              >
+                <RefreshCw className="w-3.5 h-3.5" />
+                <span>Restart Now to Apply</span>
+              </button>
+            </>
           ) : (
             <>
               <button

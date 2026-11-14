@@ -95,6 +95,7 @@ const api = {
   updater: {
     check: () => ipcRenderer.invoke('updater:check'),
     downloadAndInstall: (downloadUrl: string) => ipcRenderer.invoke('updater:downloadAndInstall', { downloadUrl }),
+    restartAndInstall: () => ipcRenderer.invoke('updater:restartAndInstall'),
     cancel: () => ipcRenderer.invoke('updater:cancel'),
     onProgress: (callback: (data: any) => void) => {
       const sub = (_: any, data: any) => callback(data)

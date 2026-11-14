@@ -1,5 +1,5 @@
 import React from 'react'
-import { Settings, Info, Sun, Moon, CheckCircle2, AlertTriangle, WifiOff } from 'lucide-react'
+import { Settings, Info, Sun, Moon, CheckCircle2, AlertTriangle, WifiOff, RefreshCw } from 'lucide-react'
 import appIcon from '../assets/app_icon.png'
 import { APP_VERSION } from '@shared/version'
 
@@ -10,6 +10,8 @@ interface HeaderProps {
   onOpenAbout: () => void
   engineReady: boolean
   isOnline?: boolean
+  isUpdateReady?: boolean
+  onRestartToApplyUpdate?: () => void
 }
 
 export const Header: React.FC<HeaderProps> = ({
@@ -18,7 +20,9 @@ export const Header: React.FC<HeaderProps> = ({
   onOpenSettings,
   onOpenAbout,
   engineReady,
-  isOnline = true
+  isOnline = true,
+  isUpdateReady = false,
+  onRestartToApplyUpdate
 }) => {
   return (
     <header className="bg-white dark:bg-[#0B0F19] border-b border-slate-300 dark:border-slate-800 sticky top-0 z-30 shadow-xs dark:shadow-none transition-colors">
@@ -72,6 +76,17 @@ export const Header: React.FC<HeaderProps> = ({
             </>
           )}
         </div>
+
+        {isUpdateReady && onRestartToApplyUpdate && (
+          <button
+            onClick={onRestartToApplyUpdate}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold transition-all shadow-xs cursor-pointer animate-pulse"
+            title="Update downloaded! Click to restart and apply."
+          >
+            <RefreshCw className="w-3.5 h-3.5" />
+            <span>Restart to Update</span>
+          </button>
+        )}
 
         <button
           onClick={onOpenSettings}

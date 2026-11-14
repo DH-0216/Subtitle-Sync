@@ -29,10 +29,20 @@ import {
 import {
   checkForAppUpdate,
   downloadAndInstallUpdate,
-  cancelUpdateDownload
+  cancelUpdateDownload,
+  restartAndInstallApp
 } from './updater'
 import { EXTERNAL_LINKS, getGeminiVerifyUrl } from '@shared/links'
 import { formatUserFriendlyError } from '@shared/errorUtils'
+
+// Prevent unhandled errors (e.g. offline network sockets, unexpected stream breaks) from crashing the application
+process.on('uncaughtException', (err) => {
+  console.error('[MAIN PROCESS] Uncaught exception safely handled:', err)
+})
+
+process.on('unhandledRejection', (reason) => {
+  console.warn('[MAIN PROCESS] Unhandled rejection safely handled:', reason)
+})
 
 let mainWindow: BrowserWindow | null = null
 let activeSyncEngine: SyncEngine | null = null
@@ -682,7 +692,16 @@ app.whenReady().then(() => {
 
   // IPC: In-App Auto-Updater Handlers
   ipcMain.handle('updater:check', async () => {
-    return checkForAppUpdate()
+    try {
+      return await checkForAppUpdate()
+    } catch (e: any) {
+      console.warn('[UPDATER] Handled check error:', e?.message || e)
+      return {
+        updateAvailable: false,
+        currentVersion: APP_VERSION.replace(/^v/i, ''),
+        error: e?.message || 'Could not connect to update server'
+      }
+    }
   })
 
   ipcMain.handle('updater:downloadAndInstall', async (event, { downloadUrl }: { downloadUrl: string }) => {
@@ -698,6 +717,11 @@ app.whenReady().then(() => {
 
   ipcMain.handle('updater:cancel', () => {
     return cancelUpdateDownload()
+  })
+
+  ipcMain.handle('updater:restartAndInstall', () => {
+    restartAndInstallApp()
+    return true
   })
 
   createWindow()
