@@ -24,6 +24,9 @@ const api = {
     load: () => ipcRenderer.invoke('settings:load'),
     save: (settings: any) => ipcRenderer.invoke('settings:save', settings)
   },
+  notification: {
+    show: (title: string, body: string) => ipcRenderer.invoke('notification:show', { title, body })
+  },
   clipboard: {
     readText: () => ipcRenderer.invoke('clipboard:readText'),
     writeText: (text: string) => ipcRenderer.invoke('clipboard:writeText', text)

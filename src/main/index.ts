@@ -1,4 +1,4 @@
-import { app, shell, BrowserWindow, ipcMain, dialog, safeStorage, Menu, MenuItem, clipboard } from 'electron'
+import { app, shell, BrowserWindow, ipcMain, dialog, safeStorage, Menu, MenuItem, clipboard, Notification } from 'electron'
 import { join, basename } from 'path'
 import * as fs from 'fs'
 import { probeVideoFile, findBinary, getSubtitleSyncDetails } from './media'
@@ -184,6 +184,36 @@ function createWindow(): void {
 }
 
 app.whenReady().then(() => {
+  if (process.platform === 'win32') {
+    app.setAppUserModelId('com.subtitlesync.studio')
+  }
+
+  // IPC: Desktop Notifications
+  ipcMain.handle('notification:show', (_event, { title, body }: { title: string; body: string }) => {
+    try {
+      if (Notification.isSupported()) {
+        const iconPath = join(__dirname, '../../app_icon.png')
+        const notif = new Notification({
+          title,
+          body,
+          icon: fs.existsSync(iconPath) ? iconPath : undefined,
+          silent: false
+        })
+        notif.on('click', () => {
+          if (mainWindow) {
+            if (mainWindow.isMinimized()) mainWindow.restore()
+            mainWindow.show()
+            mainWindow.focus()
+          }
+        })
+        notif.show()
+        return true
+      }
+    } catch (err) {
+      console.error('Failed to show notification:', err)
+    }
+    return false
+  })
   // IPC: File Dialogs
   ipcMain.handle('dialog:openVideo', async () => {
     if (!mainWindow) return null

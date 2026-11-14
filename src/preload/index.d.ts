@@ -17,6 +17,9 @@ export interface IElectronAPI {
     load: () => Promise<any>
     save: (settings: any) => Promise<boolean>
   }
+  notification: {
+    show: (title: string, body: string) => Promise<boolean>
+  }
   clipboard: {
     readText: () => Promise<string>
     writeText: (text: string) => Promise<void>
