@@ -1,6 +1,6 @@
 {
   "name": "subtitle-sync-studio",
-  "version": "2.1.2",
+  "version": "2.2.0",
   "description": "Subtitle Sync Studio - Modern Subtitle Synchronizer",
   "main": "./out/main/index.js",
   "author": "DH-0216",
@@ -13,6 +13,7 @@
   },
   "dependencies": {
     "clsx": "^2.1.1",
+    "electron-updater": "^6.8.11",
     "lucide-react": "^0.460.0",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
@@ -36,6 +37,13 @@
   "build": {
     "appId": "com.subtitlesync.studio",
     "productName": "Subtitle Sync Studio",
+    "publish": [
+      {
+        "provider": "github",
+        "owner": "DH-0216",
+        "repo": "Subtitle-Sync"
+      }
+    ],
     "directories": {
       "output": "dist"
     },
@@ -73,7 +81,8 @@
       "allowToChangeInstallationDirectory": true,
       "createDesktopShortcut": true,
       "createStartMenuShortcut": true,
-      "artifactName": "SubtitleSync-Setup.${ext}"
+      "artifactName": "SubtitleSync-Setup.${ext}",
+      "differentialPackage": true
     },
     "portable": {
       "artifactName": "SubtitleSync-Portable.${ext}"

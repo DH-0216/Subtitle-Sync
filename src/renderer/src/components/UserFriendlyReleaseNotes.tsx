@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import React from 'react'
 import {
   Sparkles,
   Bug,
@@ -427,8 +427,6 @@ export const UserFriendlyReleaseNotes: React.FC<UserFriendlyReleaseNotesProps> =
   releaseUrl,
   latestVersion
 }) => {
-  const [viewMode, setViewMode] = useState<'formatted' | 'raw'>('formatted')
-
   const { isEmpty, items, fullChangelogUrl } = parseMarkdownReleaseNotes(releaseNotes)
 
   return (
@@ -440,49 +438,17 @@ export const UserFriendlyReleaseNotes: React.FC<UserFriendlyReleaseNotesProps> =
           <span>What&apos;s New in v{latestVersion || 'this Version'}:</span>
         </div>
 
-        <div className="flex items-center gap-2">
-          {/* Toggle between Formatted (User-Friendly) and Raw Markdown */}
-          {!isEmpty && (
-            <div className="inline-flex items-center p-0.5 rounded-lg bg-slate-200/60 dark:bg-slate-800 text-[10px] font-semibold text-slate-600 dark:text-slate-300 border border-slate-300/50 dark:border-slate-700/60">
-              <button
-                type="button"
-                onClick={() => setViewMode('formatted')}
-                className={`px-2 py-0.5 rounded-md transition-all cursor-pointer ${
-                  viewMode === 'formatted'
-                    ? 'bg-white dark:bg-slate-900 text-blue-600 dark:text-blue-400 shadow-2xs font-bold'
-                    : 'hover:text-slate-900 dark:hover:text-slate-100'
-                }`}
-                title="User-Friendly Styled View"
-              >
-                Formatted
-              </button>
-              <button
-                type="button"
-                onClick={() => setViewMode('raw')}
-                className={`px-2 py-0.5 rounded-md transition-all cursor-pointer ${
-                  viewMode === 'raw'
-                    ? 'bg-white dark:bg-slate-900 text-blue-600 dark:text-blue-400 shadow-2xs font-bold'
-                    : 'hover:text-slate-900 dark:hover:text-slate-100'
-                }`}
-                title="Raw Markdown"
-              >
-                Raw
-              </button>
-            </div>
-          )}
-
-          {releaseUrl && (
-            <button
-              type="button"
-              onClick={() => handleOpenExternal(releaseUrl)}
-              className="text-[11px] text-blue-600 dark:text-blue-400 hover:underline flex items-center gap-1 cursor-pointer"
-              title="Open Release on GitHub"
-            >
-              <span>GitHub</span>
-              <ExternalLink className="w-3 h-3" />
-            </button>
-          )}
-        </div>
+        {releaseUrl && (
+          <button
+            type="button"
+            onClick={() => handleOpenExternal(releaseUrl)}
+            className="text-[11px] text-blue-600 dark:text-blue-400 hover:underline flex items-center gap-1 cursor-pointer"
+            title="Open Release on GitHub"
+          >
+            <span>GitHub</span>
+            <ExternalLink className="w-3 h-3" />
+          </button>
+        )}
       </div>
 
       {/* Main Release Notes Content Box */}
@@ -510,11 +476,6 @@ export const UserFriendlyReleaseNotes: React.FC<UserFriendlyReleaseNotesProps> =
                 <ExternalLink className="w-3 h-3" />
               </button>
             )}
-          </div>
-        ) : viewMode === 'raw' ? (
-          /* Raw Markdown View */
-          <div className="font-mono text-[11px] whitespace-pre-wrap text-slate-700 dark:text-slate-300 leading-relaxed bg-slate-100/60 dark:bg-slate-900/80 p-3 rounded-lg border border-slate-200 dark:border-slate-800">
-            {releaseNotes}
           </div>
         ) : (
           /* User-Friendly Formatted View */

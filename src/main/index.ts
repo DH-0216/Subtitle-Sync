@@ -1,4 +1,4 @@
-import { app, shell, BrowserWindow, ipcMain, dialog, safeStorage, Menu, MenuItem, clipboard } from 'electron'
+import { app, shell, BrowserWindow, ipcMain, dialog, safeStorage, Menu, MenuItem, clipboard, Notification } from 'electron'
 import { join, basename } from 'path'
 import * as fs from 'fs'
 import { probeVideoFile, findBinary, getSubtitleSyncDetails } from './media'
@@ -29,10 +29,20 @@ import {
 import {
   checkForAppUpdate,
   downloadAndInstallUpdate,
-  cancelUpdateDownload
+  cancelUpdateDownload,
+  restartAndInstallApp
 } from './updater'
 import { EXTERNAL_LINKS, getGeminiVerifyUrl } from '@shared/links'
 import { formatUserFriendlyError } from '@shared/errorUtils'
+
+// Prevent unhandled errors (e.g. offline network sockets, unexpected stream breaks) from crashing the application
+process.on('uncaughtException', (err) => {
+  console.error('[MAIN PROCESS] Uncaught exception safely handled:', err)
+})
+
+process.on('unhandledRejection', (reason) => {
+  console.warn('[MAIN PROCESS] Unhandled rejection safely handled:', reason)
+})
 
 let mainWindow: BrowserWindow | null = null
 let activeSyncEngine: SyncEngine | null = null
@@ -184,6 +194,36 @@ function createWindow(): void {
 }
 
 app.whenReady().then(() => {
+  if (process.platform === 'win32') {
+    app.setAppUserModelId('com.subtitlesync.studio')
+  }
+
+  // IPC: Desktop Notifications
+  ipcMain.handle('notification:show', (_event, { title, body }: { title: string; body: string }) => {
+    try {
+      if (Notification.isSupported()) {
+        const iconPath = join(__dirname, '../../app_icon.png')
+        const notif = new Notification({
+          title,
+          body,
+          icon: fs.existsSync(iconPath) ? iconPath : undefined,
+          silent: false
+        })
+        notif.on('click', () => {
+          if (mainWindow) {
+            if (mainWindow.isMinimized()) mainWindow.restore()
+            mainWindow.show()
+            mainWindow.focus()
+          }
+        })
+        notif.show()
+        return true
+      }
+    } catch (err) {
+      console.error('Failed to show notification:', err)
+    }
+    return false
+  })
   // IPC: File Dialogs
   ipcMain.handle('dialog:openVideo', async () => {
     if (!mainWindow) return null
@@ -652,7 +692,16 @@ app.whenReady().then(() => {
 
   // IPC: In-App Auto-Updater Handlers
   ipcMain.handle('updater:check', async () => {
-    return checkForAppUpdate()
+    try {
+      return await checkForAppUpdate()
+    } catch (e: any) {
+      console.warn('[UPDATER] Handled check error:', e?.message || e)
+      return {
+        updateAvailable: false,
+        currentVersion: APP_VERSION.replace(/^v/i, ''),
+        error: e?.message || 'Could not connect to update server'
+      }
+    }
   })
 
   ipcMain.handle('updater:downloadAndInstall', async (event, { downloadUrl }: { downloadUrl: string }) => {
@@ -668,6 +717,11 @@ app.whenReady().then(() => {
 
   ipcMain.handle('updater:cancel', () => {
     return cancelUpdateDownload()
+  })
+
+  ipcMain.handle('updater:restartAndInstall', () => {
+    restartAndInstallApp()
+    return true
   })
 
   createWindow()

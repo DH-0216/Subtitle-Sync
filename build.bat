@@ -49,7 +49,7 @@ if %errorlevel% neq 0 (
 
 set "APP_VERSION="
 for /f %%v in ('node -e "console.log(require('./package.json').version)" 2^>nul') do set "APP_VERSION=%%v"
-if not defined APP_VERSION set "APP_VERSION=2.1.2"
+if not defined APP_VERSION set "APP_VERSION=2.2.0"
 echo [INFO] Detected Version: v!APP_VERSION!
 echo.
 
@@ -273,7 +273,6 @@ if %errorlevel% neq 0 (
 :: Clean up any leftover versioned files so only the 2 primary executables remain
 if exist "dist\SubtitleSync-Portable-*.exe" del /q "dist\SubtitleSync-Portable-*.exe" >nul 2>&1
 if exist "dist\SubtitleSync-Setup-*.exe" del /q "dist\SubtitleSync-Setup-*.exe" >nul 2>&1
-if exist "dist\SubtitleSync-Setup-*.blockmap" del /q "dist\SubtitleSync-Setup-*.blockmap" >nul 2>&1
 echo.
 
 :: ---------------------------------------------------------------------------
@@ -303,6 +302,12 @@ if exist "dist\SubtitleSync-Portable.exe" (
 )
 if exist "dist\SubtitleSync-Setup.exe" (
     echo Installer: dist\SubtitleSync-Setup.exe
+)
+if exist "dist\SubtitleSync-Setup.exe.blockmap" (
+    echo Blockmap:  dist\SubtitleSync-Setup.exe.blockmap
+)
+if exist "dist\latest.yml" (
+    echo Delta YML: dist\latest.yml
 )
 if exist "dist\win-unpacked\Subtitle Sync Studio.exe" (
     echo Unpacked:  dist\win-unpacked\Subtitle Sync Studio.exe

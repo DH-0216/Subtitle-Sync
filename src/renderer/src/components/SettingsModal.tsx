@@ -15,12 +15,13 @@ import {
   ShieldCheck,
   CheckCircle2,
   AlertCircle,
-  Loader2
+  Loader2,
+  Bell
 } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { EXTERNAL_LINKS, getGeminiVerifyUrl } from '@shared/links'
 import { formatUserFriendlyError } from '@shared/errorUtils'
-import { APP_VERSION } from '@shared/version'
+import { APP_VERSION, compareVersions } from '@shared/version'
 import { AiProviderId, AI_PROVIDER_LIST, getAiProvider } from '@shared/aiModels'
 
 export const DEFAULT_AI_PROMPT = `You are an expert subtitle translator specializing in natural, authentic spoken colloquial Sinhala (ස්වාභාවික කථාබහ සිංහල) for cinema and movies.
@@ -47,6 +48,10 @@ interface SettingsModalProps {
   setTheme: (t: 'dark' | 'light') => void
   checkUpdates: boolean
   setCheckUpdates: (c: boolean) => void
+  autoDownloadUpdates?: boolean
+  setAutoDownloadUpdates?: (a: boolean) => void
+  notificationsEnabled?: boolean
+  setNotificationsEnabled?: (n: boolean) => void
   aiApiKey: string
   setAiApiKey: (k: string) => void
   aiProvider: AiProviderId
@@ -69,6 +74,10 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   setTheme,
   checkUpdates,
   setCheckUpdates,
+  autoDownloadUpdates = false,
+  setAutoDownloadUpdates,
+  notificationsEnabled = true,
+  setNotificationsEnabled,
   aiApiKey,
   setAiApiKey,
   aiProvider,
@@ -85,6 +94,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   const [updateStatus, setUpdateStatus] = useState<string>(`Current Version: v${APP_VERSION}`)
   const [updateStatusType, setUpdateStatusType] = useState<'normal' | 'success' | 'warning' | 'error'>('normal')
   const [updateUrl, setUpdateUrl] = useState<string | null>(null)
+  const [latestUpdateInfo, setLatestUpdateInfo] = useState<any>(null)
   const [showKey, setShowKey] = useState(false)
   const [savedSuccess, setSavedSuccess] = useState(false)
 
@@ -340,18 +350,56 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
     window.api?.settings?.save({
       theme,
       check_updates_startup: enabled,
+      autoDownloadUpdates,
+      notificationsEnabled,
       aiApiKey,
       aiProvider,
       aiPrompt
     })
   }
 
+  const handleToggleAutoDownload = (enabled: boolean) => {
+    if (setAutoDownloadUpdates) {
+      setAutoDownloadUpdates(enabled)
+    }
+    window.api?.settings?.save({
+      theme,
+      check_updates_startup: checkUpdates,
+      autoDownloadUpdates: enabled,
+      notificationsEnabled,
+      aiApiKey,
+      aiProvider,
+      aiPrompt
+    })
+    toast.success(
+      enabled
+        ? 'Automatic update downloads enabled (will notify when ready)'
+        : 'Automatic update downloads disabled'
+    )
+  }
+
+  const handleToggleNotifications = (enabled: boolean) => {
+    if (setNotificationsEnabled) {
+      setNotificationsEnabled(enabled)
+    }
+    window.api?.settings?.save({
+      theme,
+      check_updates_startup: checkUpdates,
+      autoDownloadUpdates,
+      notificationsEnabled: enabled,
+      aiApiKey,
+      aiProvider,
+      aiPrompt
+    })
+    toast.success(enabled ? 'Desktop notifications enabled' : 'Desktop notifications disabled')
+  }
+
 
   const handleCheckNow = async () => {
     if (!navigator.onLine) {
-      setUpdateStatus('⚠️ You are offline. Connect to the internet to check for updates.')
+      setUpdateStatus('⚠️ Could not check for updates. No internet connection.')
       setUpdateStatusType('error')
-      toast.error('You are offline. Cannot check for updates.', { icon: '📡' })
+      toast.error('Could not check for updates. No internet connection.', { icon: '📡' })
       return
     }
 
@@ -360,32 +408,50 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
     setUpdateStatusType('normal')
 
     try {
-      const res = await fetch(EXTERNAL_LINKS.GITHUB_LATEST_RELEASE_API, {
-        headers: { Accept: 'application/vnd.github.v3+json' }
-      })
+      if (window.api?.updater?.check) {
+        const info = await window.api.updater.check()
+        if (info.error) {
+          setUpdateStatus('⚠️ Could not check for updates. No internet connection.')
+          setUpdateStatusType('error')
+          toast.error('Could not check for updates. No internet connection.', { icon: '📡' })
+        } else if (info.updateAvailable && info.latestVersion && compareVersions(info.latestVersion, APP_VERSION) > 0) {
+          setUpdateStatus(`Update available: v${info.latestVersion}`)
+          setUpdateStatusType('success')
+          setUpdateUrl(info.releaseUrl || EXTERNAL_LINKS.GITHUB_RELEASES_PAGE)
+          setLatestUpdateInfo(info)
 
-      if (!res.ok) {
-        throw new Error(`HTTP ${res.status}`)
-      }
+          if (onOpenUpdateModal) {
+            onClose()
+            onOpenUpdateModal(info)
+          }
+        } else {
+          setUpdateStatus(`✅ You're on the latest version (v${APP_VERSION})`)
+          setUpdateStatusType('success')
+          setUpdateUrl(null)
+          toast.success(`You're on the latest version (v${APP_VERSION})!`, { duration: 3000, icon: '✅' })
+        }
+      } else {
+        const res = await fetch(EXTERNAL_LINKS.GITHUB_LATEST_RELEASE_API, {
+          headers: { Accept: 'application/vnd.github.v3+json' }
+        })
 
-      const data = await res.json()
-      const latestTag = data.tag_name || ''
-      const cleanLatest = latestTag.replace(/^v/, '')
-      const cleanCurrent = APP_VERSION.replace(/^v/, '')
+        if (!res.ok) {
+          throw new Error(`HTTP ${res.status}`)
+        }
 
-      if (cleanLatest && cleanLatest !== cleanCurrent) {
-        setUpdateStatus(`Update available: ${latestTag}`)
-        setUpdateStatusType('success')
-        setUpdateUrl(data.html_url || EXTERNAL_LINKS.GITHUB_RELEASES_PAGE)
+        const data = await res.json()
+        const latestTag = data.tag_name || ''
+        const cleanLatest = latestTag.replace(/^v/, '')
+        const cleanCurrent = APP_VERSION.replace(/^v/, '')
 
-        if (onOpenUpdateModal) {
+        if (cleanLatest && compareVersions(cleanLatest, cleanCurrent) > 0) {
           const assets = Array.isArray(data.assets) ? data.assets : []
           const setupAsset =
             assets.find((a: any) => (a.name || '').toLowerCase() === 'subtitlesync-setup.exe') ||
             assets.find((a: any) => (a.name || '').toLowerCase().includes('setup') && (a.name || '').endsWith('.exe')) ||
             assets.find((a: any) => (a.name || '').endsWith('.exe'))
 
-          onOpenUpdateModal({
+          const modalInfo = {
             updateAvailable: true,
             currentVersion: cleanCurrent,
             latestVersion: cleanLatest,
@@ -396,16 +462,28 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
             assetName: setupAsset?.name || 'SubtitleSync-Setup.exe',
             assetSize: setupAsset?.size,
             releaseUrl: data.html_url || EXTERNAL_LINKS.GITHUB_RELEASES_PAGE
-          })
+          }
+
+          setUpdateStatus(`Update available: ${latestTag}`)
+          setUpdateStatusType('success')
+          setUpdateUrl(data.html_url || EXTERNAL_LINKS.GITHUB_RELEASES_PAGE)
+          setLatestUpdateInfo(modalInfo)
+
+          if (onOpenUpdateModal) {
+            onClose()
+            onOpenUpdateModal(modalInfo)
+          }
+        } else {
+          setUpdateStatus(`✅ You're on the latest version (v${APP_VERSION})`)
+          setUpdateStatusType('success')
+          setUpdateUrl(null)
+          toast.success(`You're on the latest version (v${APP_VERSION})!`, { duration: 3000, icon: '✅' })
         }
-      } else {
-        setUpdateStatus(`✅ You're on the latest version (v${APP_VERSION})`)
-        setUpdateStatusType('success')
-        setUpdateUrl(null)
       }
     } catch (e: any) {
-      setUpdateStatus('⚠️ No internet connection. Please check your network and try again.')
+      setUpdateStatus('⚠️ Could not check for updates. No internet connection.')
       setUpdateStatusType('error')
+      toast.error('Could not check for updates. No internet connection.', { icon: '📡' })
     } finally {
       setCheckingUpdate(false)
     }
@@ -429,11 +507,27 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
     }
   }
 
-  const handleOpenRelease = () => {
-    if (!updateUrl) return
-    if (window.api?.shell?.openExternal) {
+  const handleOpenUpdate = async () => {
+    if (latestUpdateInfo && onOpenUpdateModal) {
+      onClose()
+      onOpenUpdateModal(latestUpdateInfo)
+      return
+    }
+
+    if (window.api?.updater?.check && onOpenUpdateModal) {
+      try {
+        const info = await window.api.updater.check()
+        if (info.updateAvailable) {
+          onClose()
+          onOpenUpdateModal(info)
+          return
+        }
+      } catch {}
+    }
+
+    if (updateUrl && window.api?.shell?.openExternal) {
       window.api.shell.openExternal(updateUrl)
-    } else {
+    } else if (updateUrl) {
       window.open(updateUrl, '_blank')
     }
   }
@@ -584,6 +678,40 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                     </button>
                   </div>
 
+                  {/* Row 2: Automatically Download Updates */}
+                  <div className="pt-3 border-t border-slate-200/80 dark:border-slate-800 flex items-center justify-between">
+                    <div>
+                      <h4 className="font-semibold text-xs text-slate-900 dark:text-slate-200">
+                        Automatically Download Updates
+                      </h4>
+                      <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
+                        Download delta updates silently in background and notify when ready (never auto-restarts)
+                      </p>
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={() => handleToggleAutoDownload(!autoDownloadUpdates)}
+                      className="flex items-center gap-2.5 cursor-pointer select-none group"
+                      title="Toggle auto download"
+                    >
+                      <span className="text-xs font-semibold text-slate-700 dark:text-slate-300">
+                        {autoDownloadUpdates ? 'Enabled' : 'Disabled'}
+                      </span>
+                      <div
+                        className={`w-11 h-6 flex items-center rounded-full p-1 transition-colors duration-200 ${
+                          autoDownloadUpdates ? 'bg-blue-800 dark:bg-blue-600' : 'bg-slate-300 dark:bg-slate-700'
+                        }`}
+                      >
+                        <div
+                          className={`bg-white w-4 h-4 rounded-full shadow-md transform transition-transform duration-200 ${
+                            autoDownloadUpdates ? 'translate-x-5' : 'translate-x-0'
+                          }`}
+                        />
+                      </div>
+                    </button>
+                  </div>
+
                   <div className="pt-3 border-t border-slate-200/80 dark:border-slate-800 flex items-center justify-between gap-3">
                     <div className="min-w-0 flex-1">
                       <p
@@ -597,12 +725,13 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                       >
                         {updateStatus}
                       </p>
-                      {updateUrl && (
+                      {(latestUpdateInfo || updateUrl) && (
                         <button
-                          onClick={handleOpenRelease}
+                          type="button"
+                          onClick={handleOpenUpdate}
                           className="text-[11px] text-blue-600 dark:text-blue-400 underline font-medium hover:text-blue-500 mt-0.5 block cursor-pointer"
                         >
-                          Click to view and download release
+                          Click to download update
                         </button>
                       )}
                     </div>
@@ -624,7 +753,42 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                   </div>
                 </div>
 
-                {/* Card 3: About & Developer */}
+                {/* Card 3: Desktop Notifications */}
+                <div className="p-4 rounded-xl border border-slate-200/90 dark:border-slate-800/80 bg-slate-50/70 dark:bg-[#111625]/80 flex items-center justify-between transition-colors">
+                  <div>
+                    <h3 className="font-bold text-sm text-slate-900 dark:text-slate-100 flex items-center gap-2">
+                      <Bell className="w-4 h-4 text-blue-800 dark:text-blue-400" />
+                      Desktop Notifications
+                    </h3>
+                    <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                      Notify me when jobs finish (synchronization, translation, extraction)
+                    </p>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() => handleToggleNotifications(!notificationsEnabled)}
+                    className="flex items-center gap-2.5 cursor-pointer select-none group"
+                    title="Toggle desktop notifications"
+                  >
+                    <span className="text-xs font-semibold text-slate-700 dark:text-slate-300">
+                      {notificationsEnabled ? 'Enabled' : 'Disabled'}
+                    </span>
+                    <div
+                      className={`w-11 h-6 flex items-center rounded-full p-1 transition-colors duration-200 ${
+                        notificationsEnabled ? 'bg-blue-800 dark:bg-blue-600' : 'bg-slate-300 dark:bg-slate-700'
+                      }`}
+                    >
+                      <div
+                        className={`bg-white w-4 h-4 rounded-full shadow-md transform transition-transform duration-200 ${
+                          notificationsEnabled ? 'translate-x-5' : 'translate-x-0'
+                        }`}
+                      />
+                    </div>
+                  </button>
+                </div>
+
+                {/* Card 4: About & Developer */}
                 <div className="p-4 rounded-xl border border-slate-200/90 dark:border-slate-800/80 bg-slate-50/70 dark:bg-[#111625]/80 flex items-center justify-between transition-colors">
                   <div>
                     <h3 className="font-bold text-sm text-slate-900 dark:text-slate-100">

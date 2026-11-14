@@ -24,6 +24,9 @@ const api = {
     load: () => ipcRenderer.invoke('settings:load'),
     save: (settings: any) => ipcRenderer.invoke('settings:save', settings)
   },
+  notification: {
+    show: (title: string, body: string) => ipcRenderer.invoke('notification:show', { title, body })
+  },
   clipboard: {
     readText: () => ipcRenderer.invoke('clipboard:readText'),
     writeText: (text: string) => ipcRenderer.invoke('clipboard:writeText', text)
@@ -92,6 +95,7 @@ const api = {
   updater: {
     check: () => ipcRenderer.invoke('updater:check'),
     downloadAndInstall: (downloadUrl: string) => ipcRenderer.invoke('updater:downloadAndInstall', { downloadUrl }),
+    restartAndInstall: () => ipcRenderer.invoke('updater:restartAndInstall'),
     cancel: () => ipcRenderer.invoke('updater:cancel'),
     onProgress: (callback: (data: any) => void) => {
       const sub = (_: any, data: any) => callback(data)

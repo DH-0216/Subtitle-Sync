@@ -19,13 +19,14 @@ import { UpdateModal, AppUpdateData } from './components/UpdateModal'
 import { EXTERNAL_LINKS } from '@shared/links'
 import { formatUserFriendlyError } from '@shared/errorUtils'
 import { AiProviderId, isValidAiProvider } from '@shared/aiModels'
-import { APP_VERSION } from '@shared/version'
+import { APP_VERSION, compareVersions } from '@shared/version'
 
 export default function App() {
   // Theme & Preferences
   const [theme, setTheme] = useState<'dark' | 'light'>('dark')
   const [defaultMode, setDefaultMode] = useState<SyncMode>('Standard')
   const [checkUpdates, setCheckUpdates] = useState(true)
+  const [notificationsEnabled, setNotificationsEnabled] = useState(true)
   const [engineReady, setEngineReady] = useState(false)
   const [aiApiKey, setAiApiKey] = useState('')
   const [aiProvider, setAiProvider] = useState<AiProviderId>('gemini')
@@ -54,6 +55,12 @@ export default function App() {
   const [updateDownloadedBytes, setUpdateDownloadedBytes] = useState(0)
   const [updateTotalBytes, setUpdateTotalBytes] = useState(0)
   const [updateErrorMessage, setUpdateErrorMessage] = useState<string | null>(null)
+  const [autoDownloadUpdates, setAutoDownloadUpdates] = useState(false)
+  const autoDownloadUpdatesRef = React.useRef(autoDownloadUpdates)
+  useEffect(() => {
+    autoDownloadUpdatesRef.current = autoDownloadUpdates
+  }, [autoDownloadUpdates])
+  const [isUpdateReady, setIsUpdateReady] = useState(false)
   const [isOnline, setIsOnline] = useState(typeof navigator !== 'undefined' ? navigator.onLine : true)
 
   // Track online/offline network connectivity
@@ -98,7 +105,7 @@ export default function App() {
     }
   }, [])
 
-  const handleCheckForAppUpdates = async (silent: boolean = false) => {
+  const handleCheckForAppUpdates = async (silent: boolean = false, autoDownloadIfEnabled: boolean = false) => {
     if (!navigator.onLine) {
       if (!silent) {
         toast.error('You are offline. Connect to the internet to check for updates.', { icon: '📡' })
@@ -109,13 +116,28 @@ export default function App() {
     try {
       if (window.api?.updater?.check) {
         const info = await window.api.updater.check()
-        if (info.updateAvailable) {
-          setAppUpdateInfo(info)
-          setUpdateModalOpen(true)
+        if (info.error) {
           if (!silent) {
-            toast.success(`Update available: v${info.latestVersion}!`, { duration: 4000, icon: '🚀' })
+            toast.error('Could not check for updates. No internet connection.', { icon: '📡' })
           }
+          return
+        }
+
+        if (info.updateAvailable && info.latestVersion && compareVersions(info.latestVersion, APP_VERSION) > 0) {
+          setAppUpdateInfo(info)
           setLogs((prev) => [...prev, `[UPDATER] New version available: v${info.latestVersion}`])
+
+          // If autoDownloadUpdates is ON and running on startup, auto-download in background without forcing restart
+          if (silent && autoDownloadIfEnabled && autoDownloadUpdatesRef.current && info.downloadUrl) {
+            setLogs((prev) => [...prev, `[UPDATER] Auto-downloading update in background: v${info.latestVersion}`])
+            handleDownloadAndInstallUpdate(info.downloadUrl)
+          } else {
+            // Open update window for user to download or remind later
+            setUpdateModalOpen(true)
+            if (!silent) {
+              toast.success(`Update available: v${info.latestVersion}!`, { duration: 4000, icon: '🚀' })
+            }
+          }
         } else {
           if (!silent) {
             toast.success(`You're on the latest version (v${APP_VERSION})!`, { duration: 3000, icon: '✅' })
@@ -139,7 +161,14 @@ export default function App() {
     try {
       if (window.api?.updater?.downloadAndInstall) {
         const res = await window.api.updater.downloadAndInstall(downloadUrl)
-        if (!res.success && res.error) {
+        if (res?.success) {
+          setIsUpdateReady(true)
+          notifyJobComplete(
+            'Update Ready to Install',
+            'Subtitle Sync Studio update has been downloaded. Restart anytime to apply.'
+          )
+          toast.success('Update ready! Click Restart to apply, or it will apply on your next launch.', { duration: 6000 })
+        } else if (res?.error) {
           if (!res.error.toLowerCase().includes('cancel')) {
             setUpdateErrorMessage(res.error)
             toast.error(res.error)
@@ -154,6 +183,12 @@ export default function App() {
       }
     } finally {
       setIsDownloadingUpdate(false)
+    }
+  }
+
+  const handleRestartToApply = () => {
+    if (window.api?.updater?.restartAndInstall) {
+      window.api.updater.restartAndInstall()
     }
   }
 
@@ -288,12 +323,20 @@ export default function App() {
     }
   }, [theme])
 
+  const notifyJobComplete = (title: string, body: string) => {
+    if (notificationsEnabled && window.api?.notification?.show) {
+      window.api.notification.show(title, body)
+    }
+  }
+
   const handleSetTheme = (newTheme: 'dark' | 'light') => {
     setTheme(newTheme)
     window.api?.settings?.save({
       theme: newTheme,
       defaultMode,
-      checkUpdates
+      checkUpdates,
+      autoDownloadUpdates,
+      notificationsEnabled
     })
   }
 
@@ -307,6 +350,11 @@ export default function App() {
           setSyncMode(s.defaultMode)
         }
         if (s.checkUpdates !== undefined) setCheckUpdates(s.checkUpdates)
+        if (s.autoDownloadUpdates !== undefined) {
+          setAutoDownloadUpdates(s.autoDownloadUpdates)
+          autoDownloadUpdatesRef.current = s.autoDownloadUpdates
+        }
+        if (s.notificationsEnabled !== undefined) setNotificationsEnabled(s.notificationsEnabled)
         if (s.aiApiKey) setAiApiKey(s.aiApiKey)
         if (s.aiProvider && isValidAiProvider(s.aiProvider)) setAiProvider(s.aiProvider)
         if (s.aiModel) setAiModel(s.aiModel)
@@ -344,7 +392,7 @@ export default function App() {
       window.api?.settings?.load().then((s: any) => {
         const shouldCheck = s?.checkUpdates !== undefined ? s.checkUpdates : true
         if (shouldCheck && navigator.onLine) {
-          handleCheckForAppUpdates(true)
+          handleCheckForAppUpdates(true, true)
         }
       })
     }, 2500)
@@ -674,10 +722,12 @@ export default function App() {
       const msg = `All ${subtitles.length} subtitle(s) synchronized successfully!`
       setStatusMessage(msg)
       toast.success(msg, { duration: 4000 })
+      notifyJobComplete('Subtitles Synchronized', msg)
     } else if (successCount > 0) {
       const msg = `Completed: ${successCount}/${subtitles.length} synchronized.`
       setStatusMessage(msg)
       toast.success(msg, { duration: 4000 })
+      notifyJobComplete('Subtitles Synchronized', msg)
     } else {
       setStatusMessage('Synchronization failed.')
       toast.error('Synchronization failed. Please check logs or try another sync mode.', { duration: 4000 })
@@ -722,6 +772,10 @@ export default function App() {
       setIsDownloadingModel(false)
       if (res?.success) {
         toast.success(`Whisper model (${generateConfig.modelQuality}) ready!`)
+        notifyJobComplete(
+          'Whisper Model Ready',
+          `Whisper ${generateConfig.modelQuality.toUpperCase()} model downloaded and ready!`
+        )
         setDownloadModalOpen(false)
         loadWhisperModels(false)
         handleStartGenerate()
@@ -994,6 +1048,12 @@ export default function App() {
         setGenerateProgress(100)
         setGenerateStatusMessage(isSubtitleSource ? 'Subtitle translation complete!' : 'Subtitles generated successfully!')
         toast.success(isSubtitleSource ? 'Subtitle translated successfully!' : 'Subtitle generated successfully!', { duration: 4000 })
+        notifyJobComplete(
+          isSubtitleSource ? 'Subtitle Translation Complete' : 'Subtitle Generation Complete',
+          isSubtitleSource
+            ? 'Your translated Spoken Sinhala subtitle is ready!'
+            : 'Your generated subtitle has been saved successfully!'
+        )
         if (res.output) {
           const folder = res.output.substring(
             0,
@@ -1127,6 +1187,10 @@ export default function App() {
         setExtractProgress(100)
         setExtractStatusMessage(`Extracted ${fileItems.length} subtitle file(s) successfully!`)
         toast.success(`Extracted ${fileItems.length} subtitle(s) to .SRT!`, { duration: 4500 })
+        notifyJobComplete(
+          'Subtitle Extraction Complete',
+          `Successfully extracted ${fileItems.length} subtitle track(s) to .SRT!`
+        )
 
         const lastFile = fileItems[fileItems.length - 1].outputPath
         const folder = lastFile.substring(
@@ -1305,6 +1369,8 @@ export default function App() {
       theme,
       defaultMode,
       checkUpdates,
+      autoDownloadUpdates,
+      notificationsEnabled,
       aiApiKey,
       aiProvider,
       aiModel,
@@ -1330,6 +1396,8 @@ export default function App() {
         onOpenAbout={() => setAboutModalOpen(true)}
         engineReady={engineReady}
         isOnline={isOnline}
+        isUpdateReady={isUpdateReady}
+        onRestartToApplyUpdate={handleRestartToApply}
       />
 
       <main className="flex-1 max-w-5xl xl:max-w-6xl 2xl:max-w-[1400px] w-full mx-auto p-6 space-y-5">
@@ -1594,6 +1662,10 @@ export default function App() {
         setTheme={handleSetTheme}
         checkUpdates={checkUpdates}
         setCheckUpdates={setCheckUpdates}
+        autoDownloadUpdates={autoDownloadUpdates}
+        setAutoDownloadUpdates={setAutoDownloadUpdates}
+        notificationsEnabled={notificationsEnabled}
+        setNotificationsEnabled={setNotificationsEnabled}
         aiApiKey={aiApiKey}
         setAiApiKey={setAiApiKey}
         aiProvider={aiProvider}
@@ -1638,6 +1710,8 @@ export default function App() {
         downloadSpeed={updateDownloadSpeed}
         downloadedBytes={updateDownloadedBytes}
         totalBytes={updateTotalBytes}
+        isUpdateReady={isUpdateReady}
+        onRestartToApply={handleRestartToApply}
         errorMessage={updateErrorMessage}
         onDownloadAndInstall={handleDownloadAndInstallUpdate}
         onCancelDownload={handleCancelUpdateDownload}
