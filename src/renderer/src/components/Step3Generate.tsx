@@ -149,7 +149,7 @@ export const Step3Generate: React.FC<Step3GenerateProps> = ({
       <div className="flex items-center gap-3">
         {!isGenerating ? (
           <button
-            onClick={onStartGenerate}
+            onClick={() => onStartGenerate()}
             disabled={!unlocked}
             className={`flex-1 py-3 px-5 rounded-xl font-bold text-sm flex items-center justify-center gap-2 transition-all shadow-xs group cursor-pointer ${
               unlocked
