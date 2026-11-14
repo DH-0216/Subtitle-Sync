@@ -862,9 +862,16 @@ export default function App() {
 
   // Start Generate / Translate Execution
   const handleStartGenerate = async (overrideConfig?: Partial<GenerateConfig>) => {
+    // Guard: Prevent React SyntheticEvent or MouseEvent (from onClick) from contaminating IPC payload
+    const isEvent =
+      overrideConfig &&
+      typeof overrideConfig === 'object' &&
+      ('nativeEvent' in overrideConfig || 'target' in overrideConfig || '_reactName' in overrideConfig)
+    const validOverride = isEvent ? undefined : overrideConfig
+
     const effectiveConfig = {
       ...generateConfig,
-      ...overrideConfig
+      ...validOverride
     }
     const isSubtitleSource = effectiveConfig.sourceType === 'subtitle'
 
@@ -1466,7 +1473,7 @@ export default function App() {
             progress={generateProgress}
             statusMessage={generateStatusMessage}
             lastOutputDir={lastOutputDir}
-            onStartGenerate={handleStartGenerate}
+            onStartGenerate={() => handleStartGenerate()}
             onCancelGenerate={handleCancelGenerate}
             onOpenFolder={handleOpenFolder}
           />

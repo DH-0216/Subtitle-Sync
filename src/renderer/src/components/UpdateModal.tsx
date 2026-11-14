@@ -10,6 +10,7 @@ import {
   ArrowRight,
   ShieldCheck
 } from 'lucide-react'
+import { UserFriendlyReleaseNotes } from './UserFriendlyReleaseNotes'
 
 export interface AppUpdateData {
   updateAvailable: boolean
@@ -132,28 +133,12 @@ export const UpdateModal: React.FC<UpdateModalProps> = ({
             )}
           </div>
 
-          {/* Release Notes Changelog */}
-          <div className="space-y-1.5">
-            <div className="flex items-center justify-between">
-              <span className="text-xs font-bold text-slate-800 dark:text-slate-200">
-                What&apos;s New in this Version:
-              </span>
-              {updateInfo.releaseUrl && (
-                <button
-                  type="button"
-                  onClick={() => window.api?.shell?.openExternal(updateInfo.releaseUrl!)}
-                  className="text-[11px] text-blue-600 dark:text-blue-400 hover:underline flex items-center gap-1 cursor-pointer"
-                >
-                  <span>View on GitHub</span>
-                  <ExternalLink className="w-3 h-3" />
-                </button>
-              )}
-            </div>
-
-            <div className="max-h-48 overflow-y-auto p-3.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/80 dark:bg-slate-950/60 font-sans text-xs text-slate-700 dark:text-slate-300 space-y-2 whitespace-pre-wrap leading-relaxed select-text">
-              {updateInfo.releaseNotes}
-            </div>
-          </div>
+          {/* Release Notes Changelog (User-Friendly Display) */}
+          <UserFriendlyReleaseNotes
+            releaseNotes={updateInfo.releaseNotes}
+            releaseUrl={updateInfo.releaseUrl}
+            latestVersion={updateInfo.latestVersion}
+          />
 
           {/* Live Download Progress Section */}
           {isDownloading && (
