@@ -1720,7 +1720,9 @@ export default function App() {
       {/* Toast Notifications */}
       <Toaster
         position="bottom-right"
+        gutter={8}
         toastOptions={{
+          duration: 3500,
           style: {
             background: theme === 'dark' ? '#1E293B' : '#FFFFFF',
             color: theme === 'dark' ? '#F8FAFC' : '#0F172A',
@@ -1728,15 +1730,18 @@ export default function App() {
             borderRadius: '12px',
             fontSize: '13px',
             fontWeight: 500,
-            boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.2), 0 8px 10px -6px rgba(0, 0, 0, 0.1)'
+            boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.2), 0 8px 10px -6px rgba(0, 0, 0, 0.1)',
+            cursor: 'pointer'
           },
           success: {
+            duration: 3000,
             iconTheme: {
               primary: '#10B981',
               secondary: '#FFFFFF'
             }
           },
           error: {
+            duration: 4000,
             iconTheme: {
               primary: '#EF4444',
               secondary: '#FFFFFF'
