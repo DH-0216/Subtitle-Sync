@@ -41,7 +41,8 @@
       {
         "provider": "github",
         "owner": "DH-0216",
-        "repo": "Subtitle-Sync"
+        "repo": "Subtitle-Sync",
+        "releaseName": "v${version}"
       }
     ],
     "directories": {
