@@ -80,7 +80,7 @@ jobs:
             dist/latest.yml
             dist/SubtitleSync-Setup.exe.blockmap
             dist/SHA256SUMS.txt
-          generate_release_notes: true
+          generate_release_notes: ${{ github.event_name != 'release' }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
