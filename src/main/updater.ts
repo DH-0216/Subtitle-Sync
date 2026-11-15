@@ -69,6 +69,13 @@ let isDownloadCancelled = false
 export { compareVersions }
 
 /**
+ * Check whether the application is running as a standalone Portable executable
+ */
+export function isPortable(): boolean {
+  return Boolean(process.env.PORTABLE_EXECUTABLE_DIR || process.env.PORTABLE_EXECUTABLE_FILE)
+}
+
+/**
  * Check GitHub Releases for newer version of Subtitle Sync Studio
  */
 export async function checkForAppUpdate(): Promise<UpdateInfo> {
@@ -99,13 +106,26 @@ export async function checkForAppUpdate(): Promise<UpdateInfo> {
       }
     }
 
-    // Find Windows Installer asset (SubtitleSync-Setup.exe or any .exe installer)
+    // Detect matching asset based on installation type (Portable vs Installer)
     const assets = Array.isArray(data.assets) ? data.assets : []
-    const setupAsset =
-      assets.find((a: any) => (a.name || '').toLowerCase() === 'subtitlesync-setup.exe') ||
-      assets.find((a: any) => (a.name || '').toLowerCase().includes('setup') && (a.name || '').endsWith('.exe')) ||
-      assets.find((a: any) => (a.name || '').endsWith('.exe') && !(a.name || '').toLowerCase().includes('portable')) ||
-      assets.find((a: any) => (a.name || '').endsWith('.exe'))
+    let targetAsset: any = null
+
+    if (isPortable()) {
+      targetAsset =
+        assets.find((a: any) => (a.name || '').toLowerCase() === 'subtitlesync-portable.exe') ||
+        assets.find((a: any) => (a.name || '').toLowerCase().includes('portable') && (a.name || '').endsWith('.exe'))
+    } else {
+      targetAsset =
+        assets.find((a: any) => (a.name || '').toLowerCase() === 'subtitlesync-setup.exe') ||
+        assets.find((a: any) => (a.name || '').toLowerCase().includes('setup') && (a.name || '').endsWith('.exe')) ||
+        assets.find((a: any) => (a.name || '').endsWith('.exe') && !(a.name || '').toLowerCase().includes('portable'))
+    }
+
+    if (!targetAsset) {
+      targetAsset = assets.find((a: any) => (a.name || '').endsWith('.exe'))
+    }
+
+    const defaultAssetName = isPortable() ? 'SubtitleSync-Portable.exe' : 'SubtitleSync-Setup.exe'
 
     return {
       updateAvailable: true,
@@ -114,9 +134,9 @@ export async function checkForAppUpdate(): Promise<UpdateInfo> {
       releaseName: data.name || latestTag,
       releaseNotes: data.body || 'No release notes provided for this version.',
       publishedAt: data.published_at,
-      downloadUrl: setupAsset?.browser_download_url,
-      assetName: setupAsset?.name || 'SubtitleSync-Setup.exe',
-      assetSize: setupAsset?.size,
+      downloadUrl: targetAsset?.browser_download_url,
+      assetName: targetAsset?.name || defaultAssetName,
+      assetSize: targetAsset?.size,
       releaseUrl: data.html_url || EXTERNAL_LINKS.GITHUB_RELEASES_PAGE
     }
   } catch (err: any) {
@@ -139,7 +159,8 @@ function executeDirectDownload(
   return new Promise((resolve, reject) => {
     isDownloadCancelled = false
     const tempDir = app.getPath('temp')
-    const targetFile = join(tempDir, 'SubtitleSync-Setup-Update.exe')
+    const fileName = isPortable() ? 'SubtitleSync-Portable-Update.exe' : 'SubtitleSync-Setup-Update.exe'
+    const targetFile = join(tempDir, fileName)
     const partFile = `${targetFile}.part`
 
     let downloadedBytes = 0
@@ -277,7 +298,7 @@ export function downloadAndInstallUpdate(
 ): Promise<UpdateDownloadResult> {
   isDownloadCancelled = false
 
-  if (app.isPackaged) {
+  if (app.isPackaged && !isPortable()) {
     return new Promise((resolve) => {
       activeCancellationToken = new CancellationToken()
 
@@ -335,6 +356,59 @@ export function downloadAndInstallUpdate(
  * Restart the app to apply the downloaded update (never called automatically or unexpectedly)
  */
 export function restartAndInstallApp(): void {
+  // 1. Portable Edition Handler: Replace old portable .exe cleanly without installer wizard
+  if (isPortable()) {
+    const portableDir = process.env.PORTABLE_EXECUTABLE_DIR
+    const portableFile = process.env.PORTABLE_EXECUTABLE_FILE || 'SubtitleSync-Portable.exe'
+
+    if (downloadedInstallerPath && fs.existsSync(downloadedInstallerPath) && portableDir) {
+      const targetPortablePath = join(portableDir, portableFile)
+      const updateBat = join(app.getPath('temp'), 'update-portable.bat')
+
+      try {
+        fs.writeFileSync(
+          updateBat,
+          `@echo off\r\ntimeout /t 1 /nobreak >nul\r\ncopy /y "${downloadedInstallerPath}" "${targetPortablePath}" >nul\r\ndel "${downloadedInstallerPath}" >nul\r\nstart "" "${targetPortablePath}"\r\n(goto) 2>nul & del "%~f0"\r\n`,
+          'utf-8'
+        )
+
+        const child = spawn('cmd.exe', ['/c', updateBat], {
+          detached: true,
+          stdio: 'ignore'
+        })
+        child.unref()
+
+        setTimeout(() => {
+          app.quit()
+        }, 400)
+        return
+      } catch (err) {
+        console.warn('[UPDATER] Failed to create portable replacement script, spawning directly:', err)
+      }
+    }
+
+    if (downloadedInstallerPath && fs.existsSync(downloadedInstallerPath)) {
+      try {
+        const child = spawn(downloadedInstallerPath, [], {
+          detached: true,
+          stdio: 'ignore'
+        })
+        child.unref()
+        setTimeout(() => {
+          app.quit()
+        }, 400)
+        return
+      } catch (err) {
+        console.warn('[UPDATER] Failed to launch downloaded portable executable:', err)
+      }
+    }
+
+    app.relaunch()
+    app.quit()
+    return
+  }
+
+  // 2. Standard Installed Edition Handler (NSIS differential)
   if (app.isPackaged) {
     try {
       autoUpdater.quitAndInstall(false, true)
