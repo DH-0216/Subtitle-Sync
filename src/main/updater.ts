@@ -125,6 +125,14 @@ export async function checkForAppUpdate(): Promise<UpdateInfo> {
       targetAsset = assets.find((a: any) => (a.name || '').endsWith('.exe'))
     }
 
+    if (!targetAsset || !targetAsset.browser_download_url) {
+      console.warn('[UPDATER] New release published, but executable assets are still being uploaded.')
+      return {
+        updateAvailable: false,
+        currentVersion
+      }
+    }
+
     const defaultAssetName = isPortable() ? 'SubtitleSync-Portable.exe' : 'SubtitleSync-Setup.exe'
 
     return {
@@ -157,6 +165,10 @@ function executeDirectDownload(
   onProgress: (progress: UpdateProgress) => void
 ): Promise<UpdateDownloadResult> {
   return new Promise((resolve, reject) => {
+    if (!downloadUrl) {
+      reject(new Error('Update download link is not ready yet. Please try again in a few moments.'))
+      return
+    }
     isDownloadCancelled = false
     const tempDir = app.getPath('temp')
     const fileName = isPortable() ? 'SubtitleSync-Portable-Update.exe' : 'SubtitleSync-Setup-Update.exe'
@@ -408,16 +420,7 @@ export function restartAndInstallApp(): void {
     return
   }
 
-  // 2. Standard Installed Edition Handler (NSIS differential)
-  if (app.isPackaged) {
-    try {
-      autoUpdater.quitAndInstall(false, true)
-      return
-    } catch (e) {
-      console.warn('[UPDATER] autoUpdater.quitAndInstall failed, checking direct installer:', e)
-    }
-  }
-
+  // 2. Direct downloaded installer handler (if fallback or direct download occurred)
   if (downloadedInstallerPath && fs.existsSync(downloadedInstallerPath)) {
     try {
       const installerProcess = spawn(downloadedInstallerPath, [], {
@@ -431,6 +434,16 @@ export function restartAndInstallApp(): void {
       return
     } catch (e) {
       console.warn('[UPDATER] Failed to spawn direct installer:', e)
+    }
+  }
+
+  // 3. Standard Installed Edition Handler (NSIS differential update)
+  if (app.isPackaged) {
+    try {
+      autoUpdater.quitAndInstall(false, true)
+      return
+    } catch (e) {
+      console.warn('[UPDATER] autoUpdater.quitAndInstall failed:', e)
     }
   }
 
