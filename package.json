@@ -42,7 +42,7 @@
         "provider": "github",
         "owner": "DH-0216",
         "repo": "Subtitle-Sync",
-        "releaseName": "v${version}"
+        "vPrefixedTagName": true
       }
     ],
     "directories": {
