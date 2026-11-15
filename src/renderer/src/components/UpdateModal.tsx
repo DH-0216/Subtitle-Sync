@@ -141,9 +141,18 @@ export const UpdateModal: React.FC<UpdateModalProps> = ({
             </div>
 
             {updateInfo.assetSize && (
-              <span className="text-[11px] font-semibold text-slate-500 dark:text-slate-400">
-                Size: ~{formatBytes(updateInfo.assetSize)}
-              </span>
+              <div className="flex items-center gap-1.5 text-[11px] font-semibold text-slate-500 dark:text-slate-400">
+                <span>Size:</span>
+                {totalBytes > 0 && totalBytes < updateInfo.assetSize * 0.9 ? (
+                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-950/70 text-emerald-800 dark:text-emerald-300 font-bold border border-emerald-300 dark:border-emerald-700">
+                    ⚡ ~{formatBytes(totalBytes)} (Delta)
+                  </span>
+                ) : (
+                  <span className="font-mono text-slate-700 dark:text-slate-300">
+                    ~{formatBytes(updateInfo.assetSize)}
+                  </span>
+                )}
+              </div>
             )}
           </div>
 
@@ -163,6 +172,8 @@ export const UpdateModal: React.FC<UpdateModalProps> = ({
                   <span>
                     {downloadProgress >= 100
                       ? 'Download complete! Launching setup wizard...'
+                      : totalBytes > 0 && updateInfo.assetSize && totalBytes < updateInfo.assetSize * 0.9
+                      ? 'Downloading fast delta patch...'
                       : 'Downloading update installer...'}
                   </span>
                 </div>
@@ -179,8 +190,13 @@ export const UpdateModal: React.FC<UpdateModalProps> = ({
 
               {/* Speed & Stats */}
               <div className="flex items-center justify-between text-[11px] text-slate-600 dark:text-slate-400">
-                <span>
-                  {formatBytes(downloadedBytes)} / {formatBytes(totalBytes || updateInfo.assetSize)}
+                <span className="flex items-center gap-1.5">
+                  <span>{formatBytes(downloadedBytes)} / {formatBytes(totalBytes || updateInfo.assetSize)}</span>
+                  {totalBytes > 0 && updateInfo.assetSize && totalBytes < updateInfo.assetSize * 0.9 && (
+                    <span className="text-emerald-600 dark:text-emerald-400 font-semibold">
+                      (⚡ Saved {formatBytes(updateInfo.assetSize - totalBytes)}!)
+                    </span>
+                  )}
                 </span>
                 <span className="font-mono font-medium">{downloadSpeed}</span>
               </div>

@@ -2,7 +2,7 @@ import * as https from 'https'
 import * as http from 'http'
 import * as fs from 'fs'
 import { join } from 'path'
-import { app } from 'electron'
+import { app, BrowserWindow } from 'electron'
 import { spawn } from 'child_process'
 import { autoUpdater, CancellationToken } from 'electron-updater'
 import { EXTERNAL_LINKS } from '../shared/links'
@@ -368,6 +368,16 @@ export function downloadAndInstallUpdate(
  * Restart the app to apply the downloaded update (never called automatically or unexpectedly)
  */
 export function restartAndInstallApp(): void {
+  // Immediately close and destroy all browser windows to eliminate any blank or frozen screen
+  try {
+    BrowserWindow.getAllWindows().forEach((win) => {
+      win.removeAllListeners('close')
+      win.destroy()
+    })
+  } catch (err) {
+    console.warn('[UPDATER] Failed to close windows before install:', err)
+  }
+
   // 1. Portable Edition Handler: Replace old portable .exe cleanly without installer wizard
   if (isPortable()) {
     const portableDir = process.env.PORTABLE_EXECUTABLE_DIR
@@ -423,7 +433,7 @@ export function restartAndInstallApp(): void {
   // 2. Direct downloaded installer handler (if fallback or direct download occurred)
   if (downloadedInstallerPath && fs.existsSync(downloadedInstallerPath)) {
     try {
-      const installerProcess = spawn(downloadedInstallerPath, [], {
+      const installerProcess = spawn(downloadedInstallerPath, ['/S'], {
         detached: true,
         stdio: 'ignore'
       })
@@ -440,7 +450,9 @@ export function restartAndInstallApp(): void {
   // 3. Standard Installed Edition Handler (NSIS differential update)
   if (app.isPackaged) {
     try {
-      autoUpdater.quitAndInstall(false, true)
+      setImmediate(() => {
+        autoUpdater.quitAndInstall(true, true)
+      })
       return
     } catch (e) {
       console.warn('[UPDATER] autoUpdater.quitAndInstall failed:', e)
