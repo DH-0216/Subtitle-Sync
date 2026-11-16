@@ -57,6 +57,9 @@ interface Step2GenerateProps {
   modelsSource?: 'remote' | 'cached' | 'fallback'
   extractedFiles?: ExtractedFileItem[]
   onBrowseSubtitle?: () => void
+  onDropSubtitle?: (path: string) => void
+  errorMessage?: string | null
+  onClearError?: () => void
   subtitleTracks?: SubtitleTrack[]
   onExtractAndUseSubtitle?: (track: SubtitleTrack) => Promise<void> | void
   isExtracting?: boolean
@@ -77,12 +80,38 @@ export const Step2Generate: React.FC<Step2GenerateProps> = ({
   modelsSource = 'fallback',
   extractedFiles = [],
   onBrowseSubtitle,
+  onDropSubtitle,
+  errorMessage,
+  onClearError,
   subtitleTracks = [],
   onExtractAndUseSubtitle,
   isExtracting = false,
   isGenerating = false
 }) => {
   const [showAdvanced, setShowAdvanced] = useState(false)
+  const [isSubDragOver, setIsSubDragOver] = useState(false)
+
+  const handleSubDragOver = (e: React.DragEvent) => {
+    e.preventDefault()
+    setIsSubDragOver(true)
+  }
+
+  const handleSubDragLeave = () => {
+    setIsSubDragOver(false)
+  }
+
+  const handleSubDrop = (e: React.DragEvent) => {
+    e.preventDefault()
+    e.stopPropagation()
+    setIsSubDragOver(false)
+    if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+      const file = e.dataTransfer.files[0]
+      const fullPath = window.api.getPathForFile ? window.api.getPathForFile(file) : ((file as any).path || file.name)
+      if (onDropSubtitle && fullPath) {
+        onDropSubtitle(fullPath)
+      }
+    }
+  }
 
   const textSubtitleTracks = subtitleTracks.filter((t) => t.isText)
   const [selectedEmbeddedTrackIndex, setSelectedEmbeddedTrackIndex] = useState<number>(
@@ -318,8 +347,39 @@ export const Step2Generate: React.FC<Step2GenerateProps> = ({
             </div>
           )}
 
-          {/* Option C: Selected file display & Browse custom .SRT */}
-          <div className="flex items-center gap-2 pt-0.5">
+          {errorMessage && (
+            <div className="p-3 rounded-xl border border-rose-300 dark:border-rose-900/60 bg-rose-50 dark:bg-rose-950/40 text-rose-900 dark:text-rose-200 text-xs flex items-start justify-between gap-3 animate-in fade-in">
+              <div className="flex items-start gap-2 min-w-0">
+                <AlertCircle className="w-4 h-4 text-rose-600 dark:text-rose-400 shrink-0 mt-0.5" />
+                <div className="space-y-0.5 min-w-0">
+                  <p className="font-bold text-rose-950 dark:text-rose-100">Unsupported Subtitle File</p>
+                  <p className="text-[11.5px] text-rose-800 dark:text-rose-300 leading-relaxed break-words">{errorMessage}</p>
+                </div>
+              </div>
+              <button
+                onClick={(e) => {
+                  e.stopPropagation()
+                  onClearError?.()
+                }}
+                className="text-rose-500 hover:text-rose-800 dark:hover:text-rose-200 p-1 rounded-lg shrink-0 cursor-pointer"
+                title="Dismiss message"
+              >
+                <X className="w-3.5 h-3.5" />
+              </button>
+            </div>
+          )}
+
+          {/* Option C: Selected file display & Browse / Drop custom .SRT */}
+          <div
+            onDragOver={handleSubDragOver}
+            onDragLeave={handleSubDragLeave}
+            onDrop={handleSubDrop}
+            className={`flex items-center gap-2 pt-0.5 rounded-xl border p-1 transition-all ${
+              isSubDragOver
+                ? 'border-blue-600 bg-blue-50/80 dark:bg-blue-950/40 ring-2 ring-blue-500/20'
+                : 'border-transparent'
+            }`}
+          >
             <div className="flex-1 p-2.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 flex items-center gap-2 min-w-0">
               <FileText className="w-4 h-4 text-blue-700 dark:text-blue-400 shrink-0" />
               <div className="min-w-0 flex-1">
@@ -334,7 +394,7 @@ export const Step2Generate: React.FC<Step2GenerateProps> = ({
                   </div>
                 ) : (
                   <p className="text-xs text-slate-400 dark:text-slate-500 italic">
-                    No subtitle file selected yet. Extract an embedded track above or browse below.
+                    {isSubDragOver ? 'Drop .SRT file here...' : 'No subtitle file selected yet. Extract embedded track above, or drag & drop / browse .SRT below.'}
                   </p>
                 )}
               </div>

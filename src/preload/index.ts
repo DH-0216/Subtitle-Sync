@@ -1,13 +1,21 @@
 import { contextBridge, ipcRenderer, webUtils } from 'electron'
 import type { AiProviderId } from '../shared/aiModels'
+import { cleanPathString, FileValidationItem } from '../shared/fileSanitizer'
 
 const api = {
   getPathForFile: (file: File): string => {
     try {
-      return webUtils.getPathForFile(file)
+      const p = webUtils.getPathForFile(file)
+      if (p) return cleanPathString(p)
+      return cleanPathString((file as any).path || file.name || '')
     } catch {
-      return (file as any).path || ''
+      return cleanPathString((file as any).path || file.name || '')
     }
+  },
+  file: {
+    cleanPath: (raw: string): string => cleanPathString(raw),
+    validate: (paths: string[], expected?: 'video' | 'subtitle' | 'any'): Promise<FileValidationItem[]> =>
+      ipcRenderer.invoke('file:validate', { paths, expected })
   },
   dialog: {
     openVideo: () => ipcRenderer.invoke('dialog:openVideo'),

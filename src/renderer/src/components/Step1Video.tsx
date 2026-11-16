@@ -1,5 +1,5 @@
 import React, { useState } from 'react'
-import { Film, Upload, CheckCircle2, Music, X, FileDown, Sparkles } from 'lucide-react'
+import { Film, Upload, CheckCircle2, Music, X, FileDown, Sparkles, AlertCircle } from 'lucide-react'
 import { MetadataBadge } from './MetadataBadge'
 
 export interface AudioTrack {
@@ -33,10 +33,13 @@ interface Step1VideoProps {
   audioTracks: AudioTrack[]
   selectedTrack: number | null
   subtitleTracks?: SubtitleTrack[]
+  errorMessage?: string | null
+  onClearError?: () => void
   onBrowse: () => void
   onRemove: () => void
   onSelectTrackModal: () => void
-  onDropFile: (path: string) => void
+  onDropFile?: (path: string) => void
+  onDropFiles?: (paths: string[]) => void
   onSwitchToTranslate?: () => void
 }
 
@@ -46,10 +49,13 @@ export const Step1Video: React.FC<Step1VideoProps> = ({
   audioTracks,
   selectedTrack,
   subtitleTracks = [],
+  errorMessage,
+  onClearError,
   onBrowse,
   onRemove,
   onSelectTrackModal,
   onDropFile,
+  onDropFiles,
   onSwitchToTranslate
 }) => {
   const [isDragOver, setIsDragOver] = useState(false)
@@ -68,9 +74,17 @@ export const Step1Video: React.FC<Step1VideoProps> = ({
     e.stopPropagation()
     setIsDragOver(false)
     if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
-      const file = e.dataTransfer.files[0]
-      const fullPath = window.api.getPathForFile ? window.api.getPathForFile(file) : ((file as any).path || file.name)
-      onDropFile(fullPath || file.name)
+      const paths: string[] = []
+      for (let i = 0; i < e.dataTransfer.files.length; i++) {
+        const file = e.dataTransfer.files[i]
+        const fullPath = window.api.getPathForFile ? window.api.getPathForFile(file) : ((file as any).path || file.name)
+        if (fullPath) paths.push(fullPath)
+      }
+      if (onDropFiles) {
+        onDropFiles(paths)
+      } else if (onDropFile && paths.length > 0) {
+        onDropFile(paths[0])
+      }
     }
   }
 
@@ -94,6 +108,28 @@ export const Step1Video: React.FC<Step1VideoProps> = ({
           </span>
         )}
       </div>
+
+      {errorMessage && (
+        <div className="mb-3.5 p-3.5 rounded-xl border border-rose-300 dark:border-rose-900/60 bg-rose-50 dark:bg-rose-950/40 text-rose-900 dark:text-rose-200 text-xs flex items-start justify-between gap-3 animate-in fade-in">
+          <div className="flex items-start gap-2.5 min-w-0">
+            <AlertCircle className="w-4 h-4 text-rose-600 dark:text-rose-400 shrink-0 mt-0.5" />
+            <div className="space-y-0.5 min-w-0">
+              <p className="font-bold text-rose-950 dark:text-rose-100">Unsupported File</p>
+              <p className="text-[11.5px] text-rose-800 dark:text-rose-300 leading-relaxed break-words">{errorMessage}</p>
+            </div>
+          </div>
+          <button
+            onClick={(e) => {
+              e.stopPropagation()
+              onClearError?.()
+            }}
+            className="text-rose-500 hover:text-rose-800 dark:hover:text-rose-200 p-1 rounded-lg shrink-0 cursor-pointer"
+            title="Dismiss message"
+          >
+            <X className="w-3.5 h-3.5" />
+          </button>
+        </div>
+      )}
 
       {!videoPath ? (
         <div

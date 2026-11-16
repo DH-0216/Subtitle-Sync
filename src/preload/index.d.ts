@@ -1,7 +1,12 @@
 import type { AiProviderId } from '../shared/aiModels'
+import type { FileValidationItem } from '../shared/fileSanitizer'
 
 export interface IElectronAPI {
   getPathForFile: (file: File) => string
+  file: {
+    cleanPath: (raw: string) => string
+    validate: (paths: string[], expected?: 'video' | 'subtitle' | 'any') => Promise<FileValidationItem[]>
+  }
   dialog: {
     openVideo: () => Promise<string | null>
     openSubtitles: () => Promise<string[]>
