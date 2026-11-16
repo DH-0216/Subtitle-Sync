@@ -35,6 +35,27 @@ registerPermanentErrorHandler()
 let activeCancellationToken: CancellationToken | null = null
 let downloadedInstallerPath: string | null = null
 
+// Automatic install on quit if user selected "Restart Later"
+app.on('before-quit', () => {
+  if (downloadedInstallerPath && fs.existsSync(downloadedInstallerPath)) {
+    try {
+      const updateBat = join(app.getPath('temp'), 'launch-setup.bat')
+      fs.writeFileSync(
+        updateBat,
+        `@echo off\r\ntimeout /t 1 /nobreak >nul\r\nstart "" "${downloadedInstallerPath}"\r\n(goto) 2>nul & del "%~f0"\r\n`,
+        'utf-8'
+      )
+      const child = spawn('cmd.exe', ['/c', updateBat], {
+        detached: true,
+        stdio: 'ignore'
+      })
+      child.unref()
+    } catch (e) {
+      console.warn('[UPDATER] Failed to launch setup on app quit:', e)
+    }
+  }
+})
+
 export interface UpdateInfo {
   updateAvailable: boolean
   currentVersion: string

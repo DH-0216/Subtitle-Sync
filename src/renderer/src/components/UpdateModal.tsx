@@ -40,6 +40,7 @@ interface UpdateModalProps {
   totalBytes?: number
   isUpdateReady?: boolean
   onRestartToApply?: () => void
+  onRestartLater?: () => void
   errorMessage?: string | null
   onDownloadAndInstall: (downloadUrl: string) => void
   onCancelDownload: () => void
@@ -65,6 +66,7 @@ export const UpdateModal: React.FC<UpdateModalProps> = ({
   totalBytes = 0,
   isUpdateReady = false,
   onRestartToApply,
+  onRestartLater,
   errorMessage,
   onDownloadAndInstall,
   onCancelDownload
@@ -111,14 +113,16 @@ export const UpdateModal: React.FC<UpdateModalProps> = ({
                 </span>
               </h3>
               <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-                A new version of Subtitle Sync Studio is ready to download
+                {isUpdateReady
+                  ? 'Update downloaded and ready to apply'
+                  : 'A new version of Subtitle Sync Studio is ready to download'}
               </p>
             </div>
           </div>
 
           <button
             type="button"
-            onClick={onClose}
+            onClick={isUpdateReady && onRestartLater ? onRestartLater : onClose}
             disabled={isDownloading}
             className="p-1.5 rounded-lg text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-200/60 dark:hover:bg-slate-800/60 transition-colors disabled:opacity-40 cursor-pointer"
             title="Close"
@@ -240,7 +244,7 @@ export const UpdateModal: React.FC<UpdateModalProps> = ({
             <>
               <button
                 type="button"
-                onClick={onClose}
+                onClick={onRestartLater || onClose}
                 className="px-4 py-2 text-xs font-semibold rounded-xl border border-slate-300 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-200/60 dark:hover:bg-slate-800 transition-colors cursor-pointer"
               >
                 Restart Later
