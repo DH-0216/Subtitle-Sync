@@ -86,11 +86,14 @@ jobs:
             $customTitle = "${{ inputs.title }}".Trim()
           }
 
-          # 2. Check annotated git tag message
+          # 2. Check annotated git tag message (only if annotated tag, not lightweight commit)
           if (-not $customTitle -and $tag) {
-            $tagMsg = (git tag -l --format='%(contents:subject)' $tag).Trim()
-            if ($tagMsg -and $tagMsg -ne $tag) {
-              $customTitle = $tagMsg
+            $tagType = (git cat-file -t $tag 2>$null)
+            if ($tagType -eq "tag") {
+              $tagMsg = (git tag -l --format='%(contents:subject)' $tag).Trim()
+              if ($tagMsg -and $tagMsg -ne $tag -and $tagMsg -notmatch '^Merge ') {
+                $customTitle = $tagMsg
+              }
             }
           }
 
@@ -142,6 +145,10 @@ jobs:
           }
 
           # 4. Construct final title: e.g. "v2.2.3 - Feature Title"
+          if ($customTitle -match '^Merge ') {
+            $customTitle = ""
+          }
+
           if ($customTitle) {
             if ($customTitle -match "^$([regex]::Escape($tag))\s*[-:]?\s*(.*)$") {
               $sub = $matches[1].Trim()
