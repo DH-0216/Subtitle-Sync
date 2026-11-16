@@ -34,6 +34,18 @@ import {
 } from './updater'
 import { EXTERNAL_LINKS, getGeminiVerifyUrl } from '@shared/links'
 import { formatUserFriendlyError } from '@shared/errorUtils'
+import {
+  cleanPathString,
+  classifyFileType,
+  getFileExtension,
+  getFileName,
+  isVideoFile,
+  isSubtitleFile,
+  getUnsupportedFileMessage,
+  SUPPORTED_VIDEO_EXTENSIONS,
+  SUPPORTED_SUBTITLE_EXTENSIONS,
+  FileValidationItem
+} from '@shared/fileSanitizer'
 
 // Prevent unhandled errors (e.g. offline network sockets, unexpected stream breaks) from crashing the application
 process.on('uncaughtException', (err) => {
@@ -224,6 +236,147 @@ app.whenReady().then(() => {
     }
     return false
   })
+  // IPC: File Sanitization & Validation
+  ipcMain.handle(
+    'file:validate',
+    async (_event, payload: { paths: string[]; expected?: 'video' | 'subtitle' | 'any' }): Promise<FileValidationItem[]> => {
+      const results: FileValidationItem[] = []
+      const { paths, expected = 'any' } = payload || { paths: [] }
+      if (!Array.isArray(paths)) return []
+
+      for (const raw of paths) {
+        const clean = cleanPathString(raw)
+        const fileName = getFileName(clean)
+        const extension = getFileExtension(clean)
+        const category = classifyFileType(clean)
+
+        if (!clean) {
+          results.push({
+            rawPath: String(raw || ''),
+            cleanPath: '',
+            fileName: '',
+            extension: '',
+            exists: false,
+            isFile: false,
+            isDirectory: false,
+            sizeBytes: 0,
+            isEmpty: true,
+            category: 'other',
+            isValid: false,
+            errorMessage: 'Empty or invalid file path'
+          })
+          continue
+        }
+
+        const exists = fs.existsSync(clean)
+        if (!exists) {
+          results.push({
+            rawPath: String(raw),
+            cleanPath: clean,
+            fileName,
+            extension,
+            exists: false,
+            isFile: false,
+            isDirectory: false,
+            sizeBytes: 0,
+            isEmpty: true,
+            category,
+            isValid: false,
+            errorMessage: `File does not exist: "${fileName}"`
+          })
+          continue
+        }
+
+        let isFile = false
+        let isDirectory = false
+        let sizeBytes = 0
+        let directorySubtitles: string[] | undefined
+
+        try {
+          const stat = fs.statSync(clean)
+          isFile = stat.isFile()
+          isDirectory = stat.isDirectory()
+          sizeBytes = stat.size
+
+          if (isDirectory) {
+            try {
+              const entries = fs.readdirSync(clean)
+              directorySubtitles = entries
+                .filter((e) => isSubtitleFile(e))
+                .map((e) => join(clean, e))
+                .filter((p) => {
+                  try {
+                    return fs.statSync(p).isFile() && fs.statSync(p).size > 0
+                  } catch {
+                    return false
+                  }
+                })
+            } catch (err) {
+              console.warn(`Failed to read directory "${clean}":`, err)
+            }
+          }
+        } catch (e: any) {
+          results.push({
+            rawPath: String(raw),
+            cleanPath: clean,
+            fileName,
+            extension,
+            exists: true,
+            isFile: false,
+            isDirectory: false,
+            sizeBytes: 0,
+            isEmpty: true,
+            category,
+            isValid: false,
+            errorMessage: `Cannot access "${fileName}": ${e?.message || 'Access error'}`
+          })
+          continue
+        }
+
+        const isEmpty = isFile && sizeBytes === 0
+        let isValid = true
+        let errorMessage: string | undefined
+
+        if (isDirectory) {
+          if (expected === 'video') {
+            isValid = false
+            errorMessage = getUnsupportedFileMessage(clean, 'video', { isDirectory: true })
+          } else if (expected === 'subtitle' && (!directorySubtitles || directorySubtitles.length === 0)) {
+            isValid = false
+            errorMessage = getUnsupportedFileMessage(clean, 'subtitle', { isDirectory: true })
+          }
+        } else if (isEmpty) {
+          isValid = false
+          errorMessage = getUnsupportedFileMessage(clean, expected === 'subtitle' ? 'subtitle' : 'video', { isEmpty: true })
+        } else if (expected === 'video' && !isVideoFile(clean)) {
+          isValid = false
+          errorMessage = getUnsupportedFileMessage(clean, 'video')
+        } else if (expected === 'subtitle' && !isSubtitleFile(clean)) {
+          isValid = false
+          errorMessage = getUnsupportedFileMessage(clean, 'subtitle')
+        }
+
+        results.push({
+          rawPath: String(raw),
+          cleanPath: clean,
+          fileName,
+          extension,
+          exists: true,
+          isFile,
+          isDirectory,
+          sizeBytes,
+          isEmpty,
+          category,
+          isValid,
+          errorMessage,
+          directorySubtitles
+        })
+      }
+
+      return results
+    }
+  )
+
   // IPC: File Dialogs
   ipcMain.handle('dialog:openVideo', async () => {
     if (!mainWindow) return null
@@ -231,11 +384,12 @@ app.whenReady().then(() => {
       title: 'Select Movie / Video',
       properties: ['openFile'],
       filters: [
-        { name: 'Video Files', extensions: ['mkv', 'mp4', 'avi', 'mov', 'm4v', 'webm'] },
+        { name: 'Video Files', extensions: [...SUPPORTED_VIDEO_EXTENSIONS] },
         { name: 'All Files', extensions: ['*'] }
       ]
     })
-    return res.canceled ? null : res.filePaths[0]
+    if (res.canceled || !res.filePaths.length) return null
+    return cleanPathString(res.filePaths[0])
   })
 
   ipcMain.handle('dialog:openSubtitles', async () => {
@@ -244,11 +398,12 @@ app.whenReady().then(() => {
       title: 'Select Out-of-Sync Subtitles',
       properties: ['openFile', 'multiSelections'],
       filters: [
-        { name: 'Subtitle Files', extensions: ['srt', 'ass', 'ssa', 'vtt'] },
+        { name: 'Subtitle Files', extensions: [...SUPPORTED_SUBTITLE_EXTENSIONS] },
         { name: 'All Files', extensions: ['*'] }
       ]
     })
-    return res.canceled ? [] : res.filePaths
+    if (res.canceled || !res.filePaths.length) return []
+    return res.filePaths.map(cleanPathString).filter(Boolean)
   })
 
   ipcMain.handle('shell:showItemInFolder', async (_event, fullPath: string) => {
@@ -444,14 +599,18 @@ app.whenReady().then(() => {
   })
 
   // IPC: Probe Video
-  ipcMain.handle('engine:probe', async (_event, videoPath: string) => {
+  ipcMain.handle('engine:probe', async (_event, rawVideoPath: string) => {
+    const videoPath = cleanPathString(rawVideoPath)
     return probeVideoFile(videoPath)
   })
 
   // IPC: Read and count subtitle cues with full media metadata
-  ipcMain.handle('subtitles:inspect', async (_event, subPath: string) => {
+  ipcMain.handle('subtitles:inspect', async (_event, rawSubPath: string) => {
     try {
-      if (!fs.existsSync(subPath)) return null
+      const subPath = cleanPathString(rawSubPath)
+      if (!subPath || !fs.existsSync(subPath)) return null
+      const stat = fs.statSync(subPath)
+      if (!stat.isFile() || stat.size === 0) return null
       const content = fs.readFileSync(subPath, 'utf-8')
       const cues = parseSrt(content)
       const details = getSubtitleSyncDetails(subPath, cues, content)
@@ -469,8 +628,10 @@ app.whenReady().then(() => {
   })
 
   // IPC: Recommender
-  ipcMain.handle('engine:recommend', async (_event, videoPath: string, subPath: string) => {
+  ipcMain.handle('engine:recommend', async (_event, rawVideoPath: string, rawSubPath: string) => {
     try {
+      const videoPath = cleanPathString(rawVideoPath)
+      const subPath = cleanPathString(rawSubPath)
       const probeRes = await probeVideoFile(videoPath)
       const content = fs.readFileSync(subPath, 'utf-8')
       const cues = parseSrt(content)
@@ -503,6 +664,10 @@ app.whenReady().then(() => {
     if (activeSyncEngine) {
       activeSyncEngine.cancel()
     }
+
+    params.video = cleanPathString(params.video)
+    params.sub = cleanPathString(params.sub)
+    params.out = cleanPathString(params.out)
 
     // Auto-increment (1), (2), etc. if output file already exists
     params.out = getUniqueFilePath(params.out)
@@ -672,22 +837,31 @@ app.whenReady().then(() => {
 
   ipcMain.handle('dialog:selectFolder', async (_event, defaultPath?: string) => {
     if (!mainWindow) return null
+    const cleanDefault = defaultPath ? cleanPathString(defaultPath) : undefined
     const res = await dialog.showOpenDialog(mainWindow, {
       title: 'Select Destination Folder for Extracted Subtitles',
-      defaultPath: defaultPath && fs.existsSync(defaultPath) ? defaultPath : undefined,
+      defaultPath: cleanDefault && fs.existsSync(cleanDefault) ? cleanDefault : undefined,
       properties: ['openDirectory', 'createDirectory']
     })
-    return res.canceled ? null : res.filePaths[0]
+    if (res.canceled || !res.filePaths.length) return null
+    const clean = cleanPathString(res.filePaths[0])
+    return clean && fs.existsSync(clean) ? clean : null
   })
 
   ipcMain.handle('dialog:saveSrt', async (_event, defaultPath: string) => {
     if (!mainWindow) return null
+    const cleanDefault = cleanPathString(defaultPath)
     const res = await dialog.showSaveDialog(mainWindow, {
       title: 'Save Extracted Subtitle As',
-      defaultPath,
+      defaultPath: cleanDefault,
       filters: [{ name: 'SubRip Subtitle (*.srt)', extensions: ['srt'] }]
     })
-    return res.canceled ? null : res.filePath
+    if (res.canceled || !res.filePath) return null
+    let clean = cleanPathString(res.filePath)
+    if (clean && !clean.toLowerCase().endsWith('.srt')) {
+      clean += '.srt'
+    }
+    return clean || null
   })
 
   // IPC: In-App Auto-Updater Handlers

@@ -20,6 +20,14 @@ import { EXTERNAL_LINKS } from '@shared/links'
 import { formatUserFriendlyError } from '@shared/errorUtils'
 import { AiProviderId, isValidAiProvider } from '@shared/aiModels'
 import { APP_VERSION, compareVersions } from '@shared/version'
+import {
+  cleanPathString,
+  isVideoFile,
+  isSubtitleFile,
+  getUnsupportedFileMessage,
+  getFileName,
+  FileValidationItem
+} from '@shared/fileSanitizer'
 
 export default function App() {
   // Theme & Preferences
@@ -32,6 +40,11 @@ export default function App() {
   const [aiProvider, setAiProvider] = useState<AiProviderId>('gemini')
   const [aiModel, setAiModel] = useState('auto')
   const [aiPrompt, setAiPrompt] = useState(DEFAULT_AI_PROMPT)
+
+  // File selection inline error messages
+  const [videoError, setVideoError] = useState<string | null>(null)
+  const [subtitleError, setSubtitleError] = useState<string | null>(null)
+  const [generateSubError, setGenerateSubError] = useState<string | null>(null)
 
   // Modals
   const [audioModalOpen, setAudioModalOpen] = useState(false)
@@ -82,6 +95,18 @@ export default function App() {
     return () => {
       window.removeEventListener('online', handleOnline)
       window.removeEventListener('offline', handleOffline)
+    }
+  }, [])
+
+  // Global window drag & drop protection: prevent browser from navigating away on dropped files
+  useEffect(() => {
+    const handleWindowDragOver = (e: DragEvent) => e.preventDefault()
+    const handleWindowDrop = (e: DragEvent) => e.preventDefault()
+    window.addEventListener('dragover', handleWindowDragOver)
+    window.addEventListener('drop', handleWindowDrop)
+    return () => {
+      window.removeEventListener('dragover', handleWindowDragOver)
+      window.removeEventListener('drop', handleWindowDrop)
     }
   }, [])
 
@@ -516,18 +541,49 @@ export default function App() {
     }
   }, [])
 
-  // Probe Video File
-  const handleSelectVideo = async (filePath: string) => {
-    setVideoPath(filePath)
+  // Probe Video File with sanitization and validation
+  const handleSelectVideo = async (rawPath: string) => {
+    setVideoError(null)
+    const cleanPath = cleanPathString(rawPath)
+    if (!cleanPath) {
+      const msg = 'Please select a valid file path.'
+      setVideoError(msg)
+      toast.error(msg)
+      return
+    }
+
+    // 1. Direct synchronous format check: Subtitle file dropped on video
+    if (isSubtitleFile(cleanPath)) {
+      const fileName = getFileName(cleanPath)
+      const msg = `"${fileName}" is a subtitle file, not a movie. Routed to Step 2 Subtitles instead!`
+      toast(msg, { icon: '📝' })
+      setLogs((prev) => [...prev, `[FILE] Subtitle dropped on video zone: routed "${fileName}" to Step 2`])
+      handleAddSubtitles([cleanPath])
+      return
+    }
+
+    // 2. Unsupported format check: Not a video format
+    if (!isVideoFile(cleanPath)) {
+      const msg = getUnsupportedFileMessage(cleanPath, 'video')
+      const fileName = getFileName(cleanPath)
+      setVideoError(msg)
+      toast.error(msg)
+      setLogs((prev) => [...prev, `[FILE] ⚠️ Unsupported video: ${msg}`])
+      setStatusMessage(`Unsupported file: ${fileName}`)
+      return
+    }
+
+    setVideoError(null)
+    setVideoPath(cleanPath)
     setUserSelectedMode(false)
     setProgress(0)
     setLastOutputDir(null)
     setLastOutputFile(null)
-    setLogs((prev) => [...prev, `[MEDIA] Loading video: ${filePath}`])
+    setLogs((prev) => [...prev, `[MEDIA] Loading video: ${cleanPath}`])
     setStatusMessage('Probing video audio and subtitle tracks...')
 
     try {
-      const res = await window.api.engine.probe(filePath)
+      const res = await window.api.engine.probe(cleanPath)
       if (res) {
         setAudioTracks(res.tracks || [])
         setVideoDetails(res.details || null)
@@ -572,18 +628,117 @@ export default function App() {
     setStatusMessage('Ready')
   }
 
+  // Handle multi-file or single-file drop onto Step 1 Video
+  const handleDropFilesOnVideo = async (rawPaths: string[]) => {
+    if (!rawPaths || rawPaths.length === 0) return
+    const cleanPaths = rawPaths.map(cleanPathString).filter(Boolean)
+    if (cleanPaths.length === 0) return
+
+    if (cleanPaths.length > 1 && window.api?.file?.validate) {
+      const valResults = await window.api.file.validate(cleanPaths, 'any')
+      const videoItems = valResults.filter((v) => v.category === 'video' && v.exists && v.isFile)
+      const subItems = valResults.filter((v) => v.category === 'subtitle' && v.exists && v.isFile)
+
+      if (videoItems.length > 0 && subItems.length > 0) {
+        toast.success(`Loaded reference movie and ${subItems.length} subtitle file(s)!`, { icon: '🎯' })
+        await handleSelectVideo(videoItems[0].cleanPath)
+        await handleAddSubtitles(subItems.map((s) => s.cleanPath))
+        return
+      }
+    }
+
+    handleSelectVideo(cleanPaths[0])
+  }
+
   // Browse video
   const handleBrowseVideo = async () => {
+    setVideoError(null)
     const file = await window.api.dialog.openVideo()
     if (file) {
       handleSelectVideo(file)
     }
   }
 
-  // Handle Subtitles
-  const handleAddSubtitles = async (paths: string[]) => {
+  // Handle Subtitles with sanitization, deduplication, and folder scanning
+  const handleAddSubtitles = async (rawPaths: string[]) => {
+    setSubtitleError(null)
+    if (!rawPaths || rawPaths.length === 0) return
+    const cleanPaths = rawPaths.map(cleanPathString).filter(Boolean)
+    if (cleanPaths.length === 0) return
+
+    // If folder dropped, expand directory subtitles via backend validate if available
+    let expandedPaths = [...cleanPaths]
+    if (window.api?.file?.validate) {
+      try {
+        const valResults = await window.api.file.validate(cleanPaths, 'subtitle')
+        if (Array.isArray(valResults) && valResults.length > 0) {
+          const dirItems = valResults.filter((v) => v.isDirectory && v.directorySubtitles && v.directorySubtitles.length > 0)
+          if (dirItems.length > 0) {
+            expandedPaths = []
+            for (const v of valResults) {
+              if (v.isDirectory && v.directorySubtitles && v.directorySubtitles.length > 0) {
+                toast.success(`Found ${v.directorySubtitles.length} subtitle(s) in folder "${v.fileName}"!`)
+                expandedPaths.push(...v.directorySubtitles)
+              } else if (!v.isDirectory) {
+                expandedPaths.push(v.cleanPath)
+              }
+            }
+          }
+        }
+      } catch (e) {
+        console.warn('Folder expansion check skipped:', e)
+      }
+    }
+
+    const toProcess: string[] = []
+    let skippedDuplicates = 0
+    let skippedUnsupported = 0
+
+    for (const p of expandedPaths) {
+      // 1. Movie dropped on subtitle area: load into Step 1 or inform user
+      if (isVideoFile(p)) {
+        const fileName = getFileName(p)
+        if (!videoPath) {
+          toast.success(`Detected movie "${fileName}"! Loaded into Step 1.`, { icon: '🎬' })
+          setLogs((prev) => [...prev, `[FILE] Movie dropped on subtitles: loaded "${fileName}" into Step 1`])
+          handleSelectVideo(p)
+        } else {
+          const msg = `"${fileName}" is a video file. To change your reference movie, drop it into Step 1.`
+          setSubtitleError(msg)
+          toast(msg, { icon: 'ℹ️' })
+          setLogs((prev) => [...prev, `[FILE] ℹ️ ${msg}`])
+        }
+        continue
+      }
+
+      // 2. Unsupported format check
+      if (!isSubtitleFile(p)) {
+        skippedUnsupported++
+        const msg = getUnsupportedFileMessage(p, 'subtitle')
+        setSubtitleError(msg)
+        toast.error(msg)
+        setLogs((prev) => [...prev, `[FILE] ⚠️ Unsupported subtitle: ${msg}`])
+        continue
+      }
+
+      // 3. Deduplication check
+      if (subtitles.some((s) => s.path === p) || toProcess.includes(p)) {
+        skippedDuplicates++
+        continue
+      }
+
+      toProcess.push(p)
+    }
+
+    if (skippedDuplicates > 0) {
+      toast(`Skipped ${skippedDuplicates} duplicate subtitle(s).`, { icon: 'ℹ️' })
+    }
+
+    if (toProcess.length === 0) return
+
+    setSubtitleError(null)
     const newItems: SubtitleItem[] = []
-    for (const p of paths) {
+    for (const p of toProcess) {
       const name = p.split(/[\/\\]/).pop() || p
       const inspectRes = await window.api.engine.inspectSubtitle(p)
       newItems.push({
@@ -597,16 +752,19 @@ export default function App() {
         span: inspectRes?.span
       })
     }
+
     setSubtitles((prev) => [...prev, ...newItems])
     setUserSelectedMode(false)
     setProgress(0)
     setLastOutputDir(null)
     setLastOutputFile(null)
     setStatusMessage('Ready')
-    setLogs((prev) => [...prev, `[SUBTITLES] Added ${paths.length} subtitle file(s)`])
+    setLogs((prev) => [...prev, `[SUBTITLES] Added ${newItems.length} subtitle file(s)`])
+    toast.success(`Added ${newItems.length} subtitle file(s)!`, { icon: '📄' })
   }
 
   const handleBrowseSubtitles = async () => {
+    setSubtitleError(null)
     const files = await window.api.dialog.openSubtitles()
     if (files && files.length > 0) {
       handleAddSubtitles(files)
@@ -801,18 +959,35 @@ export default function App() {
     toast('Model download cancelled')
   }
 
+  const handleSelectGenerateSubtitle = async (rawPath: string) => {
+    setGenerateSubError(null)
+    const clean = cleanPathString(rawPath)
+    if (!clean) return
+
+    if (!isSubtitleFile(clean)) {
+      const msg = getUnsupportedFileMessage(clean, 'subtitle')
+      setGenerateSubError(msg)
+      toast.error(msg)
+      setLogs((prev) => [...prev, `[FILE] ⚠️ Unsupported subtitle for translation: ${msg}`])
+      return
+    }
+
+    setGenerateSubError(null)
+    setGenerateConfig((prev) => ({
+      ...prev,
+      sourceType: 'subtitle',
+      sourceSubPath: clean
+    }))
+    const fileName = getFileName(clean)
+    toast.success(`Selected subtitle: ${fileName}`)
+    setLogs((prev) => [...prev, `[SUBTITLE] Selected file for AI translation: ${clean}`])
+  }
+
   const handleBrowseGenerateSubtitle = async () => {
     try {
       const files = await window.api.dialog.openSubtitles()
       if (files && files.length > 0) {
-        setGenerateConfig((prev) => ({
-          ...prev,
-          sourceType: 'subtitle',
-          sourceSubPath: files[0]
-        }))
-        const fileName = files[0].split(/[/\\]/).pop()
-        toast.success(`Selected subtitle: ${fileName}`)
-        setLogs((prev) => [...prev, `[SUBTITLE] Selected file for AI translation: ${files[0]}`])
+        handleSelectGenerateSubtitle(files[0])
       }
     } catch (e: any) {
       toast.error('Failed to open subtitle: ' + e?.message)
@@ -1408,8 +1583,11 @@ export default function App() {
           audioTracks={audioTracks}
           selectedTrack={selectedTrack}
           subtitleTracks={subtitleTracks}
+          errorMessage={videoError}
+          onClearError={() => setVideoError(null)}
           onBrowse={handleBrowseVideo}
           onRemove={() => {
+            setVideoError(null)
             setVideoPath(null)
             setAudioTracks([])
             setVideoDetails(null)
@@ -1426,6 +1604,7 @@ export default function App() {
           }}
           onSelectTrackModal={() => setAudioModalOpen(true)}
           onDropFile={(path) => handleSelectVideo(path)}
+          onDropFiles={handleDropFilesOnVideo}
           onSwitchToTranslate={handleSwitchToTranslate}
         />
 
@@ -1456,9 +1635,12 @@ export default function App() {
         {subtitleAction === 'sync' ? (
           <Step2Subtitles
             subtitles={subtitles}
+            errorMessage={subtitleError}
+            onClearError={() => setSubtitleError(null)}
             onBrowse={handleBrowseSubtitles}
             onRemove={handleRemoveSubtitle}
             onClearAll={() => {
+              setSubtitleError(null)
               setSubtitles([])
               setUserSelectedMode(false)
               setProgress(0)
@@ -1488,6 +1670,9 @@ export default function App() {
             modelsSource={whisperModelsSource}
             extractedFiles={extractedFiles}
             onBrowseSubtitle={handleBrowseGenerateSubtitle}
+            onDropSubtitle={handleSelectGenerateSubtitle}
+            errorMessage={generateSubError}
+            onClearError={() => setGenerateSubError(null)}
             subtitleTracks={subtitleTracks}
             onExtractAndUseSubtitle={handleExtractAndUseSubtitle}
             isExtracting={isExtracting}
@@ -1724,17 +1909,17 @@ export default function App() {
         toastOptions={{
           duration: 3500,
           style: {
-            background: theme === 'dark' ? '#1E293B' : '#FFFFFF',
-            color: theme === 'dark' ? '#F8FAFC' : '#0F172A',
-            border: theme === 'dark' ? '1px solid rgba(255, 255, 255, 0.1)' : '1px solid rgba(0, 0, 0, 0.08)',
+            background: '#1E293B',
+            color: '#F8FAFC',
+            border: '1px solid #334155',
             borderRadius: '12px',
+            padding: '12px 16px',
             fontSize: '13px',
-            fontWeight: 500,
-            boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.2), 0 8px 10px -6px rgba(0, 0, 0, 0.1)',
-            cursor: 'pointer'
+            fontWeight: '500',
+            boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.3), 0 8px 10px -6px rgba(0, 0, 0, 0.3)'
           },
           success: {
-            duration: 3000,
+            duration: 3500,
             iconTheme: {
               primary: '#10B981',
               secondary: '#FFFFFF'

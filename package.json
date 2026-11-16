@@ -1,6 +1,6 @@
 {
   "name": "subtitle-sync-studio",
-  "version": "2.2.2",
+  "version": "2.2.3",
   "description": "Subtitle Sync Studio - Modern Subtitle Synchronizer",
   "main": "./out/main/index.js",
   "author": "DH-0216",
