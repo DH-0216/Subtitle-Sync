@@ -68,12 +68,20 @@ jobs:
             Set-Content dist/SHA256SUMS.txt
           Get-Content dist/SHA256SUMS.txt
 
+      - name: Prepare Custom Release Notes
+        shell: pwsh
+        run: |
+          $tag = "${{ github.event.release.tag_name || github.ref_name || inputs.tag }}"
+          ./scripts/generate-release-notes.ps1 -Tag $tag
+
       - name: Upload Release Assets
         uses: softprops/action-gh-release@v2
         if: startsWith(github.ref, 'refs/tags/') || github.event_name == 'release' || (github.event_name == 'workflow_dispatch' && inputs.tag != '')
         with:
           tag_name: ${{ github.event.release.tag_name || github.ref_name || inputs.tag }}
           name: ${{ github.event.release.name || github.ref_name || inputs.tag }}
+          body_path: dist/RELEASE_NOTES.md
+          append_body: true
           files: |
             dist/SubtitleSync-Setup.exe
             dist/SubtitleSync-Portable.exe
