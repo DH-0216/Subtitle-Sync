@@ -8,6 +8,7 @@
   "scripts": {
     "dev": "electron-vite dev",
     "build": "electron-vite build",
+    "typecheck": "tsc --noEmit",
     "postinstall": "electron-builder install-app-deps",
     "package": "electron-vite build && electron-builder"
   },
