@@ -8,7 +8,8 @@ import {
   ExternalLink,
   CheckCircle2,
   ArrowRight,
-  ShieldCheck
+  ShieldCheck,
+  RefreshCw
 } from 'lucide-react'
 import { UserFriendlyReleaseNotes } from './UserFriendlyReleaseNotes'
 import { compareVersions } from '@shared/version'
@@ -23,6 +24,8 @@ export interface AppUpdateData {
   downloadUrl?: string
   assetName?: string
   assetSize?: number
+  deltaSize?: number
+  isDeltaAvailable?: boolean
   releaseUrl?: string
 }
 
@@ -140,12 +143,12 @@ export const UpdateModal: React.FC<UpdateModalProps> = ({
               </span>
             </div>
 
-            {updateInfo.assetSize && (
+            {(updateInfo.assetSize || updateInfo.deltaSize) && (
               <div className="flex items-center gap-1.5 text-[11px] font-semibold text-slate-500 dark:text-slate-400">
                 <span>Size:</span>
-                {totalBytes > 0 && totalBytes < updateInfo.assetSize * 0.9 ? (
-                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-950/70 text-emerald-800 dark:text-emerald-300 font-bold border border-emerald-300 dark:border-emerald-700">
-                    ⚡ ~{formatBytes(totalBytes)} (Delta)
+                {updateInfo.isDeltaAvailable || (totalBytes > 0 && totalBytes < (updateInfo.assetSize || 0) * 0.9) ? (
+                  <span className="font-mono text-slate-700 dark:text-slate-300">
+                    ~{formatBytes(totalBytes > 0 ? totalBytes : updateInfo.deltaSize || 20 * 1024 * 1024)} (Delta)
                   </span>
                 ) : (
                   <span className="font-mono text-slate-700 dark:text-slate-300">
@@ -171,8 +174,8 @@ export const UpdateModal: React.FC<UpdateModalProps> = ({
                   <Loader2 className="w-4 h-4 animate-spin text-blue-600 dark:text-blue-400" />
                   <span>
                     {downloadProgress >= 100
-                      ? 'Download complete! Launching setup wizard...'
-                      : totalBytes > 0 && updateInfo.assetSize && totalBytes < updateInfo.assetSize * 0.9
+                      ? 'Download complete! Ready to apply...'
+                      : (updateInfo.isDeltaAvailable || (totalBytes > 0 && updateInfo.assetSize && totalBytes < updateInfo.assetSize * 0.9))
                       ? 'Downloading fast delta patch...'
                       : 'Downloading update installer...'}
                   </span>
@@ -191,10 +194,10 @@ export const UpdateModal: React.FC<UpdateModalProps> = ({
               {/* Speed & Stats */}
               <div className="flex items-center justify-between text-[11px] text-slate-600 dark:text-slate-400">
                 <span className="flex items-center gap-1.5">
-                  <span>{formatBytes(downloadedBytes)} / {formatBytes(totalBytes || updateInfo.assetSize)}</span>
-                  {totalBytes > 0 && updateInfo.assetSize && totalBytes < updateInfo.assetSize * 0.9 && (
+                  <span>{formatBytes(downloadedBytes)} / {formatBytes(totalBytes || updateInfo.deltaSize || updateInfo.assetSize)}</span>
+                  {updateInfo.assetSize && (totalBytes || updateInfo.deltaSize) && (totalBytes || updateInfo.deltaSize!) < updateInfo.assetSize * 0.9 && (
                     <span className="text-emerald-600 dark:text-emerald-400 font-semibold">
-                      (⚡ Saved {formatBytes(updateInfo.assetSize - totalBytes)}!)
+                      (⚡ Saved {formatBytes(updateInfo.assetSize - (totalBytes || updateInfo.deltaSize!))}!)
                     </span>
                   )}
                 </span>

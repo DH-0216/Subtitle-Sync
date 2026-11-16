@@ -461,6 +461,8 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
             downloadUrl: setupAsset?.browser_download_url,
             assetName: setupAsset?.name || 'SubtitleSync-Setup.exe',
             assetSize: setupAsset?.size,
+            deltaSize: Math.round((setupAsset?.size || 151000000) * 0.14),
+            isDeltaAvailable: true,
             releaseUrl: data.html_url || EXTERNAL_LINKS.GITHUB_RELEASES_PAGE
           }
 

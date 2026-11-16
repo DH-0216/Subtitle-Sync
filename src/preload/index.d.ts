@@ -212,6 +212,8 @@ export interface IElectronAPI {
       downloadUrl?: string
       assetName?: string
       assetSize?: number
+      deltaSize?: number
+      isDeltaAvailable?: boolean
       releaseUrl?: string
       error?: string
     }>
