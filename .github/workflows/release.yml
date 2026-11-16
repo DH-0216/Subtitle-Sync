@@ -12,6 +12,10 @@ on:
         description: 'Release tag (e.g. v2.2.0). If provided, assets will be attached to this release.'
         required: false
         type: string
+      title:
+        description: 'Release title subtitle (e.g. Portable In-Place Auto-Updater)'
+        required: false
+        type: string
 
 permissions:
   contents: write
@@ -24,6 +28,8 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -68,12 +74,112 @@ jobs:
             Set-Content dist/SHA256SUMS.txt
           Get-Content dist/SHA256SUMS.txt
 
+      - name: Resolve Release Title & Metadata
+        id: release-meta
+        shell: pwsh
+        run: |
+          $tag = "${{ github.event.release.tag_name || github.ref_name || inputs.tag }}"
+          $customTitle = ""
+
+          # 1. Manual trigger input
+          if ("${{ inputs.title }}") {
+            $customTitle = "${{ inputs.title }}".Trim()
+          }
+
+          # 2. Check annotated git tag message
+          if (-not $customTitle -and $tag) {
+            $tagMsg = (git tag -l --format='%(contents:subject)' $tag).Trim()
+            if ($tagMsg -and $tagMsg -ne $tag) {
+              $customTitle = $tagMsg
+            }
+          }
+
+          # 3. Fallback: Parse meaningful commits (feat: or fix:) since previous tag
+          if (-not $customTitle) {
+            try {
+              $prevTag = (git describe --tags --abbrev=0 "$tag^" 2>$null)
+              $range = if ($prevTag) { "$prevTag..$tag" } else { "$tag" }
+              $commits = @(git log $range --format='%s')
+
+              $featCommits = @($commits | Where-Object { $_ -match '^(feat|feature)(\(.*\))?:\s*(.+)$' })
+              $fixCommits  = @($commits | Where-Object { $_ -match '^(fix|bug)(\(.*\))?:\s*(.+)$' })
+
+              if ($featCommits.Count -gt 0) {
+                $cleaned = @($featCommits | ForEach-Object {
+                  if ($_ -match '^(?:feat|feature)(?:\(.*\))?:\s*(.+)$') {
+                    $t = $matches[1].Trim()
+                    if ($t.Length -gt 1) { $t.Substring(0,1).ToUpper() + $t.Substring(1) } else { $t }
+                  }
+                })
+                if ($cleaned.Count -gt 1 -and ("$($cleaned[0]) & $($cleaned[1])".Length -le 80)) {
+                  $customTitle = "$($cleaned[0]) & $($cleaned[1])"
+                } else {
+                  $customTitle = $cleaned[0]
+                }
+              } elseif ($fixCommits.Count -gt 0) {
+                $cleaned = @($fixCommits | ForEach-Object {
+                  if ($_ -match '^(?:fix|bug)(?:\(.*\))?:\s*(.+)$') {
+                    $t = $matches[1].Trim()
+                    if ($t.Length -gt 1) { $t.Substring(0,1).ToUpper() + $t.Substring(1) } else { $t }
+                  }
+                })
+                if ($cleaned.Count -gt 1 -and ("$($cleaned[0]) & $($cleaned[1])".Length -le 80)) {
+                  $customTitle = "$($cleaned[0]) & $($cleaned[1])"
+                } else {
+                  $customTitle = $cleaned[0]
+                }
+              } else {
+                $other = @($commits | Where-Object {
+                  $_ -notmatch '^(Merge |chore|ci|refactor\(deps\)|bump)' -and $_.Trim() -ne ''
+                })
+                if ($other.Count -gt 0) {
+                  $customTitle = $other[0].Trim()
+                }
+              }
+            } catch {
+              Write-Host "Could not parse commits for release title."
+            }
+          }
+
+          # 4. Construct final title: e.g. "v2.2.3 - Feature Title"
+          if ($customTitle) {
+            if ($customTitle -match "^$([regex]::Escape($tag))\s*[-:]?\s*(.*)$") {
+              $sub = $matches[1].Trim()
+              if ($sub) {
+                $finalTitle = "$tag - $sub"
+              } else {
+                $finalTitle = $tag
+              }
+            } else {
+              $finalTitle = "$tag - $customTitle"
+            }
+          } else {
+            $finalTitle = $tag
+          }
+
+          Write-Host "Resolved Tag: $tag"
+          Write-Host "Resolved Title: $finalTitle"
+
+          "tag=$tag" >> $env:GITHUB_OUTPUT
+          "title=$finalTitle" >> $env:GITHUB_OUTPUT
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Prepare Custom Release Notes
+        shell: pwsh
+        run: |
+          $tag = "${{ steps.release-meta.outputs.tag }}"
+          $title = "${{ steps.release-meta.outputs.title }}"
+          ./scripts/generate-release-notes.ps1 -Tag $tag -Title $title
+
       - name: Upload Release Assets
         uses: softprops/action-gh-release@v2
         if: startsWith(github.ref, 'refs/tags/') || github.event_name == 'release' || (github.event_name == 'workflow_dispatch' && inputs.tag != '')
         with:
-          tag_name: ${{ github.event.release.tag_name || github.ref_name || inputs.tag }}
-          name: ${{ github.event.release.name || github.ref_name || inputs.tag }}
+          tag_name: ${{ steps.release-meta.outputs.tag }}
+          name: ${{ steps.release-meta.outputs.title }}
+          body_path: dist/RELEASE_NOTES.md
+          append_body: true
           files: |
             dist/SubtitleSync-Setup.exe
             dist/SubtitleSync-Portable.exe
@@ -84,13 +190,14 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Ensure Release Title Has 'v' Prefix
-        if: startsWith(github.ref, 'refs/tags/')
+      - name: Ensure Release Title
+        if: startsWith(github.ref, 'refs/tags/') || github.event_name == 'release' || (github.event_name == 'workflow_dispatch' && inputs.tag != '')
         shell: pwsh
         run: |
-          $tag = "${{ github.ref_name }}"
-          if ($tag -and $tag.StartsWith('v')) {
-            gh release edit $tag --title $tag
+          $tag = "${{ steps.release-meta.outputs.tag }}"
+          $title = "${{ steps.release-meta.outputs.title }}"
+          if ($tag -and $title) {
+            gh release edit $tag --title $title
           }
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

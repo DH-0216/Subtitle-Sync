@@ -217,6 +217,14 @@ export default function App() {
     }
   }
 
+  const handleRestartLater = () => {
+    setUpdateModalOpen(false)
+    toast.success('Update ready! It will be applied automatically next time you launch the app.', {
+      icon: '🕒',
+      duration: 5000
+    })
+  }
+
   const handleCancelUpdateDownload = async () => {
     try {
       if (window.api?.updater?.cancel) {
@@ -1897,6 +1905,7 @@ export default function App() {
         totalBytes={updateTotalBytes}
         isUpdateReady={isUpdateReady}
         onRestartToApply={handleRestartToApply}
+        onRestartLater={handleRestartLater}
         errorMessage={updateErrorMessage}
         onDownloadAndInstall={handleDownloadAndInstallUpdate}
         onCancelDownload={handleCancelUpdateDownload}

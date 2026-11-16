@@ -35,6 +35,27 @@ registerPermanentErrorHandler()
 let activeCancellationToken: CancellationToken | null = null
 let downloadedInstallerPath: string | null = null
 
+// Automatic install on quit if user selected "Restart Later"
+app.on('before-quit', () => {
+  if (downloadedInstallerPath && fs.existsSync(downloadedInstallerPath)) {
+    try {
+      const updateBat = join(app.getPath('temp'), 'launch-setup.bat')
+      fs.writeFileSync(
+        updateBat,
+        `@echo off\r\ntimeout /t 1 /nobreak >nul\r\nstart "" "${downloadedInstallerPath}"\r\n(goto) 2>nul & del "%~f0"\r\n`,
+        'utf-8'
+      )
+      const child = spawn('cmd.exe', ['/c', updateBat], {
+        detached: true,
+        stdio: 'ignore'
+      })
+      child.unref()
+    } catch (e) {
+      console.warn('[UPDATER] Failed to launch setup on app quit:', e)
+    }
+  }
+})
+
 export interface UpdateInfo {
   updateAvailable: boolean
   currentVersion: string
@@ -45,6 +66,8 @@ export interface UpdateInfo {
   downloadUrl?: string
   assetName?: string
   assetSize?: number
+  deltaSize?: number
+  isDeltaAvailable?: boolean
   releaseUrl?: string
   error?: string
 }
@@ -134,6 +157,9 @@ export async function checkForAppUpdate(): Promise<UpdateInfo> {
     }
 
     const defaultAssetName = isPortable() ? 'SubtitleSync-Portable.exe' : 'SubtitleSync-Setup.exe'
+    const isDelta = !isPortable()
+    const rawSize = targetAsset?.size || 151000000
+    const estimatedDelta = isDelta ? Math.round(rawSize * 0.14) : undefined
 
     return {
       updateAvailable: true,
@@ -145,6 +171,8 @@ export async function checkForAppUpdate(): Promise<UpdateInfo> {
       downloadUrl: targetAsset?.browser_download_url,
       assetName: targetAsset?.name || defaultAssetName,
       assetSize: targetAsset?.size,
+      deltaSize: estimatedDelta,
+      isDeltaAvailable: isDelta,
       releaseUrl: data.html_url || EXTERNAL_LINKS.GITHUB_RELEASES_PAGE
     }
   } catch (err: any) {
@@ -309,6 +337,7 @@ export function downloadAndInstallUpdate(
   onProgress: (progress: UpdateProgress) => void
 ): Promise<UpdateDownloadResult> {
   isDownloadCancelled = false
+  downloadedInstallerPath = null
 
   if (app.isPackaged && !isPortable()) {
     return new Promise((resolve) => {
@@ -317,6 +346,8 @@ export function downloadAndInstallUpdate(
       autoUpdater.removeAllListeners('download-progress')
       autoUpdater.removeAllListeners('update-downloaded')
       autoUpdater.removeAllListeners('error')
+
+      let fallbackTriggered = false
 
       autoUpdater.on('download-progress', (progressObj) => {
         const speedMb = (progressObj.bytesPerSecond / (1024 * 1024)).toFixed(1)
@@ -329,13 +360,14 @@ export function downloadAndInstallUpdate(
       })
 
       autoUpdater.once('update-downloaded', () => {
+        fallbackTriggered = true
         registerPermanentErrorHandler()
+        downloadedInstallerPath = null
         resolve({ success: true, readyToInstall: true })
       })
 
-      let fallbackTriggered = false
       const handleFallback = (err?: any) => {
-        if (fallbackTriggered) return
+        if (fallbackTriggered || isDownloadCancelled) return
         fallbackTriggered = true
         registerPermanentErrorHandler()
         console.warn('[UPDATER] Differential update not available or failed, falling back to full download:', err?.message || err)
@@ -350,10 +382,15 @@ export function downloadAndInstallUpdate(
         autoUpdater.setFeedURL({
           provider: 'github',
           owner: 'DH-0216',
-          repo: 'Subtitle-Sync'
-        })
+          repo: 'Subtitle-Sync',
+          vPrefixedTagName: true
+        } as any)
+
         autoUpdater.checkForUpdates()
-          .then(() => autoUpdater.downloadUpdate(activeCancellationToken))
+          .then(() => {
+            if (isDownloadCancelled) return
+            return autoUpdater.downloadUpdate(activeCancellationToken)
+          })
           .catch(handleFallback)
       } catch (e) {
         handleFallback(e)
@@ -368,16 +405,6 @@ export function downloadAndInstallUpdate(
  * Restart the app to apply the downloaded update (never called automatically or unexpectedly)
  */
 export function restartAndInstallApp(): void {
-  // Immediately close and destroy all browser windows to eliminate any blank or frozen screen
-  try {
-    BrowserWindow.getAllWindows().forEach((win) => {
-      win.removeAllListeners('close')
-      win.destroy()
-    })
-  } catch (err) {
-    console.warn('[UPDATER] Failed to close windows before install:', err)
-  }
-
   // 1. Portable Edition Handler: Replace old portable .exe cleanly without installer wizard
   if (isPortable()) {
     const portableDir = process.env.PORTABLE_EXECUTABLE_DIR
@@ -402,7 +429,7 @@ export function restartAndInstallApp(): void {
 
         setTimeout(() => {
           app.quit()
-        }, 400)
+        }, 300)
         return
       } catch (err) {
         console.warn('[UPDATER] Failed to create portable replacement script, spawning directly:', err)
@@ -418,7 +445,7 @@ export function restartAndInstallApp(): void {
         child.unref()
         setTimeout(() => {
           app.quit()
-        }, 400)
+        }, 300)
         return
       } catch (err) {
         console.warn('[UPDATER] Failed to launch downloaded portable executable:', err)
@@ -433,26 +460,47 @@ export function restartAndInstallApp(): void {
   // 2. Direct downloaded installer handler (if fallback or direct download occurred)
   if (downloadedInstallerPath && fs.existsSync(downloadedInstallerPath)) {
     try {
-      const installerProcess = spawn(downloadedInstallerPath, ['/S'], {
+      const updateBat = join(app.getPath('temp'), 'launch-setup.bat')
+      fs.writeFileSync(
+        updateBat,
+        `@echo off\r\ntimeout /t 1 /nobreak >nul\r\nstart "" "${downloadedInstallerPath}"\r\n(goto) 2>nul & del "%~f0"\r\n`,
+        'utf-8'
+      )
+
+      const child = spawn('cmd.exe', ['/c', updateBat], {
         detached: true,
         stdio: 'ignore'
       })
-      installerProcess.unref()
+      child.unref()
+
       setTimeout(() => {
         app.quit()
-      }, 400)
+      }, 300)
       return
     } catch (e) {
-      console.warn('[UPDATER] Failed to spawn direct installer:', e)
+      console.warn('[UPDATER] Failed to spawn setup installer batch, trying direct spawn:', e)
+      try {
+        const child = spawn(downloadedInstallerPath, [], {
+          detached: true,
+          stdio: 'ignore'
+        })
+        child.unref()
+        setTimeout(() => app.quit(), 300)
+        return
+      } catch (err) {
+        console.warn('[UPDATER] Direct spawn failed:', err)
+      }
     }
   }
 
-  // 3. Standard Installed Edition Handler (NSIS differential update)
+  // 3. Standard Installed Edition Handler (NSIS differential update via autoUpdater)
   if (app.isPackaged) {
     try {
-      setImmediate(() => {
-        autoUpdater.quitAndInstall(true, true)
-      })
+      app.removeAllListeners('window-all-closed')
+      autoUpdater.quitAndInstall(false, true)
+      setTimeout(() => {
+        app.exit(0)
+      }, 5000)
       return
     } catch (e) {
       console.warn('[UPDATER] autoUpdater.quitAndInstall failed:', e)
