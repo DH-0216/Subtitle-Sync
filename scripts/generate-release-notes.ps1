@@ -1,5 +1,6 @@
 ﻿param(
     [string]$Tag = "v2.2.3",
+    [string]$Title = "",
     [string]$OutputPath = "dist/RELEASE_NOTES.md",
     [string]$ChecksumPath = "dist/SHA256SUMS.txt"
 )
@@ -11,8 +12,10 @@ if (Test-Path $ChecksumPath) {
     $checksumContent = (Get-Content $ChecksumPath -Raw).Trim()
 }
 
+$heading = if ($Title) { $Title } else { "Subtitle Sync $Tag" }
+
 $sb = [System.Text.StringBuilder]::new()
-[void]$sb.AppendLine("## Subtitle Sync $Tag 🎉")
+[void]$sb.AppendLine("## $heading 🎉")
 [void]$sb.AppendLine()
 [void]$sb.AppendLine("Fast, offline subtitle synchronization tool powered by FFmpeg and Whisper.")
 [void]$sb.AppendLine()
