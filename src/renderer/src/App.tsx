@@ -1212,70 +1212,6 @@ export default function App() {
     }
   }
 
-  const handleExtractAndUseSubtitle = async (track: SubtitleTrack) => {
-    const vPath = videoPath
-    if (!vPath) return
-
-    // Pre-check AI API Key if translating to Spoken Sinhala
-    if (!aiApiKey.trim()) {
-      toast.error('Please enter your AI API Key in Settings to translate subtitles into Spoken Sinhala!', {
-        duration: 5000,
-        icon: '🔑'
-      })
-      setSettingsInitialTab('ai')
-      setSettingsModalOpen(true)
-      return
-    }
-
-    if (!navigator.onLine) {
-      toast.error('Internet connection required for AI Spoken Sinhala translation.', { icon: '📡' })
-      return
-    }
-
-    setIsExtracting(true)
-    setExtractStatusMessage(`Extracting Track #${track.index + 1} (${track.language.toUpperCase()})...`)
-    setLogs((prev) => [
-      ...prev,
-      `[EXTRACT] Extracting embedded subtitle track #${track.index + 1} (${track.language.toUpperCase()}) temporarily for AI translation from ${vPath}`
-    ])
-
-    try {
-      const res = await window.api.extractor.extractSingle({
-        videoPath: vPath,
-        track,
-        isTemporary: true,
-        cleanTags: extractCleanTags
-      })
-
-      if (res.success && res.outputPath) {
-        setGenerateConfig((prev) => ({
-          ...prev,
-          sourceType: 'subtitle',
-          sourceSubPath: res.outputPath,
-          deleteSourceAfter: true,
-          language: 'si'
-        }))
-        setSubtitleAction('generate')
-        toast.success(`Track #${track.index + 1} extracted! Starting AI Translation...`, { duration: 3000, icon: '🚀' })
-        setLogs((prev) => [...prev, `[AI TRANSLATION] Subtitle extracted temporarily. Launching AI translation immediately...`])
-
-        // Immediately start AI translation on the extracted track and clean up extracted track after finish!
-        await handleStartGenerate({
-          sourceType: 'subtitle',
-          sourceSubPath: res.outputPath,
-          deleteSourceAfter: true,
-          language: 'si'
-        })
-      } else {
-        toast.error(res.error || 'Failed to extract embedded subtitle track')
-      }
-    } catch (err: any) {
-      toast.error(err.message || 'Failed to extract embedded subtitle track')
-    } finally {
-      setIsExtracting(false)
-    }
-  }
-
   // Start Generate / Translate Execution
   const handleStartGenerate = async (overrideConfig?: Partial<GenerateConfig>) => {
     // Guard: Prevent React SyntheticEvent or MouseEvent (from onClick) from contaminating IPC payload
@@ -1317,7 +1253,7 @@ export default function App() {
 
     // Guard: Check internet connection & AI API Key if target language is Spoken Sinhala
     if (effectiveConfig.language === 'si') {
-      if (!navigator.onLine) {
+      if (!isOnline) {
         toast.error(
           'Internet connection required for AI Spoken Sinhala translation. You can still generate subtitles offline by selecting "Movie\'s Language"!',
           { duration: 6000, icon: '📡' }

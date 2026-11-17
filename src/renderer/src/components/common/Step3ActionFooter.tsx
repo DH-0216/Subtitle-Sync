@@ -111,7 +111,7 @@ export const Step3ActionFooter: React.FC<Step3ActionFooterProps> = ({
             {React.isValidElement(startIcon) ? (
               startIcon
             ) : typeof startIcon === 'function' ? (
-              <startIcon className="w-4 h-4" />
+              React.createElement(startIcon, { className: 'w-4 h-4' })
             ) : null}
             <span>{(!unlocked || disabled) && disabledReason ? disabledReason : startLabel}</span>
           </button>

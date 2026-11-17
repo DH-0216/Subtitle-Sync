@@ -1177,7 +1177,7 @@ export async function executeSubtitleGeneration(
         processedCues = cleanSdhFromCues(removeHallucinationLoops(translatedCues))
         finalSrtPath = targetBase + '.sinhala.translated.srt'
       } else {
-        finalSrtPath = targetBase + `.${language.toLowerCase()}.translated.srt`
+        throw new Error(`Target language '${language}' is not supported for AI translation. Only Sinhala is currently supported.`)
       }
 
       // Auto-increment (1), (2), etc. if file already exists so previous subtitles are never overwritten

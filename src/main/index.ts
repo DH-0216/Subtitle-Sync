@@ -33,6 +33,7 @@ import {
   restartAndInstallApp
 } from './updater'
 import { EXTERNAL_LINKS, getGeminiVerifyUrl } from '@shared/links'
+import { APP_VERSION } from '@shared/version'
 import { formatUserFriendlyError } from '@shared/errorUtils'
 import {
   cleanPathString,
