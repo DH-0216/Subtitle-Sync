@@ -2,7 +2,8 @@
     [string]$Tag = "v2.2.3",
     [string]$Title = "",
     [string]$OutputPath = "dist/RELEASE_NOTES.md",
-    [string]$ChecksumPath = "dist/SHA256SUMS.txt"
+    [string]$ChecksumPath = "dist/SHA256SUMS.txt",
+    [string]$Repo = ""
 )
 
 $ErrorActionPreference = "Stop"
@@ -32,7 +33,19 @@ if ($checksumContent) {
     [void]$sb.AppendLine()
 }
 
-[void]$sb.AppendLine("---")
+# Fetch GitHub auto-generated release notes (using .github/release.yml categories)
+if ($Repo) {
+    try {
+        $genNotes = (gh api "repos/$Repo/releases/generate-notes" -f tag_name="$Tag" --jq .body 2>$null)
+        if ($genNotes -and $genNotes.Trim()) {
+            [void]$sb.AppendLine("---")
+            [void]$sb.AppendLine()
+            [void]$sb.AppendLine($genNotes.Trim())
+        }
+    } catch {
+        Write-Host "Could not fetch auto-generated changelog from GitHub API."
+    }
+}
 
 $outDir = Split-Path $OutputPath -Parent
 if ($outDir -and -not (Test-Path $outDir)) {
