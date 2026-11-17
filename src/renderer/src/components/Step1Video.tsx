@@ -1,5 +1,5 @@
 import React, { useState } from 'react'
-import { Film, Upload, CheckCircle2, Music, X, FileDown, Sparkles, AlertCircle } from 'lucide-react'
+import { Film, Upload, CheckCircle2, Music, X, FileDown, AlertCircle } from 'lucide-react'
 import { MetadataBadge } from './MetadataBadge'
 
 export interface AudioTrack {
@@ -40,7 +40,6 @@ interface Step1VideoProps {
   onSelectTrackModal: () => void
   onDropFile?: (path: string) => void
   onDropFiles?: (paths: string[]) => void
-  onSwitchToTranslate?: () => void
 }
 
 export const Step1Video: React.FC<Step1VideoProps> = ({
@@ -55,8 +54,7 @@ export const Step1Video: React.FC<Step1VideoProps> = ({
   onRemove,
   onSelectTrackModal,
   onDropFile,
-  onDropFiles,
-  onSwitchToTranslate
+  onDropFiles
 }) => {
   const [isDragOver, setIsDragOver] = useState(false)
 
@@ -220,18 +218,6 @@ export const Step1Video: React.FC<Step1VideoProps> = ({
                         {subtitleTracks.length > 4 ? '...' : ''})
                       </strong>
                     </span>
-
-                    {onSwitchToTranslate && subtitleTracks.some((t) => t.isText) && (
-                      <button
-                        type="button"
-                        onClick={onSwitchToTranslate}
-                        className="inline-flex items-center gap-1 text-[11px] font-bold text-blue-700 dark:text-blue-300 hover:text-blue-800 dark:hover:text-blue-200 cursor-pointer bg-blue-100/80 dark:bg-blue-950/70 hover:bg-blue-200/80 dark:hover:bg-blue-900/60 border border-blue-300/80 dark:border-blue-800 px-2.5 py-0.5 rounded-full transition-all shadow-2xs ml-1"
-                        title="Extract and translate this movie's embedded subtitles with AI"
-                      >
-                        <Sparkles className="w-3 h-3 text-blue-600 dark:text-blue-400" />
-                        <span>Translate with AI</span>
-                      </button>
-                    )}
                   </div>
                 ) : videoPath ? (
                   <div className="flex items-center gap-1.5 text-slate-500 dark:text-slate-400">

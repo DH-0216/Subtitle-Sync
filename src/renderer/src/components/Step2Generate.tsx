@@ -11,11 +11,11 @@ import {
   RefreshCw,
   HardDrive,
   CloudDownload,
-  Sparkles,
   FolderOpen,
   Mic,
   Zap,
-  Loader2
+  Loader2,
+  X
 } from 'lucide-react'
 import { AudioTrack, SubtitleTrack } from './Step1Video'
 import { ExtractedFileItem } from './Step3Extract'
@@ -244,9 +244,8 @@ export const Step2Generate: React.FC<Step2GenerateProps> = ({
             <div className="p-3.5 rounded-xl border border-blue-200 dark:border-blue-900/60 bg-blue-50/80 dark:bg-blue-950/30 space-y-2.5">
               <div className="flex items-center justify-between flex-wrap gap-2">
                 <div className="flex items-center gap-2">
-                  <Sparkles className="w-4 h-4 text-blue-600 dark:text-blue-400 shrink-0" />
                   <span className="text-xs font-bold text-blue-950 dark:text-blue-100">
-                    Embedded Subtitles Detected in Movie ({textSubtitleTracks.length})
+                    {textSubtitleTracks.length} Embedded Subtitle{textSubtitleTracks.length === 1 ? '' : 's'} Detected in Movie
                   </span>
                 </div>
                 <span className="text-[10px] font-semibold text-blue-700 dark:text-blue-300 bg-blue-100 dark:bg-blue-900/60 px-2 py-0.5 rounded-full border border-blue-200 dark:border-blue-800">
@@ -255,7 +254,7 @@ export const Step2Generate: React.FC<Step2GenerateProps> = ({
               </div>
 
               <p className="text-[11px] text-blue-900/80 dark:text-blue-300/80 leading-relaxed">
-                This movie already contains embedded text subtitles. Extract and use it directly for AI translation:
+                Select which subtitle you want to extract and translate:
               </p>
 
               <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 pt-0.5">

@@ -1014,15 +1014,6 @@ export default function App() {
     setLogs((prev) => [...prev, `[AI TRANSLATION] Switched to AI Translate for extracted track: ${item.fileName}`])
   }
 
-  const handleSwitchToTranslate = () => {
-    setSubtitleAction('generate')
-    setGenerateConfig((prev) => ({
-      ...prev,
-      sourceType: 'subtitle',
-      language: 'si'
-    }))
-  }
-
   const handleExtractAndUseSubtitle = async (track: SubtitleTrack) => {
     if (!videoPath) return
 
@@ -1613,7 +1604,6 @@ export default function App() {
           onSelectTrackModal={() => setAudioModalOpen(true)}
           onDropFile={(path) => handleSelectVideo(path)}
           onDropFiles={handleDropFilesOnVideo}
-          onSwitchToTranslate={handleSwitchToTranslate}
         />
 
         {/* Selection Option above Step 2 */}

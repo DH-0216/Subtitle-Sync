@@ -75,15 +75,6 @@ export const SubtitleModeSelector: React.FC<SubtitleModeSelectorProps> = ({
         >
           <FileDown className="w-3.5 h-3.5 shrink-0" />
           <span>Extract Subtitle</span>
-          <span
-            className={`text-[9px] font-bold px-1.5 py-0.5 rounded shrink-0 ${
-              action === 'extract'
-                ? 'bg-blue-950 text-white'
-                : 'bg-slate-300 text-slate-900 dark:bg-slate-800 dark:text-slate-300'
-            }`}
-          >
-            SRT
-          </span>
         </button>
 
         <button
