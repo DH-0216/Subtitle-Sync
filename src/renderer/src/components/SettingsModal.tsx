@@ -17,6 +17,7 @@ import {
   AlertCircle,
   Loader2,
   Bell,
+  Languages,
 } from "lucide-react";
 import toast from "react-hot-toast";
 import { ThemeSelector, ThemeMode } from "./common";
@@ -28,22 +29,13 @@ import {
   AI_PROVIDER_LIST,
   getAiProvider,
 } from "@shared/aiModels";
+import {
+  DEFAULT_AI_PROMPT,
+  TRANSLATION_LANGUAGES,
+  getLanguageConfig,
+} from "@shared/translationPrompts";
 
-export const DEFAULT_AI_PROMPT = `You are an expert subtitle translator specializing in natural, authentic spoken colloquial Sinhala (ස්වාභාවික කථාබහ සිංහල) for cinema and movies.
-Translate the following movie subtitle lines into natural, spoken Sinhala as people actually speak in day-to-day life.
-RULES:
-1. Use colloquial spoken Sinhala (කථාබහ කරන බස), NOT formal/bookish written Sinhala (e.g. use "කරනවා", "යනවා", "නෑ/නැහැ", "මොකක්ද", NEVER use "කරන්නේය", "ගියේය", "නැත", "කුමක්ද").
-2. Contextual Idioms & Slang: Never translate idioms literally word-for-word (e.g., "give me a hand" -> "මට උදව් කරන්න", "break a leg" -> "වැඩේ හොඳට කරන්න / සුබ පැතුම්", "chill out" -> "කූල් එකේ ඉන්න"). Translate the emotion, intent, and colloquial nuance.
-3. Homonym & Context Awareness: Resolve mistranslated homonyms and ambiguous words based on surrounding movie dialogue (e.g., distinguish "fair", "bark", "right", "bear").
-4. Character Names & Modern Words: Keep character names, locations, and commonly spoken modern loan words natural.
-5. Strict Script Purity (සිංහල අකුරු පමණි): Output ONLY authentic Sinhala script (අ-ෆ). NEVER mix Telugu, Tamil, Hindi/Devanagari, or Arabic characters under any circumstances.
-6. Remove Background Sounds & Sound Effects (SDH): CAREFULLY REMOVE non-dialogue audio descriptions, sound effects, and music tags enclosed in brackets [ ] or parentheses ( ) (e.g. "[mysterious music plays]", "[engine roaring]", "[police sirens wail]", "[screaming]", "[applause]", "[groans]", "[laughs]", "(sighs)", "(whispering)").
-   - If a line contains spoken dialogue with a sound effect (e.g. "[sighs] Where are we going?"), remove the sound effect completely and translate ONLY the spoken dialogue ("අපි කොහෙද යන්නේ?").
-   - If an entire line contains ONLY background sounds or music descriptions with no spoken dialogue, output a dash "-" for that line.
-7. 1:1 Complete Line Mapping - NEVER Skip or Merge: Every single numbered line [index] in the input MUST have an exact corresponding [index] in your output. Even short lines like "[120] Hey, you know what?" MUST be translated individually as "[120] ඒයි, දන්නවද වැඩක්?". NEVER combine multiple lines into one and NEVER leave any line untranslated in English.
-8. Maintain the exact format "[index] Translated line".
-9. Return exactly the same number of numbered lines without dropping any lines.
-10. Do not include introductory, markdown formatting or explanatory text.`;
+export { DEFAULT_AI_PROMPT, TRANSLATION_LANGUAGES };
 
 interface SettingsModalProps {
   isOpen: boolean;
@@ -112,6 +104,8 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   const [draftProvider, setDraftProvider] = useState<AiProviderId>(aiProvider);
   const [draftModel, setDraftModel] = useState(aiModel);
   const [draftPrompt, setDraftPrompt] = useState(aiPrompt);
+  const [selectedPromptLang, setSelectedPromptLang] = useState<string>("si");
+  const currentLangConfig = getLanguageConfig(selectedPromptLang);
   const [isVerifyingKey, setIsVerifyingKey] = useState(false);
   const [verifyStatus, setVerifyStatus] = useState<{
     valid: boolean;
@@ -217,13 +211,13 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
 
     if (keyChanged && promptChanged) {
       toast.success("API key updated successfully!");
-      toast.success("Translation prompt updated successfully!");
+      toast.success(`${currentLangConfig.name} prompt updated successfully!`);
     } else if (keyChanged) {
       toast.success("API key updated successfully!");
     } else if (modelChanged) {
       toast.success(`AI Model set to ${draftModel}!`);
     } else if (promptChanged) {
-      toast.success("Translation prompt updated successfully!");
+      toast.success(`${currentLangConfig.name} prompt updated successfully!`);
     } else if (providerChanged) {
       toast.success("AI provider updated successfully!");
     } else {
@@ -1132,23 +1126,63 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                 </div>
 
                 {/* Custom Translation Prompt & Rules Card */}
-                <div className="p-4 rounded-xl border border-app-card-border bg-app-card space-y-3 transition-colors">
-                  <div className="flex items-center justify-between">
+                <div className="p-4 rounded-xl border border-app-card-border bg-app-card space-y-3.5 transition-colors">
+                  {/* Language Selector Header */}
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 pb-3 border-b border-app-card-border">
+                    <div className="flex items-center gap-2.5">
+                      <div className="w-8 h-8 rounded-lg bg-blue-500/10 text-blue-500 dark:text-blue-400 flex items-center justify-center shrink-0">
+                        <Languages className="w-4 h-4" />
+                      </div>
+                      <div>
+                        <h3 className="font-bold text-xs text-app-text flex items-center gap-1.5">
+                          <span>Target Language</span>
+                        </h3>
+                        <p className="text-[11px] text-app-text-muted">
+                          Configure prompt instructions and colloquial rules per language
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-2">
+                      <select
+                        value={selectedPromptLang}
+                        onChange={(e) => {
+                          const newCode = e.target.value;
+                          setSelectedPromptLang(newCode);
+                          const cfg = getLanguageConfig(newCode);
+                          if (newCode === "si") {
+                            setDraftPrompt(aiPrompt || cfg.defaultPrompt);
+                          } else {
+                            setDraftPrompt(cfg.defaultPrompt);
+                          }
+                        }}
+                        className="text-xs font-semibold px-3 py-1.5 rounded-lg border border-app-input-border bg-app-input text-app-input-text focus:outline-hidden focus:ring-2 focus:ring-blue-500/30 cursor-pointer transition-colors"
+                      >
+                        {TRANSLATION_LANGUAGES.map((l) => (
+                          <option key={l.code} value={l.code}>
+                            {l.name} — {l.nativeName}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
+
+                  {/* Active Language Prompt Header */}
+                  <div className="flex items-start sm:items-center justify-between gap-2">
                     <div>
-                      <h3 className="font-bold text-sm text-app-text">
-                        Translation Prompt & Rules
-                      </h3>
+                      <h4 className="font-bold text-sm text-app-text flex items-center gap-1.5">
+                        <span>{currentLangConfig.name} ({currentLangConfig.nativeName}) Prompt & Rules</span>
+                      </h4>
                       <p className="text-xs text-app-text-muted mt-0.5">
-                        Fixes mistranslated homonyms, literal idioms, and
-                        controls colloquial spoken tone
+                        {currentLangConfig.description}
                       </p>
                     </div>
 
                     <button
                       type="button"
-                      onClick={() => setDraftPrompt(DEFAULT_AI_PROMPT)}
-                      className="px-2.5 py-1 text-xs font-semibold rounded-lg border border-app-btn-border bg-app-btn hover:bg-app-btn-hover text-app-btn-text transition-colors flex items-center gap-1.5 cursor-pointer"
-                      title="Reset to default prompt"
+                      onClick={() => setDraftPrompt(currentLangConfig.defaultPrompt)}
+                      className="px-2.5 py-1 text-xs font-semibold rounded-lg border border-app-btn-border bg-app-btn hover:bg-app-btn-hover text-app-btn-text transition-colors flex items-center gap-1.5 cursor-pointer shrink-0"
+                      title={`Reset ${currentLangConfig.name} prompt to default`}
                     >
                       <RotateCcw className="w-3 h-3" />
                       <span>Reset</span>
@@ -1160,24 +1194,29 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                       rows={7}
                       value={draftPrompt}
                       onChange={(e) => setDraftPrompt(e.target.value)}
-                      placeholder="Enter custom AI translation instructions and idiom rules..."
+                      placeholder={`Enter custom AI translation instructions and rules for ${currentLangConfig.name}...`}
                       className="w-full p-3 text-xs rounded-xl border border-app-input-border bg-app-input text-app-input-text font-sans leading-relaxed resize-y focus:outline-hidden focus:ring-2 focus:ring-blue-500/30"
                     />
                   </div>
 
-                  <div className="flex flex-wrap items-center gap-1.5 pt-1">
-                    <span className="text-[10px] font-semibold px-2 py-0.5 rounded-md bg-app-accent-bg text-app-accent border border-app-accent-border">
-                      Colloquial Sinhala (කථාබහ බස)
-                    </span>
-                    <span className="text-[10px] font-semibold px-2 py-0.5 rounded-md bg-emerald-100 text-emerald-800 dark:bg-emerald-500/15 dark:text-emerald-300">
-                      Idiom Adaptation
-                    </span>
-                    <span className="text-[10px] font-semibold px-2 py-0.5 rounded-md bg-purple-100 text-purple-800 dark:bg-purple-500/15 dark:text-purple-300">
-                      Homonym Resolution
-                    </span>
-                    <span className="text-[10px] font-semibold px-2 py-0.5 rounded-md bg-amber-100 text-amber-800 dark:bg-amber-500/15 dark:text-amber-300">
-                      SDH Sound Cleaner [ ]
-                    </span>
+                  <div className="flex flex-wrap items-center gap-1.5 pt-0.5">
+                    {currentLangConfig.badges.map((badge, idx) => {
+                      const badgeStyles = [
+                        "bg-app-accent-bg text-app-accent border-app-accent-border",
+                        "bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border-emerald-500/20",
+                        "bg-purple-500/15 text-purple-700 dark:text-purple-300 border-purple-500/20",
+                        "bg-amber-500/15 text-amber-700 dark:text-amber-300 border-amber-500/20",
+                      ];
+                      const styleClass = badgeStyles[idx % badgeStyles.length];
+                      return (
+                        <span
+                          key={badge}
+                          className={`text-[10px] font-semibold px-2 py-0.5 rounded-md border ${styleClass}`}
+                        >
+                          {badge}
+                        </span>
+                      );
+                    })}
                   </div>
                 </div>
 

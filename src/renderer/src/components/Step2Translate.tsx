@@ -1,6 +1,7 @@
 import React from 'react'
 import { Languages, Key, Settings, CheckCircle2, FileCode } from 'lucide-react'
 import { StepCard } from './common/StepCard'
+import { TRANSLATION_LANGUAGES } from '@shared/translationPrompts'
 
 interface Step2TranslateProps {
   language: string
@@ -14,9 +15,10 @@ interface Step2TranslateProps {
   isOnline?: boolean
 }
 
-export const translationLanguages = [
-  { code: 'si', name: 'Sinhala (Spoken Sinhala dialogue - AI Optimized)' }
-]
+export const translationLanguages = TRANSLATION_LANGUAGES.map((lang) => ({
+  code: lang.code,
+  name: lang.label
+}))
 
 export const Step2Translate: React.FC<Step2TranslateProps> = ({
   language,
@@ -78,7 +80,7 @@ export const Step2Translate: React.FC<Step2TranslateProps> = ({
               ))}
             </select>
             <p className="text-[11px] text-app-text-muted">
-              Translates into natural spoken Sinhala dialogue while preserving formatting and cue timestamps.
+              {(TRANSLATION_LANGUAGES.find((l) => l.code === language) || TRANSLATION_LANGUAGES[0]).subtitleNote}
             </p>
           </div>
 
