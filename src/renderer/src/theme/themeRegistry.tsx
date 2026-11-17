@@ -8,6 +8,7 @@ export interface ThemeDefinition {
   htmlClasses: string[]
   canvasClass: string
   preview: React.ReactNode
+  badge?: string
 }
 
 export interface SystemThemeOption {
@@ -15,6 +16,7 @@ export interface SystemThemeOption {
   label: string
   description: string
   preview: React.ReactNode
+  badge?: string
 }
 
 export type ThemeRegistryItem = SystemThemeOption | ThemeDefinition
@@ -151,6 +153,7 @@ export const THEME_DEFINITIONS: readonly ThemeDefinition[] = [
     isDarkBase: true,
     htmlClasses: ['dark', 'glass'],
     canvasClass: 'bg-app-canvas text-app-text',
+    badge: 'NEW',
     preview: <GlassPreview />
   }
 ] as const
