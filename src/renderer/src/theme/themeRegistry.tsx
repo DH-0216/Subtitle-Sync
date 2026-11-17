@@ -25,8 +25,8 @@ const SystemPreview: React.FC = () => (
     <div className="w-1/2 h-full bg-[#181D26] p-1 flex items-stretch justify-center">
       <div className="w-full h-full bg-[#2A3140] rounded-xs" />
     </div>
-    <div className="w-1/2 h-full bg-[#DCE5F2] p-1 flex items-stretch justify-center border-l border-slate-400/30">
-      <div className="w-full h-full bg-[#B8C8DE] rounded-xs" />
+    <div className="w-1/2 h-full bg-[#FAFBFD] p-1 flex items-stretch justify-center border-l border-slate-300">
+      <div className="w-full h-full bg-[#E2E8F0] rounded-xs" />
     </div>
   </div>
 )
@@ -39,11 +39,11 @@ const DarkPreview: React.FC = () => (
   </div>
 )
 
-// Light theme preview representation (Software Mansion blue palette)
+// Light theme preview representation (Clean minimalist palette)
 const LightPreview: React.FC = () => (
-  <div className="w-full h-full bg-[#DCE5F2] p-1.5 flex items-stretch gap-1.5">
-    <div className="flex-1 h-full bg-[#B8C8DE] rounded-xs" />
-    <div className="flex-1 h-full bg-[#B8C8DE] rounded-xs" />
+  <div className="w-full h-full bg-[#FAFBFD] p-1.5 flex items-stretch gap-1.5 border border-slate-200">
+    <div className="flex-1 h-full bg-[#FFFFFF] border border-slate-200 rounded-xs" />
+    <div className="flex-1 h-full bg-[#FFFFFF] border border-slate-200 rounded-xs" />
   </div>
 )
 

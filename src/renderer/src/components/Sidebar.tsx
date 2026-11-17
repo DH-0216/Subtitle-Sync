@@ -94,9 +94,12 @@ export const Sidebar: React.FC<SidebarProps> = ({
       <div className="p-2.5 shrink-0">
         {/* Engine & Network Status */}
         <div className="w-full px-2.5 py-1.5 rounded-lg bg-app-sidebar-status border border-app-sidebar-status-border space-y-1">
-          <div className="flex items-center justify-between text-xs">
+          <div
+            className="flex items-center justify-between text-xs cursor-default"
+            title="Core Engines: FFmpeg (Extraction), ffsubsync (Synchronization), Whisper AI (Speech-to-Text)"
+          >
             <span className="text-slate-500 dark:text-slate-400 text-[10.5px]">
-              Sync Engine
+              Core Engines
             </span>
             <div className="flex items-center gap-1.5">
               <span

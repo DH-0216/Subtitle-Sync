@@ -17,31 +17,31 @@
    -------------------------------------------------------------------------- */
 :root,
 [data-theme='light'] {
-  --app-canvas-bg: #E8F1FC;
-  --app-text-main: #0F172A;
-  --app-text-muted: #64748B;
+  --app-canvas-bg: #FAFBFD;
+  --app-text-main: #000000;
+  --app-text-muted: #334155;
 
-  --app-header-bg: #F2F6FD;
-  --app-header-border: #CADEFC;
+  --app-header-bg: #FFFFFF;
+  --app-header-border: #E2E8F0;
 
-  --app-footer-bg: #F2F6FD;
-  --app-footer-border: #CADEFC;
-  --app-footer-text: #334155;
+  --app-footer-bg: #FFFFFF;
+  --app-footer-border: #E2E8F0;
+  --app-footer-text: #0F172A;
 
-  --app-sidebar-bg: #EBF2FC;
-  --app-sidebar-border: #CADEFC;
-  --app-sidebar-hover: rgba(224, 236, 255, 0.8);
-  --app-sidebar-status-bg: #F2F7FD;
-  --app-sidebar-status-border: #CADEFC;
+  --app-sidebar-bg: #F8FAFC;
+  --app-sidebar-border: #E2E8F0;
+  --app-sidebar-hover: rgba(224, 236, 255, 0.6);
+  --app-sidebar-status-bg: #FFFFFF;
+  --app-sidebar-status-border: #E2E8F0;
 
-  --app-card-bg: #F9FBFE;
-  --app-card-locked-bg: rgba(237, 243, 251, 0.7);
-  --app-card-border: #CADEFC;
-  --app-card-header: #E8F1FC;
-  --app-card-header-border: #CADEFC;
+  --app-card-bg: #FFFFFF;
+  --app-card-locked-bg: rgba(248, 250, 252, 0.8);
+  --app-card-border: #E2E8F0;
+  --app-card-header: #F8FAFC;
+  --app-card-header-border: #E2E8F0;
   --app-card-inner-bg: #F8FAFC;
   --app-card-inner-border: #E2E8F0;
-  --app-card-inner-hover: rgba(241, 245, 249, 0.7);
+  --app-card-inner-hover: rgba(241, 245, 249, 0.8);
 
   --app-modal-bg: #FFFFFF;
   --app-modal-border: #E2E8F0;
@@ -52,16 +52,16 @@
 
   --app-input-bg: #FFFFFF;
   --app-input-border: #CBD5E1;
-  --app-input-text: #0F172A;
+  --app-input-text: #000000;
 
   --app-btn-secondary-bg: #FFFFFF;
   --app-btn-secondary-hover: #F8FAFC;
   --app-btn-secondary-border: #CBD5E1;
-  --app-btn-secondary-text: #1E293B;
+  --app-btn-secondary-text: #000000;
 
-  --app-dropzone-bg: #F2F7FD;
-  --app-dropzone-border: #B6CFF7;
-  --app-dropzone-hover-bg: #E0ECFF;
+  --app-dropzone-bg: #F8FAFC;
+  --app-dropzone-border: #CBD5E1;
+  --app-dropzone-hover-bg: #EFF6FF;
   --app-dropzone-hover-border: #3B82F6;
   --app-dropzone-drag-bg: rgba(239, 246, 255, 0.7);
   --app-dropzone-icon-bg: #EFF6FF;
