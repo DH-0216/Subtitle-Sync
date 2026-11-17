@@ -30,10 +30,8 @@ export const StepCard: React.FC<StepCardProps> = ({
 }) => {
   return (
     <div
-      className={`border rounded-2xl p-5 shadow-xs transition-all animate-in fade-in slide-in-from-bottom-2 duration-300 ${
-        unlocked
-          ? 'bg-[#F9FBFE] dark:bg-slate-900 border-[#CADEFC] dark:border-slate-800'
-          : 'bg-[#EDF3FB]/70 dark:bg-slate-900 border-[#CADEFC] dark:border-slate-800 opacity-80'
+      className={`border rounded-2xl p-5 shadow-xs transition-all animate-in fade-in slide-in-from-bottom-2 duration-300 app-card ${
+        unlocked ? '' : 'opacity-80'
       } ${className}`}
     >
       {/* Header */}

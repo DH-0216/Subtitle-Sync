@@ -43,7 +43,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   ];
 
   return (
-    <aside className="w-56 xl:w-60 bg-[#EBF2FC] dark:bg-[#0B0F19] border-r border-[#CADEFC] dark:border-slate-800/80 flex flex-col justify-between shrink-0 select-none z-10 transition-colors">
+    <aside className="w-56 xl:w-60 app-panel border-r flex flex-col justify-between shrink-0 select-none z-10 transition-colors">
       {/* Navigation List */}
       <div className="p-2.5 space-y-1">
         <p className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider px-2.5 py-1">

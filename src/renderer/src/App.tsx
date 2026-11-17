@@ -33,7 +33,14 @@ import {
   FileValidationItem
 } from '@shared/fileSanitizer'
 
-export type ThemeMode = 'system' | 'dark' | 'light'
+import {
+  ThemeMode,
+  ResolvedTheme,
+  resolveTheme,
+  applyThemeToDocument
+} from './theme'
+
+export type { ThemeMode }
 
 export default function App() {
   // Theme & Preferences
@@ -50,7 +57,8 @@ export default function App() {
     return () => mq.removeEventListener('change', handler)
   }, [])
 
-  const effectiveTheme: 'dark' | 'light' = theme === 'system' ? (isSystemDark ? 'dark' : 'light') : theme
+  const activeThemeDef = resolveTheme(theme, isSystemDark)
+  const effectiveTheme: ResolvedTheme = activeThemeDef.id
   const [defaultMode, setDefaultMode] = useState<SyncMode>('Standard')
   const [checkUpdates, setCheckUpdates] = useState(true)
   const [notificationsEnabled, setNotificationsEnabled] = useState(true)
@@ -392,12 +400,8 @@ export default function App() {
 
   // Sync theme with HTML class
   useEffect(() => {
-    if (effectiveTheme === 'dark') {
-      document.documentElement.classList.add('dark')
-    } else {
-      document.documentElement.classList.remove('dark')
-    }
-  }, [effectiveTheme])
+    applyThemeToDocument(activeThemeDef, theme)
+  }, [activeThemeDef, theme])
 
   const notifyJobComplete = (title: string, body: string) => {
     if (notificationsEnabled && window.api?.notification?.show) {
@@ -1709,9 +1713,7 @@ export default function App() {
 
   return (
     <div
-      className={`h-screen w-screen overflow-hidden ${
-        effectiveTheme === 'dark' ? 'dark bg-[#0B0F19] text-slate-100' : 'bg-[#E8F1FC] text-slate-900'
-      } ${isAnyModalOpen ? 'overflow-hidden max-h-screen' : ''} flex flex-col font-sans transition-colors duration-200`}
+      className={`h-screen w-screen overflow-hidden ${activeThemeDef.canvasClass} ${isAnyModalOpen ? 'overflow-hidden max-h-screen' : ''} flex flex-col font-sans transition-colors duration-200`}
     >
       {/* Top Unified Header */}
       <Header

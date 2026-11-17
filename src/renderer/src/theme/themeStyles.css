@@ -1,0 +1,120 @@
+/* ==========================================================================
+   DESIGN TOKENS & ZERO-TOUCH THEME SYSTEM
+   Components use semantic classes (.app-canvas, .app-panel, .app-card, .app-dropzone).
+   Adding or removing themes requires editing ONLY the CSS variables below!
+   ========================================================================== */
+
+/* --------------------------------------------------------------------------
+   1. CSS VARIABLES (DESIGN TOKENS)
+   -------------------------------------------------------------------------- */
+:root,
+[data-theme='light'] {
+  --app-canvas-bg: #E8F1FC;
+  --app-text-main: #0F172A;
+  --app-text-muted: #64748B;
+  
+  --app-panel-bg: #F2F6FD;
+  --app-panel-border: #CADEFC;
+  --app-panel-header-bg: #E8F1FC;
+  
+  --app-card-bg: #F9FBFE;
+  --app-card-border: #CADEFC;
+  --app-card-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+  --app-card-blur: none;
+  
+  --app-inner-bg: #F2F6FD;
+  --app-inner-border: #CADEFC;
+  --app-inner-blur: none;
+  
+  --app-dropzone-bg: #F2F7FD;
+  --app-dropzone-border: #B6CFF7;
+  --app-dropzone-hover-bg: #E0ECFF;
+  --app-dropzone-hover-border: #2252A0;
+  
+  --app-btn-primary-bg: #174082;
+  --app-btn-primary-hover-bg: #2252A0;
+}
+
+[data-theme='dark'] {
+  --app-canvas-bg: #0B0F19;
+  --app-text-main: #F1F5F9;
+  --app-text-muted: #94A3B8;
+  
+  --app-panel-bg: #0B0F19;
+  --app-panel-border: rgba(30, 41, 59, 0.8);
+  --app-panel-header-bg: #0E1424;
+  
+  --app-card-bg: #0B0F19;
+  --app-card-border: #1E293B;
+  --app-card-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+  --app-card-blur: none;
+  
+  --app-inner-bg: #0B0F19;
+  --app-inner-border: #1E293B;
+  --app-inner-blur: none;
+  
+  --app-dropzone-bg: #0B0F19;
+  --app-dropzone-border: #334155;
+  --app-dropzone-hover-bg: #0E1424;
+  --app-dropzone-hover-border: #475569;
+  
+  --app-btn-primary-bg: #2563EB;
+  --app-btn-primary-hover-bg: #1D4ED8;
+}
+
+/* --------------------------------------------------------------------------
+   2. SEMANTIC CLASSES (Connected to CSS Variables)
+   -------------------------------------------------------------------------- */
+.app-canvas {
+  background-color: var(--app-canvas-bg) !important;
+  color: var(--app-text-main);
+  transition: background-color 0.2s ease, color 0.2s ease;
+}
+
+.app-panel {
+  background-color: var(--app-panel-bg) !important;
+  border-color: var(--app-panel-border) !important;
+  backdrop-filter: var(--app-card-blur);
+  -webkit-backdrop-filter: var(--app-card-blur);
+  transition: background-color 0.2s ease, border-color 0.2s ease;
+}
+
+.app-panel-header {
+  background-color: var(--app-panel-header-bg) !important;
+  border-color: var(--app-panel-border) !important;
+  transition: background-color 0.2s ease, border-color 0.2s ease;
+}
+
+.app-card {
+  background-color: var(--app-card-bg) !important;
+  border-color: var(--app-card-border) !important;
+  box-shadow: var(--app-card-shadow) !important;
+  backdrop-filter: var(--app-card-blur);
+  -webkit-backdrop-filter: var(--app-card-blur);
+  transition: background-color 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+/* Inner containers automatically adapt inside app-card */
+.app-card div[class*="dark:bg-[#0B0F19]"],
+.app-card div[class*="dark:bg-slate-900"],
+.app-card div[class*="dark:bg-slate-800"],
+.app-card .grid > div {
+  background-color: var(--app-inner-bg) !important;
+  border-color: var(--app-inner-border) !important;
+  backdrop-filter: var(--app-inner-blur);
+  -webkit-backdrop-filter: var(--app-inner-blur);
+  transition: background-color 0.2s ease, border-color 0.2s ease;
+}
+
+.app-dropzone {
+  background-color: var(--app-dropzone-bg) !important;
+  border-color: var(--app-dropzone-border) !important;
+  backdrop-filter: var(--app-inner-blur);
+  -webkit-backdrop-filter: var(--app-inner-blur);
+  transition: background-color 0.2s ease, border-color 0.2s ease;
+}
+
+.app-dropzone:hover {
+  background-color: var(--app-dropzone-hover-bg) !important;
+  border-color: var(--app-dropzone-hover-border) !important;
+}
