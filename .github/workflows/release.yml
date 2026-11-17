@@ -31,6 +31,9 @@ jobs:
         with:
           fetch-depth: 0
 
+      - name: Fetch all tags
+        run: git fetch --tags --force
+
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
@@ -86,14 +89,30 @@ jobs:
             $customTitle = "${{ inputs.title }}".Trim()
           }
 
-          # 2. Check annotated git tag message (only if annotated tag, not lightweight commit)
+          # 2. Check annotated git tag message (via local git or gh api)
           if (-not $customTitle -and $tag) {
-            $tagType = (git cat-file -t $tag 2>$null)
+            $tagType = (git cat-file -t "refs/tags/$tag" 2>$null)
             if ($tagType -eq "tag") {
               $tagMsg = (git tag -l --format='%(contents:subject)' $tag).Trim()
               if ($tagMsg -and $tagMsg -ne $tag -and $tagMsg -notmatch '^Merge ') {
                 $customTitle = $tagMsg
               }
+            }
+
+            # As a failsafe, query GitHub API for tag message if not found locally
+            if (-not $customTitle) {
+              try {
+                $refJson = (gh api "repos/${{ github.repository }}/git/ref/tags/$tag" 2>$null | ConvertFrom-Json)
+                if ($refJson -and $refJson.object.type -eq "tag") {
+                  $tagObj = (gh api "repos/${{ github.repository }}/git/tags/$($refJson.object.sha)" 2>$null | ConvertFrom-Json)
+                  if ($tagObj -and $tagObj.message) {
+                    $apiMsg = ($tagObj.message -split "`r?`n")[0].Trim()
+                    if ($apiMsg -and $apiMsg -ne $tag -and $apiMsg -notmatch '^Merge ') {
+                      $customTitle = $apiMsg
+                    }
+                  }
+                }
+              } catch {}
             }
           }
 
@@ -167,8 +186,8 @@ jobs:
           Write-Host "Resolved Tag: $tag"
           Write-Host "Resolved Title: $finalTitle"
 
-          "tag=$tag" >> $env:GITHUB_OUTPUT
-          "title=$finalTitle" >> $env:GITHUB_OUTPUT
+          "tag=$tag" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
+          "title=$finalTitle" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
@@ -177,7 +196,9 @@ jobs:
         run: |
           $tag = "${{ steps.release-meta.outputs.tag }}"
           $title = "${{ steps.release-meta.outputs.title }}"
-          ./scripts/generate-release-notes.ps1 -Tag $tag -Title $title
+          ./scripts/generate-release-notes.ps1 -Tag $tag -Title $title -Repo "${{ github.repository }}"
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Upload Release Assets
         uses: softprops/action-gh-release@v2
@@ -186,25 +207,23 @@ jobs:
           tag_name: ${{ steps.release-meta.outputs.tag }}
           name: ${{ steps.release-meta.outputs.title }}
           body_path: dist/RELEASE_NOTES.md
-          append_body: true
           files: |
             dist/SubtitleSync-Setup.exe
             dist/SubtitleSync-Portable.exe
             dist/latest.yml
             dist/SubtitleSync-Setup.exe.blockmap
             dist/SHA256SUMS.txt
-          generate_release_notes: ${{ github.event_name != 'release' }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Ensure Release Title
+      - name: Ensure Release Title & Notes
         if: startsWith(github.ref, 'refs/tags/') || github.event_name == 'release' || (github.event_name == 'workflow_dispatch' && inputs.tag != '')
         shell: pwsh
         run: |
           $tag = "${{ steps.release-meta.outputs.tag }}"
           $title = "${{ steps.release-meta.outputs.title }}"
           if ($tag -and $title) {
-            gh release edit $tag --title $title
+            gh release edit $tag --title $title --notes-file dist/RELEASE_NOTES.md
           }
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
