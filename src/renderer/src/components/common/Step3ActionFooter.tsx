@@ -104,7 +104,7 @@ export const Step3ActionFooter: React.FC<Step3ActionFooterProps> = ({
             disabled={!unlocked || disabled}
             className={`flex-1 flex items-center justify-center gap-2 py-3 px-6 rounded-xl font-bold text-sm shadow-xs transition-all ${
               unlocked && !disabled
-                ? 'bg-blue-600 hover:bg-blue-500 text-white cursor-pointer active:scale-[0.99]'
+                ? 'bg-app-primary hover:bg-app-primary-hover text-app-primary-fg cursor-pointer active:scale-[0.99]'
                 : 'bg-slate-200 dark:bg-slate-800 text-slate-600 dark:text-slate-400 border border-slate-300 dark:border-slate-700 cursor-not-allowed shadow-none'
             }`}
           >

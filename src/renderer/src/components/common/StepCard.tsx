@@ -32,23 +32,23 @@ export const StepCard: React.FC<StepCardProps> = ({
     <div
       className={`border rounded-2xl p-5 shadow-xs transition-all animate-in fade-in slide-in-from-bottom-2 duration-300 ${
         unlocked
-          ? 'bg-[#F9FBFE] dark:bg-slate-900 border-[#CADEFC] dark:border-slate-800'
-          : 'bg-[#EDF3FB]/70 dark:bg-slate-900 border-[#CADEFC] dark:border-slate-800 opacity-80'
+          ? 'bg-app-card border-app-card-border'
+          : 'bg-app-card-locked border-app-card-border opacity-80'
       } ${className}`}
     >
       {/* Header */}
-      <div className="flex items-center justify-between pb-3 mb-3.5 border-b border-[#CADEFC] dark:border-slate-800 gap-2 flex-wrap">
+      <div className="flex items-center justify-between pb-3 mb-3.5 border-b border-app-card-header-border gap-2 flex-wrap">
         <div className="flex items-center gap-2.5 min-w-0">
           <span
             className={`w-6 h-6 rounded-full font-bold text-xs flex items-center justify-center border shadow-xs shrink-0 ${
               unlocked
-                ? 'bg-blue-600 text-white border-blue-600'
+                ? 'bg-app-primary text-app-primary-fg border-app-primary'
                 : 'bg-slate-200 text-slate-800 border-slate-300 dark:bg-slate-800 dark:text-slate-400 dark:border-slate-700'
             }`}
           >
             {step}
           </span>
-          <h2 className="font-bold text-slate-900 dark:text-slate-100 text-xs tracking-wider uppercase truncate">
+          <h2 className="font-bold text-app-text text-xs tracking-wider uppercase truncate">
             {title}
           </h2>
           {badge}

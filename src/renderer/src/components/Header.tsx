@@ -20,7 +20,7 @@ export const Header: React.FC<HeaderProps> = ({
   onRestartToApplyUpdate
 }) => {
   return (
-    <header className="bg-[#F2F6FD] dark:bg-[#0B0F19] border-b border-[#CADEFC] dark:border-slate-800/80 pr-5 py-2.5 flex items-center justify-between shrink-0 z-20">
+    <header className="bg-app-header border-b border-app-header-border pr-5 py-2.5 flex items-center justify-between shrink-0 z-20">
       <div className="flex items-center min-w-0 flex-1">
         {/* App Branding (Matches sidebar column width) */}
         <div className="w-56 xl:w-60 px-5 shrink-0 flex items-center gap-2.5">

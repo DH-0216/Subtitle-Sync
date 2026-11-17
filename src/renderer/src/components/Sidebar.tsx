@@ -43,7 +43,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   ];
 
   return (
-    <aside className="w-56 xl:w-60 bg-[#EBF2FC] dark:bg-[#0B0F19] border-r border-[#CADEFC] dark:border-slate-800/80 flex flex-col justify-between shrink-0 select-none z-10 transition-colors">
+    <aside className="w-56 xl:w-60 bg-app-sidebar border-r border-app-sidebar-border flex flex-col justify-between shrink-0 select-none z-10 transition-colors">
       {/* Navigation List */}
       <div className="p-2.5 space-y-1">
         <p className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider px-2.5 py-1">
@@ -60,15 +60,15 @@ export const Sidebar: React.FC<SidebarProps> = ({
               onClick={() => onSelectAction(item.id)}
               className={`w-full text-left px-2.5 py-2 rounded-xl transition-all cursor-pointer flex items-center gap-2.5 group ${
                 isActive
-                  ? "bg-blue-600 text-white shadow-xs font-semibold"
-                  : "text-slate-700 dark:text-slate-300 hover:bg-blue-50/80 dark:hover:bg-slate-800/60 hover:text-blue-600 dark:hover:text-white"
+                  ? "bg-app-primary text-app-primary-fg shadow-xs font-semibold"
+                  : "text-app-text hover:bg-app-sidebar-hover hover:text-app-accent"
               }`}
             >
               <Icon
                 className={`w-4 h-4 shrink-0 transition-transform ${
                   isActive
-                    ? "text-white"
-                    : "text-slate-500 dark:text-slate-400 group-hover:text-blue-600 dark:group-hover:text-blue-400 group-hover:scale-105"
+                    ? "text-app-primary-fg"
+                    : "text-slate-500 dark:text-slate-400 group-hover:text-app-accent group-hover:scale-105"
                 }`}
               />
               <span className="text-xs truncate flex-1 font-semibold">
@@ -93,7 +93,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
       {/* Bottom Status Section */}
       <div className="p-2.5 shrink-0">
         {/* Engine & Network Status */}
-        <div className="w-full px-2.5 py-1.5 rounded-lg bg-[#F2F7FD] dark:bg-slate-900/60 border border-[#CADEFC] dark:border-slate-800/60 space-y-1">
+        <div className="w-full px-2.5 py-1.5 rounded-lg bg-app-sidebar-status border border-app-sidebar-status-border space-y-1">
           <div className="flex items-center justify-between text-xs">
             <span className="text-slate-500 dark:text-slate-400 text-[10.5px]">
               Sync Engine

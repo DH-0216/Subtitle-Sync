@@ -44,14 +44,14 @@ export const ActivityConsole: React.FC<ActivityConsoleProps> = ({ logs, onClear,
   }
 
   return (
-    <div className={`bg-[#F9FBFE] dark:bg-[#0B0F19] border border-[#CADEFC] dark:border-slate-800 rounded-2xl overflow-hidden shadow-xs transition-all duration-300 ${className}`}>
+    <div className={`bg-app-card border border-app-card-border rounded-2xl overflow-hidden shadow-xs transition-all duration-300 ${className}`}>
       {/* Header Bar */}
       <div
-        className="bg-[#E8F1FC] dark:bg-slate-900 text-slate-900 dark:text-slate-100 px-4 py-2.5 flex items-center justify-between border-b border-[#CADEFC] dark:border-slate-800 transition-colors"
+        className="bg-app-card-header text-app-text px-4 py-2.5 flex items-center justify-between border-b border-app-card-header-border transition-colors"
       >
         <div className="flex items-center gap-2.5">
           <Terminal className="w-4 h-4 text-slate-700 dark:text-slate-300" />
-          <span className="font-bold text-xs uppercase tracking-wider text-slate-900 dark:text-slate-100">
+          <span className="font-bold text-xs uppercase tracking-wider text-app-text">
             Console Activity
           </span>
           {logs.length > 0 && (

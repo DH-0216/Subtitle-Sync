@@ -1,8 +1,106 @@
 /* ==========================================================================
-   THEME STYLES & DESIGN TOKENS
+   CENTRALIZED THEME TOKENS (DATA-DRIVEN)
+   Adding, editing or removing themes requires editing ONLY the CSS variables below!
+   Components use semantic utilities:
+     bg-app-canvas, bg-app-card, bg-app-header, bg-app-footer, bg-app-sidebar
+     bg-app-dropzone, bg-app-primary, hover:bg-app-primary-hover
+     border-app-card-border, border-app-header-border, text-app-text, text-app-accent
    ========================================================================== */
 
-/* Clean design tokens - standard classes in components handle styling */
 :root {
   --theme-transition: background-color 0.2s ease, border-color 0.2s ease, color 0.2s ease;
+}
+
+/* --------------------------------------------------------------------------
+   1. LIGHT THEME TOKENS (Software Mansion palette with modern electric blue)
+   -------------------------------------------------------------------------- */
+:root,
+[data-theme='light'] {
+  --app-canvas-bg: #E8F1FC;
+  --app-text-main: #0F172A;
+  --app-text-muted: #64748B;
+
+  --app-header-bg: #F2F6FD;
+  --app-header-border: #CADEFC;
+
+  --app-footer-bg: #F2F6FD;
+  --app-footer-border: #CADEFC;
+  --app-footer-text: #334155;
+
+  --app-sidebar-bg: #EBF2FC;
+  --app-sidebar-border: #CADEFC;
+  --app-sidebar-hover: rgba(224, 236, 255, 0.8);
+  --app-sidebar-status-bg: #F2F7FD;
+  --app-sidebar-status-border: #CADEFC;
+
+  --app-card-bg: #F9FBFE;
+  --app-card-locked-bg: rgba(237, 243, 251, 0.7);
+  --app-card-border: #CADEFC;
+  --app-card-header: #E8F1FC;
+  --app-card-header-border: #CADEFC;
+
+  --app-dropzone-bg: #F2F7FD;
+  --app-dropzone-border: #B6CFF7;
+  --app-dropzone-hover-bg: #E0ECFF;
+  --app-dropzone-hover-border: #3B82F6;
+  --app-dropzone-drag-bg: rgba(239, 246, 255, 0.7);
+  --app-dropzone-icon-bg: #EFF6FF;
+  --app-dropzone-icon-border: #BFDBFE;
+  --app-dropzone-icon-text: #2563EB;
+
+  --app-primary-bg: #2563EB;
+  --app-primary-hover-bg: #3B82F6;
+  --app-primary-fg: #FFFFFF;
+
+  --app-accent-text: #2563EB;
+  --app-accent-hover: #1D4ED8;
+  --app-accent-bg: #EFF6FF;
+  --app-accent-border: #BFDBFE;
+}
+
+/* --------------------------------------------------------------------------
+   2. DARK THEME TOKENS (Deep Charcoal with vibrant electric blue accents)
+   -------------------------------------------------------------------------- */
+[data-theme='dark'],
+.dark {
+  --app-canvas-bg: #0B0F19;
+  --app-text-main: #F1F5F9;
+  --app-text-muted: #94A3B8;
+
+  --app-header-bg: #0B0F19;
+  --app-header-border: rgba(30, 41, 59, 0.8);
+
+  --app-footer-bg: #0B0F19;
+  --app-footer-border: rgba(30, 41, 59, 0.8);
+  --app-footer-text: #94A3B8;
+
+  --app-sidebar-bg: #0B0F19;
+  --app-sidebar-border: rgba(30, 41, 59, 0.8);
+  --app-sidebar-hover: rgba(30, 41, 59, 0.6);
+  --app-sidebar-status-bg: rgba(15, 23, 42, 0.6);
+  --app-sidebar-status-border: rgba(30, 41, 59, 0.6);
+
+  --app-card-bg: #0F172A;
+  --app-card-locked-bg: #0F172A;
+  --app-card-border: #1E293B;
+  --app-card-header: #0F172A;
+  --app-card-header-border: #1E293B;
+
+  --app-dropzone-bg: #0B0F19;
+  --app-dropzone-border: #334155;
+  --app-dropzone-hover-bg: #0E1424;
+  --app-dropzone-hover-border: #475569;
+  --app-dropzone-drag-bg: rgba(23, 37, 84, 0.4);
+  --app-dropzone-icon-bg: rgba(23, 37, 84, 0.4);
+  --app-dropzone-icon-border: rgba(30, 58, 138, 0.4);
+  --app-dropzone-icon-text: #60A5FA;
+
+  --app-primary-bg: #2563EB;
+  --app-primary-hover-bg: #3B82F6;
+  --app-primary-fg: #FFFFFF;
+
+  --app-accent-text: #60A5FA;
+  --app-accent-hover: #93C5FD;
+  --app-accent-bg: rgba(23, 37, 84, 0.4);
+  --app-accent-border: rgba(30, 58, 138, 0.4);
 }
