@@ -551,17 +551,17 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
               <SettingsIcon className="w-4 h-4" />
             </div>
             <div>
-              <h2 className="font-bold text-slate-900 dark:text-slate-100 text-base leading-tight">
+              <h2 className="font-bold text-app-text text-base leading-tight">
                 Settings & Preferences
               </h2>
-              <p className="text-[11px] text-slate-500 dark:text-slate-400">
+              <p className="text-[11px] text-app-text-muted">
                 Configure application options and AI subtitle translation
               </p>
             </div>
           </div>
           <button
             onClick={handleClose}
-            className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
+            className="p-1.5 rounded-lg text-app-text-muted hover:text-app-text hover:bg-app-card-inner-hover transition-colors cursor-pointer"
             title="Close"
           >
             <X className="w-4 h-4" />
@@ -579,7 +579,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                 className={`w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-xs font-semibold transition-all cursor-pointer ${
                   activeTab === 'general'
                     ? 'bg-app-primary text-app-primary-fg shadow-2xs font-bold'
-                    : 'text-slate-600 dark:text-slate-400 hover:bg-slate-200/60 dark:hover:bg-slate-800/60 hover:text-slate-900 dark:hover:text-slate-100'
+                    : 'text-app-text-muted hover:bg-app-card-inner-hover hover:text-app-text'
                 }`}
               >
                 <Sliders className="w-4 h-4 shrink-0" />
@@ -592,7 +592,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                 className={`w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-xs font-semibold transition-all cursor-pointer ${
                   activeTab === 'ai'
                     ? 'bg-app-primary text-app-primary-fg shadow-2xs font-bold'
-                    : 'text-slate-600 dark:text-slate-400 hover:bg-slate-200/60 dark:hover:bg-slate-800/60 hover:text-slate-900 dark:hover:text-slate-100'
+                    : 'text-app-text-muted hover:bg-app-card-inner-hover hover:text-app-text'
                 }`}
               >
                 <Sparkles className="w-4 h-4 shrink-0" />
@@ -602,7 +602,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
 
             {/* Bottom-left of setting window: Version */}
             <div className="pt-3 px-1 text-left">
-              <span className="text-[11px] font-medium text-slate-400 dark:text-slate-500 tracking-wide select-none">
+              <span className="text-[11px] font-medium text-app-text-muted tracking-wide select-none">
                 v{APP_VERSION}
               </span>
             </div>
@@ -621,10 +621,10 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                 <div className="p-4 rounded-xl border border-app-card-inner-border bg-app-card-inner space-y-3 transition-colors">
                   <div className="flex items-center justify-between">
                     <div>
-                      <h3 className="font-bold text-sm text-slate-900 dark:text-slate-100">
+                      <h3 className="font-bold text-sm text-app-text">
                         Automatic Updates
                       </h3>
-                      <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                      <p className="text-xs text-app-text-muted mt-0.5">
                         Check for newer versions automatically on startup
                       </p>
                     </div>
@@ -635,7 +635,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                       className="flex items-center gap-2.5 cursor-pointer select-none group"
                       title="Toggle auto update"
                     >
-                      <span className="text-xs font-semibold text-slate-700 dark:text-slate-300">
+                      <span className="text-xs font-semibold text-app-text">
                         Enabled
                       </span>
                       <div
@@ -653,12 +653,12 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                   </div>
 
                   {/* Row 2: Automatically Download Updates */}
-                  <div className="pt-3 border-t border-slate-200/80 dark:border-slate-800 flex items-center justify-between">
+                  <div className="pt-3 border-t border-app-card-inner-border flex items-center justify-between">
                     <div>
-                      <h4 className="font-semibold text-xs text-slate-900 dark:text-slate-200">
+                      <h4 className="font-bold text-sm text-app-text">
                         Automatically Download Updates
                       </h4>
-                      <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
+                      <p className="text-[11px] text-app-text-muted mt-0.5">
                         Download delta updates silently in background and notify when ready (never auto-restarts)
                       </p>
                     </div>
@@ -669,7 +669,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                       className="flex items-center gap-2.5 cursor-pointer select-none group"
                       title="Toggle auto download"
                     >
-                      <span className="text-xs font-semibold text-slate-700 dark:text-slate-300">
+                      <span className="text-xs font-semibold text-app-text">
                         {autoDownloadUpdates ? 'Enabled' : 'Disabled'}
                       </span>
                       <div
@@ -686,7 +686,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                     </button>
                   </div>
 
-                  <div className="pt-3 border-t border-slate-200/80 dark:border-slate-800 flex items-center justify-between gap-3">
+                  <div className="pt-3 border-t border-app-card-inner-border flex items-center justify-between gap-3">
                     <div className="min-w-0 flex-1">
                       <p
                         className={`text-xs font-medium truncate ${
@@ -694,7 +694,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                             ? 'text-emerald-600 dark:text-emerald-400'
                             : updateStatusType === 'error'
                             ? 'text-rose-600 dark:text-rose-400'
-                            : 'text-slate-500 dark:text-slate-400'
+                            : 'text-app-text-muted'
                         }`}
                       >
                         {updateStatus}
@@ -730,11 +730,11 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                 {/* Card 3: Desktop Notifications */}
                 <div className="p-4 rounded-xl border border-app-card-inner-border bg-app-card-inner flex items-center justify-between transition-colors">
                   <div>
-                    <h3 className="font-bold text-sm text-slate-900 dark:text-slate-100 flex items-center gap-2">
+                    <h3 className="font-bold text-sm text-app-text flex items-center gap-2">
                       <Bell className="w-4 h-4 text-blue-600 dark:text-blue-400" />
                       Desktop Notifications
                     </h3>
-                    <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                    <p className="text-xs text-app-text-muted mt-0.5">
                       Notify me when jobs finish (synchronization, translation, extraction)
                     </p>
                   </div>
@@ -745,7 +745,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                     className="flex items-center gap-2.5 cursor-pointer select-none group"
                     title="Toggle desktop notifications"
                   >
-                    <span className="text-xs font-semibold text-slate-700 dark:text-slate-300">
+                    <span className="text-xs font-semibold text-app-text">
                       {notificationsEnabled ? 'Enabled' : 'Disabled'}
                     </span>
                     <div
@@ -765,10 +765,10 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                 {/* Card 4: About & Developer */}
                 <div className="p-4 rounded-xl border border-app-card-inner-border bg-app-card-inner flex items-center justify-between transition-colors">
                   <div>
-                    <h3 className="font-bold text-sm text-slate-900 dark:text-slate-100">
+                    <h3 className="font-bold text-sm text-app-text">
                       Subtitle Sync Studio
                     </h3>
-                    <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                    <p className="text-xs text-app-text-muted mt-0.5">
                       Developed by DH-0216
                     </p>
                   </div>
@@ -791,10 +791,10 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                 <div className="p-4 rounded-xl border border-app-card-inner-border bg-app-card-inner space-y-3.5 transition-colors">
                   <div className="flex items-start justify-between gap-3">
                     <div>
-                      <h3 className="font-bold text-sm text-slate-900 dark:text-slate-100">
+                      <h3 className="font-bold text-sm text-app-text">
                         AI Subtitle Translation API
                       </h3>
-                      <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                      <p className="text-xs text-app-text-muted mt-0.5">
                         Used for translating generated subtitles into languages like Spoken Sinhala
                       </p>
                     </div>
@@ -822,7 +822,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                   </div>
 
                   <div className="space-y-1.5">
-                    <div className="flex items-center justify-between text-xs font-semibold text-slate-700 dark:text-slate-300">
+                    <div className="flex items-center justify-between text-xs font-semibold text-app-text">
                       <label>{getAiProvider(draftProvider).label}</label>
 
                       {getAiProvider(draftProvider).portalUrl && (
@@ -851,7 +851,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                         <button
                           type="button"
                           onClick={() => setShowKey(!showKey)}
-                          className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 cursor-pointer p-1"
+                          className="absolute right-2.5 top-1/2 -translate-y-1/2 text-app-text-muted hover:text-app-text cursor-pointer p-1"
                           title={showKey ? 'Hide Key' : 'Show Key'}
                         >
                           {showKey ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
@@ -918,8 +918,8 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                     )}
 
                     {/* Choose AI Model */}
-                    <div className="space-y-1.5 pt-2 border-t border-slate-200/60 dark:border-slate-800/60">
-                      <div className="flex items-center justify-between text-xs font-semibold text-slate-700 dark:text-slate-300">
+                    <div className="space-y-1.5 pt-2 border-t border-app-card-inner-border">
+                      <div className="flex items-center justify-between text-xs font-semibold text-app-text">
                         <div className="flex items-center gap-1.5">
                           <label>AI Model</label>
                           {availableModels.length > 0 && (
@@ -940,7 +940,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                             <RefreshCw className={`w-3 h-3 ${isLoadingModels ? 'animate-spin' : ''}`} />
                             <span>{isLoadingModels ? 'Fetching...' : 'Fetch Models'}</span>
                           </button>
-                          <span className="text-[11px] text-slate-400 font-normal">
+                          <span className="text-[11px] text-app-text-muted font-normal">
                             {availableModels.length > 0
                               ? `${availableModels[0]?.id || ''} recommended`
                               : draftModel && draftModel !== 'auto'
@@ -974,14 +974,14 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                         )}
                       </select>
                       {availableModels.length === 0 && (
-                        <p className="text-[10px] text-slate-400">
+                        <p className="text-[10px] text-app-text-muted">
                           Tip: Click &quot;Fetch Models&quot; or &quot;Verify&quot; to auto-load all current models from {getAiProvider(draftProvider).company}.
                         </p>
                       )}
                     </div>
 
                     {getAiProvider(draftProvider).notice && (
-                      <p className="text-[10px] text-slate-500 dark:text-slate-400">
+                      <p className="text-[10px] text-app-text-muted">
                         {getAiProvider(draftProvider).notice}
                       </p>
                     )}
@@ -992,10 +992,10 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                 <div className="p-4 rounded-xl border border-app-card-inner-border bg-app-card-inner space-y-3 transition-colors">
                   <div className="flex items-center justify-between">
                     <div>
-                      <h3 className="font-bold text-sm text-slate-900 dark:text-slate-100">
+                      <h3 className="font-bold text-sm text-app-text">
                         Translation Prompt & Rules
                       </h3>
-                      <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                      <p className="text-xs text-app-text-muted mt-0.5">
                         Fixes mistranslated homonyms, literal idioms, and controls colloquial spoken tone
                       </p>
                     </div>

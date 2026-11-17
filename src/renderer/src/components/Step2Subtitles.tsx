@@ -61,7 +61,7 @@ export const Step2Subtitles: React.FC<Step2SubtitlesProps> = ({
   }
 
   const badge = subtitles.length > 0 ? (
-    <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-slate-200 text-slate-900 border border-slate-300 dark:bg-slate-800 dark:text-slate-200 dark:border-slate-700 whitespace-nowrap shrink-0">
+    <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-app-card-inner-hover text-app-text border border-app-card-inner-border whitespace-nowrap shrink-0">
       {subtitles.length} {subtitles.length === 1 ? 'file' : 'files'}
     </span>
   ) : undefined
@@ -71,7 +71,7 @@ export const Step2Subtitles: React.FC<Step2SubtitlesProps> = ({
       <button
         type="button"
         onClick={onClearAll}
-        className="text-xs text-slate-700 hover:text-rose-600 dark:text-slate-300 dark:hover:text-rose-400 flex items-center gap-1 transition-colors font-semibold cursor-pointer whitespace-nowrap"
+        className="text-xs text-app-text-muted hover:text-rose-500 flex items-center gap-1 transition-colors font-semibold cursor-pointer whitespace-nowrap"
       >
         <Trash2 className="w-3.5 h-3.5" /> Clear All
       </button>
@@ -112,14 +112,14 @@ export const Step2Subtitles: React.FC<Step2SubtitlesProps> = ({
             {subtitles.map((sub) => (
               <div
                 key={sub.id}
-                className="bg-app-card-inner border border-app-card-inner-border rounded-xl p-3 flex items-center justify-between gap-3 group hover:border-slate-400 dark:hover:border-slate-700 transition-colors shadow-2xs"
+                className="bg-app-card-inner border border-app-card-inner-border rounded-xl p-3 flex items-center justify-between gap-3 group hover:border-blue-400 transition-colors shadow-2xs"
               >
                 <div className="flex items-center gap-3 min-w-0">
                   <div className="w-8 h-8 rounded-lg bg-app-primary text-app-primary-fg shadow-xs flex items-center justify-center shrink-0">
                     <FileText className="w-4 h-4" />
                   </div>
                   <div className="min-w-0">
-                    <p className="text-sm font-bold text-slate-900 dark:text-slate-100 truncate" title={sub.path}>
+                    <p className="text-sm font-bold text-app-text truncate" title={sub.path}>
                       {sub.name}
                     </p>
                     {/* Subtitle details: 🎬 fps • 🏷️ tag • 📝 lines • ⏱️ span */}
@@ -144,7 +144,7 @@ export const Step2Subtitles: React.FC<Step2SubtitlesProps> = ({
                   <button
                     type="button"
                     onClick={() => onRemove(sub.id)}
-                    className="p-1.5 rounded-lg text-slate-500 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-500/10 transition-colors cursor-pointer"
+                    className="p-1.5 rounded-lg text-app-text-muted hover:text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-500/10 transition-colors cursor-pointer"
                     title="Remove subtitle"
                   >
                     <X className="w-4 h-4" />

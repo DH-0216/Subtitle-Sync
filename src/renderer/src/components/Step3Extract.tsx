@@ -51,7 +51,7 @@ export const Step3Extract: React.FC<Step3ExtractProps> = ({
       <div className="space-y-3.5">
         {/* Clean tags checkbox */}
         <div className="flex items-center justify-between bg-app-card-inner border border-app-card-inner-border rounded-xl px-4 py-2.5">
-          <label className="flex items-center gap-2 cursor-pointer text-xs font-medium text-slate-700 dark:text-slate-300">
+          <label className="flex items-center gap-2 cursor-pointer text-xs font-medium text-app-text">
             <input
               type="checkbox"
               checked={cleanTags}

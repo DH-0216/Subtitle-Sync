@@ -133,7 +133,7 @@ export const Step1Translate: React.FC<Step1TranslateProps> = ({
                         <FileText className="w-4 h-4" />
                       </div>
                       <div className="min-w-0">
-                        <p className="text-xs font-bold text-slate-900 dark:text-slate-100 truncate" title={sourceSubPath!}>
+                        <p className="text-xs font-bold text-app-text truncate" title={sourceSubPath!}>
                           {fileName}
                         </p>
                         <span className="text-[10px] font-bold px-1.5 py-0.2 rounded-full bg-emerald-100 text-emerald-900 dark:bg-emerald-900/60 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800">
@@ -153,7 +153,7 @@ export const Step1Translate: React.FC<Step1TranslateProps> = ({
                       <button
                         type="button"
                         onClick={onRemoveSubtitle}
-                        className="p-1 text-slate-400 hover:text-rose-600 dark:hover:text-rose-400 transition-colors cursor-pointer"
+                        className="p-1 text-app-text-muted hover:text-rose-500 transition-colors cursor-pointer"
                         title="Remove subtitle"
                       >
                         <X className="w-3.5 h-3.5" />
@@ -161,7 +161,7 @@ export const Step1Translate: React.FC<Step1TranslateProps> = ({
                     </div>
                   </div>
 
-                  <p className="text-[11px] text-slate-500 dark:text-slate-400 truncate" title={sourceSubPath!}>
+                  <p className="text-[11px] text-app-text-muted truncate" title={sourceSubPath!}>
                     {sourceSubPath}
                   </p>
                 </div>
@@ -198,11 +198,11 @@ export const Step1Translate: React.FC<Step1TranslateProps> = ({
           {/* Middle "OR" Divider on Mobile */}
           <div className="md:hidden flex items-center justify-center my-2.5">
             <div className="w-full flex items-center gap-2">
-              <div className="flex-1 h-px bg-slate-200 dark:bg-slate-800" />
-              <span className="px-2.5 py-0.5 rounded-full bg-blue-50 dark:bg-[#0B0F19] border border-blue-200 dark:border-slate-700 text-[10px] font-black text-blue-600 dark:text-blue-400 uppercase tracking-wider shadow-2xs">
+              <div className="flex-1 h-px bg-app-card-inner-border" />
+              <span className="px-2.5 py-0.5 rounded-full bg-blue-50 dark:bg-[#0B0F19] border border-blue-200 dark:border-app-card-inner-border text-[10px] font-black text-blue-600 dark:text-blue-400 uppercase tracking-wider shadow-2xs">
                 OR
               </span>
-              <div className="flex-1 h-px bg-slate-200 dark:bg-slate-800" />
+              <div className="flex-1 h-px bg-app-card-inner-border" />
             </div>
           </div>
 
@@ -239,7 +239,7 @@ export const Step1Translate: React.FC<Step1TranslateProps> = ({
                         <Film className="w-4 h-4" />
                       </div>
                       <div className="min-w-0">
-                        <span className="text-xs font-bold text-slate-900 dark:text-slate-100 truncate block" title={videoPath!}>
+                        <span className="text-xs font-bold text-app-text truncate block" title={videoPath!}>
                           {getFileName(videoPath!)}
                         </span>
                         <span className="text-[10px] font-bold px-1.5 py-0.2 rounded-full bg-emerald-100 text-emerald-900 dark:bg-emerald-900/60 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800">
@@ -259,7 +259,7 @@ export const Step1Translate: React.FC<Step1TranslateProps> = ({
                       <button
                         type="button"
                         onClick={handleRemoveMovieChoice}
-                        className="p-1 text-slate-400 hover:text-rose-600 dark:hover:text-rose-400 transition-colors cursor-pointer"
+                        className="p-1 text-app-text-muted hover:text-rose-500 transition-colors cursor-pointer"
                         title="Remove movie"
                       >
                         <X className="w-3.5 h-3.5" />
@@ -267,7 +267,7 @@ export const Step1Translate: React.FC<Step1TranslateProps> = ({
                     </div>
                   </div>
 
-                  <p className="text-[11px] text-slate-500 dark:text-slate-400 truncate" title={sourceSubPath!}>
+                  <p className="text-[11px] text-app-text-muted truncate" title={sourceSubPath!}>
                     Source: {fileName}
                   </p>
                 </div>
@@ -306,7 +306,7 @@ export const Step1Translate: React.FC<Step1TranslateProps> = ({
                   <div className="flex items-center justify-between gap-2">
                     <div className="flex items-center gap-2 min-w-0">
                       <Film className="w-4 h-4 text-blue-700 dark:text-blue-400 shrink-0" />
-                      <span className="text-xs font-bold text-slate-900 dark:text-slate-100 truncate" title={videoPath!}>
+                      <span className="text-xs font-bold text-app-text truncate" title={videoPath!}>
                         {getFileName(videoPath!)}
                       </span>
                     </div>
@@ -325,7 +325,7 @@ export const Step1Translate: React.FC<Step1TranslateProps> = ({
                         <button
                           type="button"
                           onClick={handleRemoveMovieChoice}
-                          className="p-1 text-slate-400 hover:text-rose-600 dark:hover:text-rose-400 transition-colors cursor-pointer"
+                          className="p-1 text-app-text-muted hover:text-rose-500 transition-colors cursor-pointer"
                           title="Remove movie"
                         >
                           <X className="w-3.5 h-3.5" />
@@ -334,7 +334,7 @@ export const Step1Translate: React.FC<Step1TranslateProps> = ({
                     </div>
                   </div>
 
-                  <p className="text-[11px] text-slate-500 dark:text-slate-400">
+                  <p className="text-[11px] text-app-text-muted">
                     {textSubtitleTracks.length > 0
                       ? `${textSubtitleTracks.length} embedded text subtitle track${textSubtitleTracks.length === 1 ? '' : 's'} found`
                       : 'No embedded text tracks found'}
@@ -349,7 +349,7 @@ export const Step1Translate: React.FC<Step1TranslateProps> = ({
                         value={selectedEmbeddedTrackIndex}
                         onChange={(e) => setSelectedEmbeddedTrackIndex(Number(e.target.value))}
                         disabled={isExtracting}
-                        className="flex-1 text-xs font-semibold px-2.5 py-1.5 rounded-lg border border-blue-300 dark:border-blue-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 focus:outline-hidden focus:ring-2 focus:ring-blue-500/30 cursor-pointer disabled:opacity-60 min-w-0 truncate"
+                        className="flex-1 text-xs font-semibold px-2.5 py-1.5 rounded-lg border border-app-input-border bg-app-input text-app-input-text focus:outline-hidden focus:ring-2 focus:ring-blue-500/30 cursor-pointer disabled:opacity-60 min-w-0 truncate"
                       >
                         {textSubtitleTracks.map((t) => (
                           <option key={t.index} value={t.index}>
@@ -398,7 +398,7 @@ export const Step1Translate: React.FC<Step1TranslateProps> = ({
 
         {/* Middle "OR" Badge on Desktop */}
         <div className="hidden md:flex absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-10 pointer-events-none items-center justify-center">
-          <div className="w-8 h-8 rounded-full bg-blue-50 dark:bg-[#0B0F19] border border-blue-200 dark:border-slate-700 shadow-xs flex items-center justify-center">
+          <div className="w-8 h-8 rounded-full bg-blue-50 dark:bg-[#0B0F19] border border-blue-200 dark:border-app-card-inner-border shadow-xs flex items-center justify-center">
             <span className="text-[10px] font-black text-blue-600 dark:text-blue-400 uppercase tracking-wider">
               OR
             </span>

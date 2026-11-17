@@ -103,7 +103,7 @@ export const Step2Generate: React.FC<Step2GenerateProps> = ({
   const selectedModel = availableModels.find((m) => m.id === config.modelQuality)
 
   const badge = (
-    <span className="text-xs font-bold px-2 py-0.5 rounded-full border bg-slate-200 text-slate-900 border-slate-300 dark:bg-slate-800 dark:text-slate-200 dark:border-slate-700 whitespace-nowrap shrink-0">
+    <span className="text-xs font-bold px-2 py-0.5 rounded-full border bg-app-card-inner-hover text-app-text border-app-card-inner-border whitespace-nowrap shrink-0">
       Whisper AI
     </span>
   )
@@ -154,7 +154,7 @@ export const Step2Generate: React.FC<Step2GenerateProps> = ({
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
         {/* Audio Track Selector */}
         <div className="space-y-1.5">
-          <label className="text-xs font-bold text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
+          <label className="text-xs font-bold text-app-text flex items-center gap-1.5">
             <Music className="w-3.5 h-3.5 text-blue-700 dark:text-blue-400" />
             <span>Select Audio Track</span>
           </label>
@@ -174,14 +174,14 @@ export const Step2Generate: React.FC<Step2GenerateProps> = ({
               <option value={0}>Track #0: Default Audio Track</option>
             )}
           </select>
-          <p className="text-[11px] text-slate-500 dark:text-slate-400">
+          <p className="text-[11px] text-app-text-muted">
             Choose the speech audio stream to transcribe.
           </p>
         </div>
 
         {/* Subtitle Target Language for Video */}
         <div className="space-y-1.5">
-          <label className="text-xs font-bold text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
+          <label className="text-xs font-bold text-app-text flex items-center gap-1.5">
             <Languages className="w-3.5 h-3.5 text-blue-700 dark:text-blue-400" />
             <span>Target Subtitle Language</span>
           </label>
@@ -196,7 +196,7 @@ export const Step2Generate: React.FC<Step2GenerateProps> = ({
               </option>
             ))}
           </select>
-          <p className="text-[11px] text-slate-500 dark:text-slate-400">
+          <p className="text-[11px] text-app-text-muted">
             Generated 100% offline using local Whisper AI model on your computer.
           </p>
         </div>
@@ -204,7 +204,7 @@ export const Step2Generate: React.FC<Step2GenerateProps> = ({
 
       {/* Row 2: Output Format */}
       <div className="mb-4">
-        <label className="text-xs font-bold text-slate-700 dark:text-slate-300 flex items-center gap-1.5 mb-1.5">
+        <label className="text-xs font-bold text-app-text flex items-center gap-1.5 mb-1.5">
           <FileCode className="w-3.5 h-3.5 text-blue-700 dark:text-blue-400" />
           <span>Output Format</span>
         </label>
@@ -216,17 +216,17 @@ export const Step2Generate: React.FC<Step2GenerateProps> = ({
           <option value="srt">SubRip (.srt) — Universal standard format for media players</option>
           <option value="vtt">WebVTT (.vtt) — Modern web-based video player format</option>
         </select>
-        <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-1">
+        <p className="text-[11px] text-app-text-muted mt-1">
           Standard SubRip (.srt) is universally supported by all media players and TV devices.
         </p>
       </div>
 
       {/* Row 3: Advanced Whisper Settings */}
-      <div className="pt-2 border-t border-slate-200 dark:border-slate-800">
+      <div className="pt-2 border-t border-app-card-inner-border">
         <button
           type="button"
           onClick={() => setShowAdvanced(!showAdvanced)}
-          className="text-xs font-bold text-slate-700 hover:text-blue-700 dark:text-slate-300 dark:hover:text-blue-400 flex items-center gap-1.5 transition-colors cursor-pointer"
+          className="text-xs font-bold text-app-text hover:text-blue-700 dark:hover:text-blue-400 flex items-center gap-1.5 transition-colors cursor-pointer"
         >
           <Sliders className="w-3.5 h-3.5 text-blue-700 dark:text-blue-400" />
           <span>
@@ -248,7 +248,7 @@ export const Step2Generate: React.FC<Step2GenerateProps> = ({
             {/* Model Quality Selection */}
             <div className="space-y-1.5">
               <div className="flex items-center justify-between">
-                <label className="text-xs font-bold text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
+                <label className="text-xs font-bold text-app-text flex items-center gap-1.5">
                   <Cpu className="w-3.5 h-3.5 text-blue-700 dark:text-blue-400" />
                   <span>Whisper AI Model</span>
                 </label>
@@ -332,11 +332,11 @@ export const Step2Generate: React.FC<Step2GenerateProps> = ({
                           : 'bg-amber-500 animate-pulse'
                       }`}
                     />
-                    <span className="font-semibold text-slate-800 dark:text-slate-200">
+                    <span className="font-semibold text-app-text">
                       {selectedModel.isDownloaded ? 'Model Ready Locally' : 'Model will auto-download on first use'}
                     </span>
                   </div>
-                  <span className="text-[11px] text-slate-500 dark:text-slate-400 font-mono">
+                  <span className="text-[11px] text-app-text-muted font-mono">
                     Size: {selectedModel.sizeFormatted}
                   </span>
                 </div>

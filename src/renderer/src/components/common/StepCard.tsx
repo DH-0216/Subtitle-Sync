@@ -43,7 +43,7 @@ export const StepCard: React.FC<StepCardProps> = ({
             className={`w-6 h-6 rounded-full font-bold text-xs flex items-center justify-center border shadow-xs shrink-0 ${
               unlocked
                 ? 'bg-app-primary text-app-primary-fg border-app-primary'
-                : 'bg-slate-200 text-slate-800 border-slate-300 dark:bg-slate-800 dark:text-slate-400 dark:border-slate-700'
+                : 'bg-app-card-inner-hover text-app-text-muted border-app-card-inner-border'
             }`}
           >
             {step}

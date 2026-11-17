@@ -81,7 +81,7 @@ export const Step2Extract: React.FC<Step2ExtractProps> = ({
   );
 
   const badge = subtitleTracks.length > 0 ? (
-    <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-slate-200 text-slate-900 border border-slate-300 dark:bg-slate-800 dark:text-slate-200 dark:border-slate-700 whitespace-nowrap shrink-0">
+    <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-app-card-inner-hover text-app-text border border-app-card-inner-border whitespace-nowrap shrink-0">
       {subtitleTracks.length} {subtitleTracks.length === 1 ? 'stream' : 'streams'} detected
     </span>
   ) : undefined
@@ -107,14 +107,14 @@ export const Step2Extract: React.FC<Step2ExtractProps> = ({
     >
 
       {!videoPath ? (
-        <div className="border-2 border-dashed border-slate-200 dark:border-slate-800 rounded-xl p-8 text-center bg-slate-50/50 dark:bg-[#0B0F19]/40">
-          <div className="w-12 h-12 rounded-xl bg-slate-100 dark:bg-slate-800/80 text-slate-400 flex items-center justify-center mx-auto mb-3">
+        <div className="border-2 border-dashed border-app-card-inner-border rounded-xl p-8 text-center bg-app-card-inner">
+          <div className="w-12 h-12 rounded-xl bg-app-card-inner-hover text-app-text-muted flex items-center justify-center mx-auto mb-3">
             <FileUp className="w-6 h-6" />
           </div>
-          <p className="text-sm font-semibold text-slate-700 dark:text-slate-300">
+          <p className="text-sm font-semibold text-app-text">
             Please select a movie/video in Step 1 first
           </p>
-          <p className="text-xs text-slate-400 mt-1">
+          <p className="text-xs text-app-text-muted mt-1">
             The app will scan your video container (MKV, MP4, etc.) for encoded
             subtitle tracks.
           </p>
@@ -142,7 +142,7 @@ export const Step2Extract: React.FC<Step2ExtractProps> = ({
               <span>Re-scan Video for Subtitles</span>
             </button>
           )}
-          <p className="text-xs text-slate-500 dark:text-slate-400 mt-3 max-w-md mx-auto">
+          <p className="text-xs text-app-text-muted mt-3 max-w-md mx-auto">
             Note: If subtitles are hardcoded/burned directly into the movie
             video pixels, they are part of the video image and cannot be
             extracted as text without optical OCR.
@@ -195,10 +195,10 @@ export const Step2Extract: React.FC<Step2ExtractProps> = ({
                   key={track.index}
                   className={`p-3.5 rounded-xl border transition-all ${
                     !track.isText
-                      ? "bg-slate-50/60 dark:bg-slate-900/30 border-slate-200 dark:border-slate-800 opacity-70"
+                      ? "bg-app-card-inner border-app-card-inner-border opacity-70"
                       : isSelected
                         ? "bg-blue-50/50 border-blue-400 dark:bg-blue-950/20 dark:border-blue-600/50 shadow-2xs"
-                        : "bg-app-card-inner border border-app-card-inner-border hover:border-slate-300 dark:hover:border-slate-700 shadow-2xs"
+                        : "bg-app-card-inner border border-app-card-inner-border hover:border-blue-400 shadow-2xs"
                   }`}
                 >
                   <div className="flex items-start justify-between gap-3">
@@ -219,24 +219,24 @@ export const Step2Extract: React.FC<Step2ExtractProps> = ({
                         {isSelected ? (
                           <CheckSquare className="w-5 h-5 text-blue-600 dark:text-blue-400" />
                         ) : (
-                          <Square className="w-5 h-5 text-slate-400 hover:text-slate-600" />
+                          <Square className="w-5 h-5 text-app-text-muted hover:text-app-text" />
                         )}
                       </button>
 
                       {/* Details */}
                       <div className="min-w-0 space-y-1">
                         <div className="flex items-center gap-2 flex-wrap">
-                          <span className="text-xs font-bold text-slate-900 dark:text-slate-100 font-mono">
+                          <span className="text-xs font-bold text-app-text font-mono">
                             Subtitle Track #{track.index + 1}
                           </span>
-                          <span className="text-xs font-semibold px-2 py-0.5 rounded bg-slate-100 text-slate-800 dark:bg-slate-800 dark:text-slate-200 border border-slate-200 dark:border-slate-700">
+                          <span className="text-xs font-semibold px-2 py-0.5 rounded bg-app-card-inner-hover text-app-text border border-app-card-inner-border">
                             {langFriendly} ({track.language.toUpperCase()})
                           </span>
-                          <span className="text-[11px] font-mono px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700">
+                          <span className="text-[11px] font-mono px-1.5 py-0.5 rounded bg-app-card-inner-hover text-app-text-muted border border-app-card-inner-border">
                             {codecDisplay}
                           </span>
                           {track.isDefault && (
-                            <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded bg-slate-200 text-slate-800 dark:bg-slate-700 dark:text-slate-200">
+                            <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded bg-app-card-inner-hover text-app-text">
                               DEFAULT
                             </span>
                           )}
@@ -248,7 +248,7 @@ export const Step2Extract: React.FC<Step2ExtractProps> = ({
                         </div>
 
                         {track.title && (
-                          <p className="text-xs text-slate-600 dark:text-slate-400 truncate italic">
+                          <p className="text-xs text-app-text-muted truncate italic">
                             "{track.title}"
                           </p>
                         )}

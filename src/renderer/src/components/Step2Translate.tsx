@@ -51,7 +51,7 @@ export const Step2Translate: React.FC<Step2TranslateProps> = ({
   const isKeyConfigured = Boolean(aiApiKey && aiApiKey.trim().length > 0)
 
   const badge = (
-    <span className="text-xs font-bold px-2 py-0.5 rounded-full border bg-slate-200 text-slate-900 border-slate-300 dark:bg-slate-800 dark:text-slate-200 dark:border-slate-700 whitespace-nowrap shrink-0">
+    <span className="text-xs font-bold px-2 py-0.5 rounded-full border bg-app-card-inner-hover text-app-text border-app-card-inner-border whitespace-nowrap shrink-0">
       Cloud AI
     </span>
   )
@@ -82,7 +82,7 @@ export const Step2Translate: React.FC<Step2TranslateProps> = ({
         {/* Row 1: Target Language & Output Format */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div className="space-y-1.5">
-            <label className="text-xs font-bold text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
+            <label className="text-xs font-bold text-app-text flex items-center gap-1.5">
               <Languages className="w-3.5 h-3.5 text-blue-700 dark:text-blue-400" />
               <span>Target Subtitle Language</span>
             </label>
@@ -97,7 +97,7 @@ export const Step2Translate: React.FC<Step2TranslateProps> = ({
                 </option>
               ))}
             </select>
-            <p className="text-[11px] text-slate-500 dark:text-slate-400">
+            <p className="text-[11px] text-app-text-muted">
               {language === 'si'
                 ? 'Translates into natural Sinhala dialogue while preserving formatting and cue timestamps.'
                 : 'Directly translates dialogues into your target language using your configured AI model.'}
@@ -105,7 +105,7 @@ export const Step2Translate: React.FC<Step2TranslateProps> = ({
           </div>
 
           <div className="space-y-1.5">
-            <label className="text-xs font-bold text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
+            <label className="text-xs font-bold text-app-text flex items-center gap-1.5">
               <FileCode className="w-3.5 h-3.5 text-blue-700 dark:text-blue-400" />
               <span>Output Format</span>
             </label>
@@ -118,7 +118,7 @@ export const Step2Translate: React.FC<Step2TranslateProps> = ({
               <option value="vtt">WebVTT (.vtt) — Web video standard</option>
               <option value="txt">Plain Text (.txt) — Dialogue script without timestamps</option>
             </select>
-            <p className="text-[11px] text-slate-500 dark:text-slate-400">
+            <p className="text-[11px] text-app-text-muted">
               Standard SubRip (.srt) is universally supported by VLC, TV devices, and media centers.
             </p>
           </div>
@@ -132,9 +132,9 @@ export const Step2Translate: React.FC<Step2TranslateProps> = ({
                 {aiProvider.substring(0, 3)}
               </div>
               <div>
-                <p className="font-bold text-slate-900 dark:text-slate-100 flex items-center gap-2">
+                <p className="font-bold text-app-text flex items-center gap-2">
                   <span>AI Provider: {aiProvider.toUpperCase()}</span>
-                  <span className="text-[10px] font-mono font-medium px-2 py-0.2 rounded-full bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-300">
+                  <span className="text-[10px] font-mono font-medium px-2 py-0.2 rounded-full bg-app-card-inner-hover text-app-text-muted">
                     {aiModel || 'default model'}
                   </span>
                 </p>
@@ -149,7 +149,7 @@ export const Step2Translate: React.FC<Step2TranslateProps> = ({
               onClick={onOpenSettings}
               className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-app-btn-border bg-app-btn hover:bg-app-btn-hover text-app-btn-text text-xs font-semibold transition-all cursor-pointer shadow-2xs"
             >
-              <Settings className="w-3.5 h-3.5 text-slate-600 dark:text-slate-400" />
+              <Settings className="w-3.5 h-3.5 text-app-btn-text" />
               <span>Configure AI Settings</span>
             </button>
           </div>

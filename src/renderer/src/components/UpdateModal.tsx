@@ -106,13 +106,13 @@ export const UpdateModal: React.FC<UpdateModalProps> = ({
               <Sparkles className="w-5 h-5" />
             </div>
             <div>
-              <h3 className="font-bold text-sm text-slate-900 dark:text-slate-100 flex items-center gap-2">
+              <h3 className="font-bold text-sm text-app-text flex items-center gap-2">
                 <span>New Update Available</span>
                 <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-700">
                   v{updateInfo.latestVersion}
                 </span>
               </h3>
-              <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+              <p className="text-xs text-app-text-muted mt-0.5">
                 {isUpdateReady
                   ? 'Update downloaded and ready to apply'
                   : 'A new version of Subtitle Sync Studio is ready to download'}
@@ -124,7 +124,7 @@ export const UpdateModal: React.FC<UpdateModalProps> = ({
             type="button"
             onClick={isUpdateReady && onRestartLater ? onRestartLater : onClose}
             disabled={isDownloading}
-            className="p-1.5 rounded-lg text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-200/60 dark:hover:bg-slate-800/60 transition-colors disabled:opacity-40 cursor-pointer"
+            className="p-1.5 rounded-lg text-app-text-muted hover:text-app-text hover:bg-app-card-inner-hover transition-colors disabled:opacity-40 cursor-pointer"
             title="Close"
           >
             <X className="w-4 h-4" />
@@ -135,27 +135,27 @@ export const UpdateModal: React.FC<UpdateModalProps> = ({
         <div className="p-5 space-y-4 overflow-y-auto flex-1">
           {/* Version Transition Banner */}
           <div className="p-3.5 rounded-xl border border-app-card-inner-border bg-app-card-inner flex items-center justify-between">
-            <div className="flex items-center gap-2 text-xs font-semibold text-slate-700 dark:text-slate-300">
-              <span className="text-slate-500 dark:text-slate-400 font-normal">Installed:</span>
-              <span className="font-mono bg-slate-200/70 dark:bg-slate-800 px-2 py-0.5 rounded text-slate-800 dark:text-slate-200">
+            <div className="flex items-center gap-2 text-xs font-semibold text-app-text">
+              <span className="text-app-text-muted font-normal">Installed:</span>
+              <span className="font-mono bg-app-card-inner-hover px-2 py-0.5 rounded text-app-text">
                 v{updateInfo.currentVersion}
               </span>
               <ArrowRight className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400 mx-1" />
-              <span className="text-slate-500 dark:text-slate-400 font-normal">Latest:</span>
+              <span className="text-app-text-muted font-normal">Latest:</span>
               <span className="font-mono bg-blue-50 dark:bg-blue-900/40 text-blue-600 dark:text-blue-300 px-2 py-0.5 rounded font-bold">
                 v{updateInfo.latestVersion}
               </span>
             </div>
 
             {(updateInfo.assetSize || updateInfo.deltaSize) && (
-              <div className="flex items-center gap-1.5 text-[11px] font-semibold text-slate-500 dark:text-slate-400">
+              <div className="flex items-center gap-1.5 text-[11px] font-semibold text-app-text-muted">
                 <span>Size:</span>
                 {updateInfo.isDeltaAvailable || (totalBytes > 0 && totalBytes < (updateInfo.assetSize || 0) * 0.9) ? (
-                  <span className="font-mono text-slate-700 dark:text-slate-300">
+                  <span className="font-mono text-app-text">
                     ~{formatBytes(totalBytes > 0 ? totalBytes : updateInfo.deltaSize || 20 * 1024 * 1024)} (Delta)
                   </span>
                 ) : (
-                  <span className="font-mono text-slate-700 dark:text-slate-300">
+                  <span className="font-mono text-app-text">
                     ~{formatBytes(updateInfo.assetSize)}
                   </span>
                 )}
@@ -196,7 +196,7 @@ export const UpdateModal: React.FC<UpdateModalProps> = ({
               </div>
 
               {/* Speed & Stats */}
-              <div className="flex items-center justify-between text-[11px] text-slate-600 dark:text-slate-400">
+              <div className="flex items-center justify-between text-[11px] text-app-text-muted">
                 <span className="flex items-center gap-1.5">
                   <span>{formatBytes(downloadedBytes)} / {formatBytes(totalBytes || updateInfo.deltaSize || updateInfo.assetSize)}</span>
                   {updateInfo.assetSize && (totalBytes || updateInfo.deltaSize) && (totalBytes || updateInfo.deltaSize!) < updateInfo.assetSize * 0.9 && (
@@ -218,7 +218,7 @@ export const UpdateModal: React.FC<UpdateModalProps> = ({
             </div>
           )}
 
-          <div className="flex items-center gap-2 text-[11px] text-slate-500 dark:text-slate-400">
+          <div className="flex items-center gap-2 text-[11px] text-app-text-muted">
             <ShieldCheck className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400 shrink-0" />
             <span>
               {isUpdateReady

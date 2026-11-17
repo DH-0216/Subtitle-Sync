@@ -46,7 +46,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
     <aside className="w-56 xl:w-60 bg-app-sidebar border-r border-app-sidebar-border flex flex-col justify-between shrink-0 select-none z-10 transition-colors">
       {/* Navigation List */}
       <div className="p-2.5 space-y-1">
-        <p className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider px-2.5 py-1">
+        <p className="text-[10px] font-bold text-app-text-muted uppercase tracking-wider px-2.5 py-1">
           Features
         </p>
 
@@ -68,7 +68,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 className={`w-4 h-4 shrink-0 transition-transform ${
                   isActive
                     ? "text-app-primary-fg"
-                    : "text-slate-500 dark:text-slate-400 group-hover:text-app-accent group-hover:scale-105"
+                    : "text-app-text-muted group-hover:text-app-accent group-hover:scale-105"
                 }`}
               />
               <span className="text-xs truncate flex-1 font-semibold">
@@ -98,7 +98,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
             className="flex items-center justify-between text-xs cursor-default"
             title="Core Engines: FFmpeg (Extraction), ffsubsync (Synchronization), Whisper AI (Speech-to-Text)"
           >
-            <span className="text-slate-500 dark:text-slate-400 text-[10.5px]">
+            <span className="text-app-text-muted text-[10.5px]">
               Core Engines
             </span>
             <div className="flex items-center gap-1.5">
@@ -120,8 +120,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
           </div>
 
           {!isOnline && (
-            <div className="flex items-center justify-between text-xs pt-1 border-t border-slate-200/50 dark:border-slate-800/50">
-              <span className="text-slate-500 dark:text-slate-400 text-[10.5px]">
+            <div className="flex items-center justify-between text-xs pt-1 border-t border-app-sidebar-status-border">
+              <span className="text-app-text-muted text-[10.5px]">
                 Network
               </span>
               <span className="text-[10.5px] font-bold text-amber-600 dark:text-amber-400 flex items-center gap-1">

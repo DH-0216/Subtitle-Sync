@@ -50,12 +50,12 @@ export const ActivityConsole: React.FC<ActivityConsoleProps> = ({ logs, onClear,
         className="bg-app-card-header text-app-text px-4 py-2.5 flex items-center justify-between border-b border-app-card-header-border transition-colors"
       >
         <div className="flex items-center gap-2.5">
-          <Terminal className="w-4 h-4 text-slate-700 dark:text-slate-300" />
+          <Terminal className="w-4 h-4 text-app-text" />
           <span className="font-bold text-xs uppercase tracking-wider text-app-text">
             Console Activity
           </span>
           {logs.length > 0 && (
-            <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded-full bg-slate-200 text-slate-900 dark:bg-slate-800 dark:text-slate-200 border border-slate-300 dark:border-slate-700">
+            <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded-full bg-app-card-inner-hover text-app-text border border-app-card-inner-border">
               {logs.length} lines
             </span>
           )}
@@ -67,7 +67,7 @@ export const ActivityConsole: React.FC<ActivityConsoleProps> = ({ logs, onClear,
             <>
               <button
                 onClick={handleCopy}
-                className="p-1.5 rounded-lg text-slate-700 hover:text-slate-900 hover:bg-slate-200 dark:text-slate-400 dark:hover:text-slate-200 dark:hover:bg-slate-800 transition-colors cursor-pointer"
+                className="p-1.5 rounded-lg text-app-text-muted hover:text-app-text hover:bg-app-card-inner-hover transition-colors cursor-pointer"
                 title="Copy all logs"
               >
                 {copied ? (
@@ -78,14 +78,14 @@ export const ActivityConsole: React.FC<ActivityConsoleProps> = ({ logs, onClear,
               </button>
               <button
                 onClick={onClear}
-                className="p-1.5 rounded-lg text-slate-700 hover:text-rose-600 hover:bg-slate-200 dark:text-slate-400 dark:hover:text-rose-400 dark:hover:bg-slate-800 transition-colors cursor-pointer"
+                className="p-1.5 rounded-lg text-app-text-muted hover:text-rose-500 hover:bg-app-card-inner-hover transition-colors cursor-pointer"
                 title="Clear console"
               >
                 <Trash2 className="w-3.5 h-3.5" />
               </button>
               <button
                 onClick={() => setIsMaximized((prev) => !prev)}
-                className="p-1.5 rounded-lg text-slate-700 hover:text-slate-900 hover:bg-slate-200 dark:text-slate-400 dark:hover:text-slate-200 dark:hover:bg-slate-800 transition-colors cursor-pointer"
+                className="p-1.5 rounded-lg text-app-text-muted hover:text-app-text hover:bg-app-card-inner-hover transition-colors cursor-pointer"
                 title={isMaximized ? 'Restore height' : 'Expand height'}
               >
                 {isMaximized ? (
@@ -100,13 +100,13 @@ export const ActivityConsole: React.FC<ActivityConsoleProps> = ({ logs, onClear,
           {/* Expand / Collapse Button */}
           <button
             onClick={toggleExpand}
-            className="flex items-center gap-1.5 px-3 py-1 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700/80 text-slate-900 dark:text-slate-200 text-xs font-bold transition-all shadow-xs cursor-pointer"
+            className="flex items-center gap-1.5 px-3 py-1 rounded-lg border border-app-btn-border bg-app-btn hover:bg-app-btn-hover text-app-btn-text text-xs font-bold transition-all shadow-xs cursor-pointer"
           >
             <span>{isExpanded ? 'Hide Log' : 'Show Log'}</span>
             {isExpanded ? (
-              <ChevronUp className="w-3.5 h-3.5 text-slate-700 dark:text-slate-300" />
+              <ChevronUp className="w-3.5 h-3.5 text-app-btn-text" />
             ) : (
-              <ChevronDown className="w-3.5 h-3.5 text-slate-700 dark:text-slate-300" />
+              <ChevronDown className="w-3.5 h-3.5 text-app-btn-text" />
             )}
           </button>
         </div>
@@ -116,7 +116,7 @@ export const ActivityConsole: React.FC<ActivityConsoleProps> = ({ logs, onClear,
       {isExpanded && (
         <div
           ref={terminalRef}
-          className={`overflow-y-auto font-mono text-xs text-slate-300 p-3.5 select-text bg-[#070a10] border-t border-slate-200/80 dark:border-slate-800 space-y-1 transition-all duration-300 ${
+          className={`overflow-y-auto font-mono text-xs text-slate-300 p-3.5 select-text bg-[#070a10] border-t border-app-card-header-border space-y-1 transition-all duration-300 ${
             isMaximized ? 'h-96' : 'h-52'
           }`}
         >

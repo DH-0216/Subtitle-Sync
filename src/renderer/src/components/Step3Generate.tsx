@@ -42,10 +42,10 @@ export const Step3Generate: React.FC<Step3GenerateProps> = ({
           <Sparkles className="w-4 h-4" />
         </div>
         <div className="text-xs space-y-1">
-          <div className="font-bold text-slate-900 dark:text-slate-100">
+          <div className="font-bold text-app-text">
             Ready to transcribe speech into subtitles
           </div>
-          <p className="text-slate-600 dark:text-slate-400 leading-relaxed">
+          <p className="text-app-text-muted leading-relaxed">
             The offline Whisper AI engine will extract audio from track #{selectedTrack ?? 0} and transcribe dialogue into a{' '}
             <span className="font-bold uppercase text-blue-600 dark:text-blue-400">
               .{config.format}

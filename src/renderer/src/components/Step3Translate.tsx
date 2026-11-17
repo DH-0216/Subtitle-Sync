@@ -52,10 +52,10 @@ export const Step3Translate: React.FC<Step3TranslateProps> = ({
           <Sparkles className="w-4 h-4" />
         </div>
         <div className="text-xs space-y-1">
-          <div className="font-bold text-slate-900 dark:text-slate-100">
+          <div className="font-bold text-app-text">
             Ready to translate dialogues via {aiProvider.toUpperCase()} AI
           </div>
-          <p className="text-slate-600 dark:text-slate-400 leading-relaxed">
+          <p className="text-app-text-muted leading-relaxed">
             The AI engine will parse cues from{' '}
             <span className="font-mono font-bold text-blue-600 dark:text-blue-300">
               {sourceFileName || 'chosen subtitle'}

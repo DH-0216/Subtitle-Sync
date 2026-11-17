@@ -138,7 +138,7 @@ export const Step1Video: React.FC<Step1VideoProps> = ({
                 <Film className="w-5 h-5" />
               </div>
               <div className="min-w-0">
-                <p className="text-sm font-bold text-slate-900 dark:text-slate-100 truncate" title={videoPath}>
+                <p className="text-sm font-bold text-app-text truncate" title={videoPath}>
                   {fileName}
                 </p>
                 {/* Video details: 🎬 FPS • ⏱️ Duration • 📺 Resolution • 🎵 Audio stream count */}
@@ -170,7 +170,7 @@ export const Step1Video: React.FC<Step1VideoProps> = ({
               <button
                 type="button"
                 onClick={onRemove}
-                className="p-1.5 rounded-lg text-slate-500 hover:text-rose-600 dark:text-slate-400 dark:hover:text-rose-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
+                className="p-1.5 rounded-lg text-app-text-muted hover:text-rose-500 hover:bg-app-card-inner-hover transition-colors cursor-pointer"
                 title="Remove video"
               >
                 <X className="w-4 h-4" />
@@ -180,13 +180,13 @@ export const Step1Video: React.FC<Step1VideoProps> = ({
 
           {/* Active Audio Track & Subtitle Track Detection Row */}
           {(currentTrackObj || subtitleTracks.length > 0) && (
-            <div className="pt-3 border-t border-slate-200 dark:border-slate-800/80 flex flex-wrap items-center justify-between gap-2.5 text-xs">
+            <div className="pt-3 border-t border-app-card-inner-border flex flex-wrap items-center justify-between gap-2.5 text-xs">
               <div className="flex flex-wrap items-center gap-3">
                 {currentTrackObj && (
-                  <div className="flex items-center gap-1.5 font-bold text-slate-900 dark:text-slate-100">
+                  <div className="flex items-center gap-1.5 font-bold text-app-text">
                     <Music className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400 shrink-0" />
                     <span>Reference Audio:</span>
-                    <span className="font-semibold text-slate-800 dark:text-slate-200">
+                    <span className="font-semibold text-app-text">
                       Track #{currentTrackObj.index + 1}
                       {currentTrackObj.language && ` (${currentTrackObj.language.toUpperCase()})`}
                       {currentTrackObj.title && ` - ${currentTrackObj.title}`}
@@ -196,15 +196,15 @@ export const Step1Video: React.FC<Step1VideoProps> = ({
                 )}
 
                 {subtitleTracks.length > 0 ? (
-                  <div className="flex items-center gap-1.5 font-bold text-slate-900 dark:text-slate-100">
+                  <div className="flex items-center gap-1.5 font-bold text-app-text">
                     <FileUp className="w-3.5 h-3.5 text-emerald-700 dark:text-emerald-400 shrink-0" />
                     <span>Embedded Subtitles:</span>
-                    <span className="font-semibold text-slate-800 dark:text-slate-200">
+                    <span className="font-semibold text-app-text">
                       {subtitleTracks.length} track{subtitleTracks.length === 1 ? '' : 's'} detected in container
                     </span>
                   </div>
                 ) : videoPath ? (
-                  <div className="flex items-center gap-1.5 text-slate-500 dark:text-slate-400">
+                  <div className="flex items-center gap-1.5 text-app-text-muted">
                     <FileUp className="w-3.5 h-3.5 opacity-50 shrink-0" />
                     <span>Encoded Subtitles: None detected in container</span>
                   </div>

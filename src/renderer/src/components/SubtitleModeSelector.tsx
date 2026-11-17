@@ -64,7 +64,7 @@ export const SubtitleModeSelector: React.FC<SubtitleModeSelectorProps> = ({
               className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 transition-all ${
                 isActive
                   ? "bg-white/20 text-white"
-                  : "bg-blue-50 text-blue-600 dark:bg-slate-800 dark:text-blue-400 group-hover:scale-105"
+                  : "bg-blue-50 text-blue-600 dark:bg-blue-950/40 dark:text-blue-400 group-hover:scale-105"
               }`}
             >
               <Icon className="w-5 h-5" />
@@ -73,7 +73,7 @@ export const SubtitleModeSelector: React.FC<SubtitleModeSelectorProps> = ({
             <div className="min-w-0 flex-1">
               <div className="flex items-center gap-2">
                 <span
-                  className={`text-sm font-bold truncate ${isActive ? "text-white" : "text-slate-900 dark:text-slate-100"}`}
+                  className={`text-sm font-bold truncate ${isActive ? "text-white" : "text-app-text"}`}
                 >
                   {f.title}
                 </span>
@@ -93,7 +93,7 @@ export const SubtitleModeSelector: React.FC<SubtitleModeSelectorProps> = ({
                 className={`text-xs mt-0.5 leading-snug line-clamp-1 ${
                   isActive
                     ? "text-blue-100"
-                    : "text-slate-600 dark:text-slate-400"
+                    : "text-app-text-muted"
                 }`}
               >
                 {f.desc}

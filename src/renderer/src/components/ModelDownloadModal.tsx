@@ -95,10 +95,10 @@ export const ModelDownloadModal: React.FC<ModelDownloadModalProps> = ({
               <Cpu className="w-5 h-5" />
             </div>
             <div>
-              <h3 className="font-bold text-slate-900 dark:text-slate-100 text-sm">
+              <h3 className="font-bold text-app-text text-sm">
                 Whisper AI Model Required
               </h3>
-              <p className="text-xs text-slate-500 dark:text-slate-400">
+              <p className="text-xs text-app-text-muted">
                 One-time download for offline speech transcription
               </p>
             </div>
@@ -107,7 +107,7 @@ export const ModelDownloadModal: React.FC<ModelDownloadModalProps> = ({
           {!isDownloading && (
             <button
               onClick={onClose}
-              className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
+              className="p-1.5 rounded-lg text-app-text-muted hover:text-app-text hover:bg-app-card-inner-hover transition-colors cursor-pointer"
               title="Close"
             >
               <X className="w-4 h-4" />
@@ -125,11 +125,11 @@ export const ModelDownloadModal: React.FC<ModelDownloadModalProps> = ({
               {currentInfo.size}
             </span>
           </div>
-          <p className="text-xs text-slate-600 dark:text-slate-400 leading-relaxed">
+          <p className="text-xs text-app-text-muted leading-relaxed">
             {currentInfo.desc}. Stored locally in your app folder so you can transcribe speech completely offline anytime.
           </p>
 
-          <div className="pt-2 border-t border-blue-100/60 dark:border-blue-900/30 flex items-center gap-1.5 text-[11px] text-slate-500 dark:text-slate-400">
+          <div className="pt-2 border-t border-blue-100/60 dark:border-blue-900/30 flex items-center gap-1.5 text-[11px] text-app-text-muted">
             <HardDrive className="w-3.5 h-3.5" />
             <span>Saved permanently to local storage</span>
           </div>
@@ -157,7 +157,7 @@ export const ModelDownloadModal: React.FC<ModelDownloadModalProps> = ({
             <div className="flex items-center justify-between text-xs">
               <div className="flex items-center gap-2 min-w-0">
                 <Loader2 className="w-4 h-4 text-blue-600 dark:text-blue-400 animate-spin shrink-0" />
-                <span className="font-semibold text-slate-800 dark:text-slate-200">
+                <span className="font-semibold text-app-text">
                   Downloading model...
                 </span>
               </div>
@@ -166,14 +166,14 @@ export const ModelDownloadModal: React.FC<ModelDownloadModalProps> = ({
               </span>
             </div>
 
-            <div className="h-3 w-full bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden p-0.5 border border-slate-200 dark:border-slate-700">
+            <div className="h-3 w-full bg-app-canvas rounded-full overflow-hidden p-0.5 border border-app-card-inner-border">
               <div
                 className="h-full rounded-full bg-gradient-to-r from-blue-600 to-indigo-500 transition-all duration-300"
                 style={{ width: `${Math.min(100, Math.max(3, downloadProgress))}%` }}
               />
             </div>
 
-            <div className="flex items-center justify-between text-[11px] text-slate-500 dark:text-slate-400 font-medium">
+            <div className="flex items-center justify-between text-[11px] text-app-text-muted font-medium">
               <span>{formatBytes(downloadedBytes)} / {formatBytes(totalBytes) || currentInfo.size}</span>
               <span className="font-mono text-blue-600 dark:text-blue-400 font-semibold">
                 {downloadSpeed || 'Calculating speed...'}

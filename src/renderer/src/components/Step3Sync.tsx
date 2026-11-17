@@ -90,12 +90,12 @@ export const Step3Sync: React.FC<Step3SyncProps> = ({
             <span className="font-semibold">{recommendation.title.replace(/^[⚡✅🎬💡⚠️]\s*/, '')}</span>
           </div>
 
-          <div className="text-xs text-slate-700 dark:text-slate-300 flex items-start gap-2 leading-relaxed">
+          <div className="text-xs text-app-text flex items-start gap-2 leading-relaxed">
             <span className="w-5 shrink-0 text-center text-sm leading-none">💡</span>
             <span>{recommendation.hint.replace(/^💡\s*/, '')}</span>
           </div>
 
-          <div className="text-[11px] font-medium text-slate-500 dark:text-slate-400 flex items-start gap-2 leading-relaxed">
+          <div className="text-[11px] font-medium text-app-text-muted flex items-start gap-2 leading-relaxed">
             <span className="w-5 shrink-0 text-center text-sm leading-none">🎯</span>
             <div>
               {!userSelectedMode ? (
@@ -134,10 +134,10 @@ export const Step3Sync: React.FC<Step3SyncProps> = ({
                 unlocked
                   ? selected
                     ? 'bg-blue-50 border-2 border-blue-600 shadow-xs dark:bg-blue-950/50 dark:border-blue-500 cursor-pointer'
-                    : 'bg-app-card-inner hover:bg-app-card-inner-hover border-app-card-inner-border dark:hover:border-slate-700 shadow-2xs cursor-pointer'
+                    : 'bg-app-card-inner hover:bg-app-card-inner-hover border-app-card-inner-border hover:border-blue-400 shadow-2xs cursor-pointer'
                   : selected
-                    ? 'bg-slate-100/80 dark:bg-slate-800/40 border-2 border-slate-300 dark:border-slate-700'
-                    : 'bg-slate-50/60 dark:bg-slate-900/40 border border-slate-200 dark:border-slate-800'
+                    ? 'bg-app-card-locked border-2 border-app-card-border opacity-70'
+                    : 'bg-app-card-locked border border-app-card-border opacity-60'
               } ${!unlocked || isSyncing ? 'cursor-not-allowed pointer-events-none' : ''}`}
             >
               {isRec && unlocked && (
@@ -150,16 +150,16 @@ export const Step3Sync: React.FC<Step3SyncProps> = ({
                   className={`p-1.5 rounded-lg transition-colors ${
                     unlocked && selected
                       ? 'bg-app-primary text-app-primary-fg shadow-2xs'
-                      : 'bg-slate-100 text-slate-600 border border-slate-200 dark:bg-slate-800 dark:text-slate-400 dark:border-slate-700'
+                      : 'bg-app-card-inner-hover text-app-text-muted border border-app-card-inner-border'
                   }`}
                 >
                   <Icon className="w-4 h-4" />
                 </div>
-                <h3 className={`text-sm font-bold ${unlocked ? 'text-slate-900 dark:text-slate-100' : 'text-slate-700 dark:text-slate-300'}`}>
+                <h3 className={`text-sm font-bold ${unlocked ? 'text-app-text' : 'text-app-text-muted'}`}>
                   {m.title}
                 </h3>
               </div>
-              <p className={`text-xs leading-relaxed ${unlocked ? 'text-slate-600 dark:text-slate-400' : 'text-slate-500 dark:text-slate-400'}`}>
+              <p className="text-xs leading-relaxed text-app-text-muted">
                 {m.desc}
               </p>
             </div>

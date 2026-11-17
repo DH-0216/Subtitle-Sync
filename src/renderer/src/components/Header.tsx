@@ -30,7 +30,7 @@ export const Header: React.FC<HeaderProps> = ({
             className="w-8 h-8 rounded-lg object-contain shadow-xs"
           />
           <div className="flex items-center gap-1.5">
-            <span className="font-bold text-sm text-slate-900 dark:text-slate-100 tracking-tight whitespace-nowrap">
+            <span className="font-bold text-sm text-app-text tracking-tight whitespace-nowrap">
               Subtitle Sync
             </span>
             <span className="text-[10px] font-bold px-1.5 py-0.2 rounded-full bg-blue-50 text-blue-600 dark:bg-blue-500/10 dark:text-blue-400 border border-blue-200/60 dark:border-transparent">
@@ -41,13 +41,13 @@ export const Header: React.FC<HeaderProps> = ({
 
         {/* Active Mode Title & Description (Aligned directly at the sidebar divider line) */}
         <div className="min-w-0 hidden sm:block pl-3.5 pt-0.5">
-          <h1 className="font-bold text-sm text-slate-900 dark:text-slate-100 tracking-tight leading-tight truncate">
+          <h1 className="font-bold text-sm text-app-text tracking-tight leading-tight truncate">
             {currentAction === 'sync' && 'Synchronize Subtitles'}
             {currentAction === 'extract' && 'Extract Encoded Subtitles'}
             {currentAction === 'translate' && 'Translate Subtitles (Cloud AI)'}
             {currentAction === 'generate' && 'Generate Subtitles (Whisper AI)'}
           </h1>
-          <p className="text-[11px] text-slate-500 dark:text-slate-400 font-medium truncate">
+          <p className="text-[11px] text-app-text-muted font-medium truncate">
             {currentAction === 'sync' && 'Align out-of-sync subtitle files (.srt) automatically with movie audio'}
             {currentAction === 'extract' && 'Extract embedded subtitle streams from MKV or MP4 video containers'}
             {currentAction === 'translate' && 'Translate subtitle dialogue into other languages using Cloud AI (Gemini / OpenAI)'}
@@ -74,7 +74,7 @@ export const Header: React.FC<HeaderProps> = ({
         <button
           type="button"
           onClick={onOpenSettings}
-          className="w-8 h-8 rounded-lg flex items-center justify-center text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800/80 transition-colors cursor-pointer"
+          className="w-8 h-8 rounded-lg flex items-center justify-center text-app-text-muted hover:text-app-text hover:bg-app-card-inner-hover transition-colors cursor-pointer"
           title="Settings & Preferences"
           aria-label="Open settings"
         >
@@ -85,7 +85,7 @@ export const Header: React.FC<HeaderProps> = ({
         <button
           type="button"
           onClick={onOpenAbout}
-          className="w-8 h-8 rounded-lg flex items-center justify-center text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800/80 transition-colors cursor-pointer"
+          className="w-8 h-8 rounded-lg flex items-center justify-center text-app-text-muted hover:text-app-text hover:bg-app-card-inner-hover transition-colors cursor-pointer"
           title="About Subtitle Sync"
           aria-label="About Subtitle Sync"
         >

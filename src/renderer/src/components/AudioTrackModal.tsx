@@ -42,11 +42,11 @@ export const AudioTrackModal: React.FC<AudioTrackModalProps> = ({
             <div className="w-8 h-8 rounded-lg bg-blue-50 border border-blue-200 dark:bg-blue-500/10 dark:border-blue-500/20 flex items-center justify-center text-blue-600 dark:text-blue-400">
               <Music className="w-4 h-4" />
             </div>
-            <h3 className="font-semibold text-slate-900 dark:text-slate-100 text-sm">Select Reference Audio Track</h3>
+            <h3 className="font-semibold text-app-text text-sm">Select Reference Audio Track</h3>
           </div>
           <button
             onClick={onClose}
-            className="p-1 rounded-lg text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
+            className="p-1 rounded-lg text-app-text-muted hover:text-app-text hover:bg-app-card-inner-hover transition-colors cursor-pointer"
           >
             <X className="w-4 h-4" />
           </button>
@@ -65,7 +65,7 @@ export const AudioTrackModal: React.FC<AudioTrackModalProps> = ({
                 className={`p-3 rounded-xl border flex items-center justify-between cursor-pointer transition-all ${
                   isSelected
                     ? 'bg-blue-50/60 border-blue-600 ring-1 ring-blue-600 shadow-2xs dark:bg-blue-950/40 dark:border-blue-500 dark:ring-blue-500/40'
-                    : 'bg-app-card-inner border-app-card-inner-border hover:border-slate-300 dark:hover:border-slate-700 hover:bg-app-card-inner-hover'
+                    : 'bg-app-card-inner border-app-card-inner-border hover:border-blue-400 hover:bg-app-card-inner-hover'
                 }`}
               >
                 <div>
@@ -73,15 +73,15 @@ export const AudioTrackModal: React.FC<AudioTrackModalProps> = ({
                     <span className="text-xs font-bold text-blue-600 dark:text-blue-400 font-mono">
                       Track #{track.index}
                     </span>
-                    <span className="text-xs font-semibold px-2 py-0.5 rounded bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-200 border border-slate-200 dark:border-slate-700/50 shadow-2xs">
+                    <span className="text-xs font-semibold px-2 py-0.5 rounded bg-app-input text-app-input-text border border-app-input-border shadow-2xs">
                       {track.language ? track.language.toUpperCase() : 'UNKNOWN'}
                     </span>
-                    <span className="text-[11px] text-slate-500 dark:text-slate-400 font-mono">
+                    <span className="text-[11px] text-app-text-muted font-mono">
                       ({track.codec}, {track.channels}ch)
                     </span>
                   </div>
                   {track.title && (
-                    <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 italic truncate">{track.title}</p>
+                    <p className="text-xs text-app-text-muted mt-1 italic truncate">{track.title}</p>
                   )}
                 </div>
 
