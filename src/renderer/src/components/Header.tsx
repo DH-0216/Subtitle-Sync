@@ -20,7 +20,7 @@ export const Header: React.FC<HeaderProps> = ({
   onRestartToApplyUpdate
 }) => {
   return (
-    <header className="app-panel border-b pr-5 py-2.5 flex items-center justify-between shrink-0 z-20">
+    <header className="bg-[#F2F6FD] dark:bg-[#0B0F19] border-b border-[#CADEFC] dark:border-slate-800/80 pr-5 py-2.5 flex items-center justify-between shrink-0 z-20">
       <div className="flex items-center min-w-0 flex-1">
         {/* App Branding (Matches sidebar column width) */}
         <div className="w-56 xl:w-60 px-5 shrink-0 flex items-center gap-2.5">
@@ -33,7 +33,7 @@ export const Header: React.FC<HeaderProps> = ({
             <span className="font-bold text-sm text-slate-900 dark:text-slate-100 tracking-tight whitespace-nowrap">
               Subtitle Sync
             </span>
-            <span className="text-[10px] font-bold px-1.5 py-0.2 rounded-full bg-blue-100 text-blue-900 dark:bg-blue-500/10 dark:text-blue-400">
+            <span className="text-[10px] font-bold px-1.5 py-0.2 rounded-full bg-blue-50 text-blue-600 dark:bg-blue-500/10 dark:text-blue-400 border border-blue-200/60 dark:border-transparent">
               v{APP_VERSION}
             </span>
           </div>

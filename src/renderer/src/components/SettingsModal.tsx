@@ -578,7 +578,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                 onClick={() => setActiveTab('general')}
                 className={`w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-xs font-semibold transition-all cursor-pointer ${
                   activeTab === 'general'
-                    ? 'bg-blue-800 text-white shadow-2xs font-bold dark:bg-blue-600'
+                    ? 'bg-blue-600 text-white shadow-2xs font-bold'
                     : 'text-slate-600 dark:text-slate-400 hover:bg-slate-200/60 dark:hover:bg-slate-800/60 hover:text-slate-900 dark:hover:text-slate-100'
                 }`}
               >
@@ -591,7 +591,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                 onClick={() => setActiveTab('ai')}
                 className={`w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-xs font-semibold transition-all cursor-pointer ${
                   activeTab === 'ai'
-                    ? 'bg-blue-800 text-white shadow-2xs font-bold dark:bg-blue-600'
+                    ? 'bg-blue-600 text-white shadow-2xs font-bold'
                     : 'text-slate-600 dark:text-slate-400 hover:bg-slate-200/60 dark:hover:bg-slate-800/60 hover:text-slate-900 dark:hover:text-slate-100'
                 }`}
               >
@@ -640,7 +640,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                       </span>
                       <div
                         className={`w-11 h-6 flex items-center rounded-full p-1 transition-colors duration-200 ${
-                          checkUpdates ? 'bg-blue-800 dark:bg-blue-600' : 'bg-slate-300 dark:bg-slate-700'
+                          checkUpdates ? 'bg-blue-600' : 'bg-slate-300 dark:bg-slate-700'
                         }`}
                       >
                         <div
@@ -674,7 +674,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                       </span>
                       <div
                         className={`w-11 h-6 flex items-center rounded-full p-1 transition-colors duration-200 ${
-                          autoDownloadUpdates ? 'bg-blue-800 dark:bg-blue-600' : 'bg-slate-300 dark:bg-slate-700'
+                          autoDownloadUpdates ? 'bg-blue-600' : 'bg-slate-300 dark:bg-slate-700'
                         }`}
                       >
                         <div
@@ -731,7 +731,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                 <div className="p-4 rounded-xl border border-slate-200/90 dark:border-slate-800/80 bg-slate-50/70 dark:bg-[#111625]/80 flex items-center justify-between transition-colors">
                   <div>
                     <h3 className="font-bold text-sm text-slate-900 dark:text-slate-100 flex items-center gap-2">
-                      <Bell className="w-4 h-4 text-blue-800 dark:text-blue-400" />
+                      <Bell className="w-4 h-4 text-blue-600 dark:text-blue-400" />
                       Desktop Notifications
                     </h3>
                     <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
@@ -750,7 +750,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                     </span>
                     <div
                       className={`w-11 h-6 flex items-center rounded-full p-1 transition-colors duration-200 ${
-                        notificationsEnabled ? 'bg-blue-800 dark:bg-blue-600' : 'bg-slate-300 dark:bg-slate-700'
+                        notificationsEnabled ? 'bg-blue-600' : 'bg-slate-300 dark:bg-slate-700'
                       }`}
                     >
                       <div
@@ -1022,7 +1022,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                   </div>
 
                   <div className="flex flex-wrap items-center gap-1.5 pt-1">
-                    <span className="text-[10px] font-semibold px-2 py-0.5 rounded-md bg-blue-100 text-blue-800 dark:bg-blue-500/15 dark:text-blue-300">
+                    <span className="text-[10px] font-semibold px-2 py-0.5 rounded-md bg-blue-50 text-blue-600 dark:bg-blue-500/15 dark:text-blue-300">
                       Colloquial Sinhala (කථාබහ බස)
                     </span>
                     <span className="text-[10px] font-semibold px-2 py-0.5 rounded-md bg-emerald-100 text-emerald-800 dark:bg-emerald-500/15 dark:text-emerald-300">
@@ -1042,7 +1042,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                   <button
                     type="button"
                     onClick={handleSaveAiSettings}
-                    className="px-5 py-2 rounded-xl bg-blue-800 hover:bg-blue-900 dark:bg-blue-600 dark:hover:bg-blue-500 text-white font-semibold text-xs transition-all shadow-2xs active:scale-[0.99] flex items-center gap-1.5 cursor-pointer"
+                    className="px-5 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-semibold text-xs transition-all shadow-2xs active:scale-[0.99] flex items-center gap-1.5 cursor-pointer"
                   >
                     {savedSuccess ? (
                       <>

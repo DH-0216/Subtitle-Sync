@@ -91,7 +91,7 @@ export const Step2Extract: React.FC<Step2ExtractProps> = ({
       type="button"
       onClick={allSelected ? onDeselectAllTracks : onSelectAllTracks}
       disabled={isExtracting}
-      className="text-xs text-blue-800 dark:text-blue-400 hover:text-blue-950 dark:hover:text-blue-300 flex items-center gap-1 font-bold transition-colors cursor-pointer"
+      className="text-xs text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 flex items-center gap-1 font-bold transition-colors cursor-pointer"
     >
       {allSelected ? <Square className="w-3.5 h-3.5" /> : <CheckSquare className="w-3.5 h-3.5" />}
       <span>{allSelected ? 'Deselect All' : 'Select All Text Tracks'}</span>
@@ -136,7 +136,7 @@ export const Step2Extract: React.FC<Step2ExtractProps> = ({
               type="button"
               onClick={onRescan}
               disabled={isExtracting}
-              className="mt-3 inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-semibold bg-blue-800 hover:bg-blue-900 dark:bg-blue-600 dark:hover:bg-blue-500 text-white shadow-2xs transition-all cursor-pointer"
+              className="mt-3 inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-semibold bg-blue-600 hover:bg-blue-500 text-white shadow-2xs transition-all cursor-pointer"
             >
               <RefreshCw className="w-3.5 h-3.5" />
               <span>Re-scan Video for Subtitles</span>
@@ -213,11 +213,11 @@ export const Step2Extract: React.FC<Step2ExtractProps> = ({
                         className={`mt-0.5 shrink-0 ${
                           !track.isText
                             ? "cursor-not-allowed opacity-40"
-                            : "cursor-pointer text-blue-800 dark:text-blue-400"
+                            : "cursor-pointer text-blue-600 dark:text-blue-400"
                         }`}
                       >
                         {isSelected ? (
-                          <CheckSquare className="w-5 h-5 text-blue-800 dark:text-blue-400" />
+                          <CheckSquare className="w-5 h-5 text-blue-600 dark:text-blue-400" />
                         ) : (
                           <Square className="w-5 h-5 text-slate-400 hover:text-slate-600" />
                         )}
@@ -276,7 +276,7 @@ export const Step2Extract: React.FC<Step2ExtractProps> = ({
                         type="button"
                         onClick={() => onExtractSingleNow(track)}
                         disabled={isExtracting}
-                        className="text-xs font-semibold px-2.5 py-1.5 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-800 dark:text-slate-200 border border-slate-300 dark:border-slate-700 hover:bg-blue-800 hover:text-white dark:hover:bg-blue-600 dark:hover:text-white transition-all shrink-0 cursor-pointer flex items-center gap-1 shadow-2xs"
+                        className="text-xs font-semibold px-2.5 py-1.5 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-800 dark:text-slate-200 border border-slate-300 dark:border-slate-700 hover:bg-blue-600 hover:text-white transition-all shrink-0 cursor-pointer flex items-center gap-1 shadow-2xs"
                       >
                         <FileUp className="w-3.5 h-3.5" />
                         <span>Extract to .SRT</span>

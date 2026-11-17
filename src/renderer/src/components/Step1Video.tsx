@@ -120,7 +120,7 @@ export const Step1Video: React.FC<Step1VideoProps> = ({
           icon={<Film className="w-6 h-6" />}
           title={
             <>
-              Drag &amp; drop movie here, or <span className="text-blue-800 dark:text-blue-400 underline font-extrabold">browse</span>
+              Drag &amp; drop movie here, or <span className="text-blue-600 dark:text-blue-400 underline font-extrabold">browse</span>
             </>
           }
           subtitle="Supports MP4, MKV, AVI, MOV, WEBM, FLV, TS, M4V (Audio track extracted automatically)"
@@ -134,7 +134,7 @@ export const Step1Video: React.FC<Step1VideoProps> = ({
         <div className="bg-slate-50 dark:bg-[#0B0F19] border border-slate-300 dark:border-slate-800 rounded-xl p-4 space-y-3 shadow-2xs">
           <div className="flex items-start justify-between gap-3">
             <div className="flex items-center gap-3 min-w-0">
-              <div className="w-10 h-10 rounded-xl bg-blue-800 dark:bg-blue-600 text-white shadow-xs flex items-center justify-center shrink-0">
+              <div className="w-10 h-10 rounded-xl bg-blue-600 text-white shadow-xs flex items-center justify-center shrink-0">
                 <Film className="w-5 h-5" />
               </div>
               <div className="min-w-0">
@@ -184,7 +184,7 @@ export const Step1Video: React.FC<Step1VideoProps> = ({
               <div className="flex flex-wrap items-center gap-3">
                 {currentTrackObj && (
                   <div className="flex items-center gap-1.5 font-bold text-slate-900 dark:text-slate-100">
-                    <Music className="w-3.5 h-3.5 text-blue-800 dark:text-blue-400 shrink-0" />
+                    <Music className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400 shrink-0" />
                     <span>Reference Audio:</span>
                     <span className="font-semibold text-slate-800 dark:text-slate-200">
                       Track #{currentTrackObj.index + 1}
@@ -216,7 +216,7 @@ export const Step1Video: React.FC<Step1VideoProps> = ({
                 <button
                   type="button"
                   onClick={onSelectTrackModal}
-                  className="text-xs font-bold text-white bg-blue-800 hover:bg-blue-900 dark:bg-blue-600 dark:hover:bg-blue-500 shadow-2xs px-3 py-1 rounded-lg transition-all cursor-pointer shrink-0 ml-auto"
+                  className="text-xs font-bold text-white bg-blue-600 hover:bg-blue-500 shadow-2xs px-3 py-1 rounded-lg transition-all cursor-pointer shrink-0 ml-auto"
                 >
                   Change Audio Track ({audioTracks.length})
                 </button>

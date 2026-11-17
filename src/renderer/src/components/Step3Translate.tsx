@@ -48,7 +48,7 @@ export const Step3Translate: React.FC<Step3TranslateProps> = ({
     >
       {/* Summary Banner */}
       <div className="mb-4 p-4 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/70 dark:bg-[#0B0F19]/60 flex items-start gap-3">
-        <div className="p-2 rounded-lg bg-blue-800 dark:bg-blue-600 text-white shadow-2xs shrink-0">
+        <div className="p-2 rounded-lg bg-blue-600 text-white shadow-2xs shrink-0">
           <Sparkles className="w-4 h-4" />
         </div>
         <div className="text-xs space-y-1">
@@ -57,15 +57,15 @@ export const Step3Translate: React.FC<Step3TranslateProps> = ({
           </div>
           <p className="text-slate-600 dark:text-slate-400 leading-relaxed">
             The AI engine will parse cues from{' '}
-            <span className="font-mono font-bold text-blue-900 dark:text-blue-300">
+            <span className="font-mono font-bold text-blue-600 dark:text-blue-300">
               {sourceFileName || 'chosen subtitle'}
             </span>{' '}
             and translate them into{' '}
-            <span className="font-bold text-blue-800 dark:text-blue-400">
+            <span className="font-bold text-blue-600 dark:text-blue-400">
               {targetLangName}
             </span>{' '}
             into a{' '}
-            <span className="font-bold uppercase text-blue-800 dark:text-blue-400">
+            <span className="font-bold uppercase text-blue-600 dark:text-blue-400">
               .{format}
             </span>{' '}
             file preserving all cue timings and formatting.

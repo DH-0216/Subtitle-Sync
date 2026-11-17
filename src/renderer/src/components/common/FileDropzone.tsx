@@ -30,13 +30,13 @@ export const FileDropzone: React.FC<FileDropzoneProps> = ({
       onDragLeave={onDragLeave}
       onDrop={onDrop}
       onClick={onClick}
-      className={`border-2 border-dashed rounded-xl p-7 text-center cursor-pointer transition-all duration-200 app-dropzone ${
+      className={`border-2 border-dashed rounded-xl p-7 text-center cursor-pointer transition-all duration-200 ${
         isDragOver
-          ? 'scale-[0.99] shadow-xs !border-[#174082] !bg-[#E0ECFF] dark:!bg-blue-950/40'
-          : ''
+          ? 'border-blue-600 bg-blue-50/70 dark:bg-blue-950/40 scale-[0.99] shadow-xs'
+          : 'border-[#B6CFF7] hover:border-blue-500 bg-[#F2F7FD] hover:bg-[#E0ECFF] dark:border-slate-700 dark:hover:border-slate-600 dark:bg-[#0B0F19] dark:hover:bg-[#0E1424]'
       } ${className}`}
     >
-      <div className="w-12 h-12 rounded-xl bg-[#E0ECFF] border border-[#B6CFF7] text-[#174082] dark:border-slate-700 dark:bg-slate-800 dark:text-blue-400 flex items-center justify-center mx-auto mb-3 shadow-xs">
+      <div className="w-12 h-12 rounded-xl bg-blue-50 border border-blue-200 text-blue-600 dark:border-blue-900/40 dark:bg-blue-950/40 dark:text-blue-400 flex items-center justify-center mx-auto mb-3 shadow-xs">
         {icon || <Upload className="w-6 h-6" />}
       </div>
       <p className="text-sm font-bold text-slate-900 dark:text-slate-100 mb-1">

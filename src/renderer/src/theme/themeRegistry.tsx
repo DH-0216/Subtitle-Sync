@@ -67,16 +67,16 @@ export const THEME_DEFINITIONS: readonly ThemeDefinition[] = [
     description: 'Deep charcoal interface with vibrant electric blue accents',
     isDarkBase: true,
     htmlClasses: ['dark'],
-    canvasClass: 'app-canvas',
+    canvasClass: 'dark bg-[#0B0F19] text-slate-100',
     preview: <DarkPreview />
   },
   {
     id: 'light',
     label: 'Light',
-    description: 'Soft Software Mansion blue palette designed for daytime comfort',
+    description: 'Crisp modern interface with vibrant electric blue accents',
     isDarkBase: false,
     htmlClasses: [],
-    canvasClass: 'app-canvas',
+    canvasClass: 'bg-[#E8F1FC] text-slate-900',
     preview: <LightPreview />
   }
 ] as const

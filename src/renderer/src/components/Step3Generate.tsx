@@ -38,7 +38,7 @@ export const Step3Generate: React.FC<Step3GenerateProps> = ({
     >
       {/* Summary Banner */}
       <div className="mb-4 p-4 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/70 dark:bg-[#0B0F19]/60 flex items-start gap-3">
-        <div className="p-2 rounded-lg bg-blue-800 dark:bg-blue-600 text-white shadow-2xs shrink-0">
+        <div className="p-2 rounded-lg bg-blue-600 text-white shadow-2xs shrink-0">
           <Sparkles className="w-4 h-4" />
         </div>
         <div className="text-xs space-y-1">
@@ -47,11 +47,11 @@ export const Step3Generate: React.FC<Step3GenerateProps> = ({
           </div>
           <p className="text-slate-600 dark:text-slate-400 leading-relaxed">
             The offline Whisper AI engine will extract audio from track #{selectedTrack ?? 0} and transcribe dialogue into a{' '}
-            <span className="font-bold uppercase text-blue-800 dark:text-blue-400">
+            <span className="font-bold uppercase text-blue-600 dark:text-blue-400">
               .{config.format}
             </span>{' '}
             file using the{' '}
-            <span className="font-bold uppercase text-blue-800 dark:text-blue-400">
+            <span className="font-bold uppercase text-blue-600 dark:text-blue-400">
               {config.modelQuality}
             </span>{' '}
             model.

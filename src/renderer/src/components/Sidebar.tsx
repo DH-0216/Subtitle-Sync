@@ -43,7 +43,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   ];
 
   return (
-    <aside className="w-56 xl:w-60 app-panel border-r flex flex-col justify-between shrink-0 select-none z-10 transition-colors">
+    <aside className="w-56 xl:w-60 bg-[#EBF2FC] dark:bg-[#0B0F19] border-r border-[#CADEFC] dark:border-slate-800/80 flex flex-col justify-between shrink-0 select-none z-10 transition-colors">
       {/* Navigation List */}
       <div className="p-2.5 space-y-1">
         <p className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider px-2.5 py-1">
@@ -60,15 +60,15 @@ export const Sidebar: React.FC<SidebarProps> = ({
               onClick={() => onSelectAction(item.id)}
               className={`w-full text-left px-2.5 py-2 rounded-xl transition-all cursor-pointer flex items-center gap-2.5 group ${
                 isActive
-                  ? "bg-[#174082] dark:bg-blue-600 text-white shadow-xs font-semibold"
-                  : "text-slate-700 dark:text-slate-300 hover:bg-[#E0ECFF] dark:hover:bg-slate-800/60 hover:text-[#174082] dark:hover:text-white"
+                  ? "bg-blue-600 text-white shadow-xs font-semibold"
+                  : "text-slate-700 dark:text-slate-300 hover:bg-blue-50/80 dark:hover:bg-slate-800/60 hover:text-blue-600 dark:hover:text-white"
               }`}
             >
               <Icon
                 className={`w-4 h-4 shrink-0 transition-transform ${
                   isActive
                     ? "text-white"
-                    : "text-slate-500 dark:text-slate-400 group-hover:text-[#174082] dark:group-hover:text-blue-400 group-hover:scale-105"
+                    : "text-slate-500 dark:text-slate-400 group-hover:text-blue-600 dark:group-hover:text-blue-400 group-hover:scale-105"
                 }`}
               />
               <span className="text-xs truncate flex-1 font-semibold">
@@ -78,7 +78,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 <span
                   className={`text-[8.5px] font-black uppercase tracking-wider px-1 py-0.2 rounded shrink-0 ${
                     isActive
-                      ? "bg-blue-950 text-white"
+                      ? "bg-blue-700/80 text-white"
                       : "bg-amber-100 text-amber-900 dark:bg-amber-500/20 dark:text-amber-300"
                   }`}
                 >

@@ -142,7 +142,7 @@ export const UpdateModal: React.FC<UpdateModalProps> = ({
               </span>
               <ArrowRight className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400 mx-1" />
               <span className="text-slate-500 dark:text-slate-400 font-normal">Latest:</span>
-              <span className="font-mono bg-blue-100 dark:bg-blue-900/40 text-blue-800 dark:text-blue-300 px-2 py-0.5 rounded font-bold">
+              <span className="font-mono bg-blue-50 dark:bg-blue-900/40 text-blue-600 dark:text-blue-300 px-2 py-0.5 rounded font-bold">
                 v{updateInfo.latestVersion}
               </span>
             </div>
@@ -274,7 +274,7 @@ export const UpdateModal: React.FC<UpdateModalProps> = ({
                   <button
                     type="button"
                     onClick={() => onDownloadAndInstall(updateInfo.downloadUrl!)}
-                    className="px-4 py-2 text-xs font-bold rounded-xl bg-blue-800 hover:bg-blue-700 dark:bg-blue-600 dark:hover:bg-blue-500 text-white flex items-center gap-1.5 transition-all cursor-pointer shadow-xs"
+                    className="px-4 py-2 text-xs font-bold rounded-xl bg-blue-600 hover:bg-blue-500 text-white flex items-center gap-1.5 transition-all cursor-pointer shadow-xs"
                   >
                     <Download className="w-3.5 h-3.5" />
                     <span>Download &amp; Install</span>
@@ -283,7 +283,7 @@ export const UpdateModal: React.FC<UpdateModalProps> = ({
                   <button
                     type="button"
                     onClick={() => window.api?.shell?.openExternal(targetUrl)}
-                    className="px-4 py-2 text-xs font-bold rounded-xl bg-blue-800 hover:bg-blue-700 dark:bg-blue-600 dark:hover:bg-blue-500 text-white flex items-center gap-1.5 transition-all cursor-pointer shadow-xs"
+                    className="px-4 py-2 text-xs font-bold rounded-xl bg-blue-600 hover:bg-blue-500 text-white flex items-center gap-1.5 transition-all cursor-pointer shadow-xs"
                   >
                     <ExternalLink className="w-3.5 h-3.5" />
                     <span>Open GitHub Release</span>

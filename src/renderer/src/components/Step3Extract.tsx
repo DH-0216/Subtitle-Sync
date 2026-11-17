@@ -57,7 +57,7 @@ export const Step3Extract: React.FC<Step3ExtractProps> = ({
               checked={cleanTags}
               onChange={(e) => setCleanTags(e.target.checked)}
               disabled={isExtracting}
-              className="rounded text-blue-800 focus:ring-blue-700 cursor-pointer"
+              className="rounded text-blue-600 focus:ring-blue-500 cursor-pointer"
             />
             <span>Clean formatting override tags (removes residual ASS curly brace tags like {"{\\pos}"}, {"{\\an8}"})</span>
           </label>

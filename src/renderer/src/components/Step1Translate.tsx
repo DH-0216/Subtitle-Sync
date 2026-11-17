@@ -199,7 +199,7 @@ export const Step1Translate: React.FC<Step1TranslateProps> = ({
           <div className="md:hidden flex items-center justify-center my-2.5">
             <div className="w-full flex items-center gap-2">
               <div className="flex-1 h-px bg-slate-200 dark:bg-slate-800" />
-              <span className="px-2.5 py-0.5 rounded-full bg-[#E0ECFF] dark:bg-[#0B0F19] border border-[#B6CFF7] dark:border-slate-700 text-[10px] font-black text-[#174082] dark:text-slate-400 uppercase tracking-wider shadow-2xs">
+              <span className="px-2.5 py-0.5 rounded-full bg-blue-50 dark:bg-[#0B0F19] border border-blue-200 dark:border-slate-700 text-[10px] font-black text-blue-600 dark:text-blue-400 uppercase tracking-wider shadow-2xs">
                 OR
               </span>
               <div className="flex-1 h-px bg-slate-200 dark:bg-slate-800" />
@@ -297,7 +297,7 @@ export const Step1Translate: React.FC<Step1TranslateProps> = ({
                 onDrop={handleVideoDrop}
                 className={`border-2 rounded-xl p-4 flex flex-col justify-between h-full min-h-[175px] transition-all duration-200 ${
                   isVideoDragOver
-                    ? 'border-blue-800 bg-blue-50 dark:bg-blue-950/40'
+                    ? 'border-blue-600 bg-blue-50/70 dark:bg-blue-950/40'
                     : 'border-blue-400 dark:border-blue-600/80 bg-blue-50/40 dark:bg-blue-950/20'
                 }`}
               >
@@ -367,7 +367,7 @@ export const Step1Translate: React.FC<Step1TranslateProps> = ({
                           }
                         }}
                         disabled={isExtracting}
-                        className="px-3 py-1.5 rounded-lg bg-[#174082] hover:bg-[#2252A0] dark:bg-blue-600 dark:hover:bg-blue-500 text-white text-xs font-bold flex items-center justify-center gap-1.5 transition-all cursor-pointer shrink-0 shadow-2xs disabled:opacity-50"
+                        className="px-3 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold flex items-center justify-center gap-1.5 transition-all cursor-pointer shrink-0 shadow-2xs disabled:opacity-50"
                         title="Extract this subtitle track and use it for translation"
                       >
                         {isExtracting ? (
@@ -398,8 +398,8 @@ export const Step1Translate: React.FC<Step1TranslateProps> = ({
 
         {/* Middle "OR" Badge on Desktop */}
         <div className="hidden md:flex absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-10 pointer-events-none items-center justify-center">
-          <div className="w-8 h-8 rounded-full bg-[#E0ECFF] dark:bg-[#0B0F19] border border-[#B6CFF7] dark:border-slate-700 shadow-xs flex items-center justify-center">
-            <span className="text-[10px] font-black text-[#174082] dark:text-slate-400 uppercase tracking-wider">
+          <div className="w-8 h-8 rounded-full bg-blue-50 dark:bg-[#0B0F19] border border-blue-200 dark:border-slate-700 shadow-xs flex items-center justify-center">
+            <span className="text-[10px] font-black text-blue-600 dark:text-blue-400 uppercase tracking-wider">
               OR
             </span>
           </div>
