@@ -138,6 +138,8 @@ function saveSettings(settings: any) {
 
 function createWindow(): void {
   const iconPath = join(__dirname, '../../app_icon.ico')
+  const initialSettings = loadSettings()
+  const isGlass = initialSettings?.theme === 'glass'
 
   mainWindow = new BrowserWindow({
     width: 1150,
@@ -146,7 +148,8 @@ function createWindow(): void {
     minHeight: 580,
     show: false,
     autoHideMenuBar: true,
-    backgroundColor: '#0B0F19',
+    backgroundColor: '#00000000',
+    backgroundMaterial: isGlass ? 'acrylic' : 'none',
     icon: fs.existsSync(iconPath) ? iconPath : undefined,
     webPreferences: {
       preload: join(__dirname, '../preload/index.js'),
@@ -451,6 +454,19 @@ app.whenReady().then(() => {
   // IPC: Settings
   ipcMain.handle('settings:load', () => loadSettings())
   ipcMain.handle('settings:save', (_event, settings) => saveSettings(settings))
+
+  // IPC: Window Material (Acrylic / Mica / None)
+  ipcMain.handle('window:setBackgroundMaterial', (_event, material: 'acrylic' | 'mica' | 'none') => {
+    if (mainWindow && process.platform === 'win32' && typeof (mainWindow as any).setBackgroundMaterial === 'function') {
+      try {
+        (mainWindow as any).setBackgroundMaterial(material)
+        return true
+      } catch {
+        return false
+      }
+    }
+    return false
+  })
 
   // IPC: Clipboard
   ipcMain.handle('clipboard:readText', () => clipboard.readText())

@@ -29,7 +29,7 @@ export const AboutModal: React.FC<AboutModalProps> = ({ isOpen, onClose }) => {
         if (e.target === e.currentTarget) onClose()
       }}
     >
-      <div className="bg-app-modal border border-app-modal-border rounded-2xl w-full max-w-sm overflow-hidden shadow-2xl text-center transition-colors">
+      <div className="bg-app-card border border-app-card-border rounded-2xl w-full max-w-sm overflow-hidden shadow-2xl text-center transition-colors">
         <div className="p-6">
           <img
             src={appIcon}
@@ -38,7 +38,7 @@ export const AboutModal: React.FC<AboutModalProps> = ({ isOpen, onClose }) => {
           />
 
           <h3 className="font-bold text-lg text-app-text tracking-tight">Subtitle Sync Studio</h3>
-          <p className="text-xs text-blue-600 dark:text-blue-400 font-semibold mb-3">Version {APP_VERSION} (Electron Edition)</p>
+          <p className="text-xs text-app-accent font-semibold mb-3">Version {APP_VERSION} (Electron Edition)</p>
 
           <p className="text-xs text-app-text-muted leading-relaxed mb-4">
             A modern, high-precision desktop application to automatically synchronize out-of-sync
@@ -60,7 +60,7 @@ export const AboutModal: React.FC<AboutModalProps> = ({ isOpen, onClose }) => {
           </a>
         </div>
 
-        <div className="px-5 py-3 bg-app-modal-header border-t border-app-modal-header-border flex justify-between items-center text-[11px] text-app-text-muted">
+        <div className="px-5 py-3 bg-app-header border-t border-app-header-border flex justify-between items-center text-[11px] text-app-text-muted">
           <span className="font-medium text-app-text">Developed by DH-0216</span>
           <button
             onClick={onClose}

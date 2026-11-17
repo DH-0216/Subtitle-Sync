@@ -98,11 +98,11 @@ export const UpdateModal: React.FC<UpdateModalProps> = ({
 
   return (
     <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 animate-in fade-in duration-200">
-      <div className="bg-app-modal border border-app-modal-border rounded-2xl w-full max-w-lg shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
+      <div className="bg-app-card border border-app-card-border rounded-2xl w-full max-w-lg shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
         {/* Header */}
-        <div className="p-5 border-b border-app-modal-header-border flex items-center justify-between bg-app-modal-header">
+        <div className="p-5 border-b border-app-header-border flex items-center justify-between bg-app-header">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-blue-100 dark:bg-blue-950/70 text-blue-700 dark:text-blue-400 flex items-center justify-center shrink-0 border border-blue-200 dark:border-blue-800">
+            <div className="w-10 h-10 rounded-xl bg-app-accent-bg text-app-accent flex items-center justify-center shrink-0 border border-app-accent-border">
               <Sparkles className="w-5 h-5" />
             </div>
             <div>
@@ -229,7 +229,7 @@ export const UpdateModal: React.FC<UpdateModalProps> = ({
         </div>
 
         {/* Footer Actions */}
-        <div className="p-4 border-t border-app-modal-header-border bg-app-modal-header flex items-center justify-between gap-3">
+        <div className="p-4 border-t border-app-header-border bg-app-header flex items-center justify-between gap-3">
           {isDownloading ? (
             <div className="w-full flex justify-end">
               <button

@@ -87,11 +87,11 @@ export const ModelDownloadModal: React.FC<ModelDownloadModalProps> = ({
         if (e.target === e.currentTarget && !isDownloading) onClose()
       }}
     >
-      <div className="bg-app-modal border border-app-modal-border rounded-2xl w-full max-w-[480px] shadow-2xl p-6 transition-colors">
+      <div className="bg-app-card border border-app-card-border rounded-2xl w-full max-w-[480px] shadow-2xl p-6 transition-colors">
         {/* Header */}
-        <div className="flex items-center justify-between pb-3.5 mb-4 border-b border-app-modal-header-border">
+        <div className="flex items-center justify-between pb-3.5 mb-4 border-b border-app-header-border">
           <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-xl bg-blue-50 border border-blue-200 dark:bg-blue-500/10 dark:border-blue-500/20 flex items-center justify-center text-blue-600 dark:text-blue-400">
+            <div className="w-9 h-9 rounded-xl bg-app-accent-bg border border-app-accent-border flex items-center justify-center text-app-accent">
               <Cpu className="w-5 h-5" />
             </div>
             <div>

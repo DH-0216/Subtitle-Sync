@@ -36,10 +36,10 @@ export const AudioTrackModal: React.FC<AudioTrackModalProps> = ({
         if (e.target === e.currentTarget) onClose()
       }}
     >
-      <div className="bg-app-modal border border-app-modal-border rounded-2xl w-full max-w-md overflow-hidden shadow-2xl transition-colors">
-        <div className="px-5 py-4 border-b border-app-modal-header-border bg-app-modal-header flex items-center justify-between">
+      <div className="bg-app-card border border-app-card-border rounded-2xl w-full max-w-md overflow-hidden shadow-2xl transition-colors">
+        <div className="px-5 py-4 border-b border-app-header-border bg-app-header flex items-center justify-between">
           <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-lg bg-blue-50 border border-blue-200 dark:bg-blue-500/10 dark:border-blue-500/20 flex items-center justify-center text-blue-600 dark:text-blue-400">
+            <div className="w-8 h-8 rounded-lg bg-app-accent-bg border border-app-accent-border flex items-center justify-center text-app-accent">
               <Music className="w-4 h-4" />
             </div>
             <h3 className="font-semibold text-app-text text-sm">Select Reference Audio Track</h3>
@@ -64,13 +64,13 @@ export const AudioTrackModal: React.FC<AudioTrackModalProps> = ({
                 }}
                 className={`p-3 rounded-xl border flex items-center justify-between cursor-pointer transition-all ${
                   isSelected
-                    ? 'bg-blue-50/60 border-blue-600 ring-1 ring-blue-600 shadow-2xs dark:bg-blue-950/40 dark:border-blue-500 dark:ring-blue-500/40'
-                    : 'bg-app-card-inner border-app-card-inner-border hover:border-blue-400 hover:bg-app-card-inner-hover'
+                    ? 'bg-app-accent-bg border-app-primary ring-1 ring-app-primary shadow-2xs text-app-text'
+                    : 'bg-app-card-inner border-app-card-inner-border hover:border-app-accent hover:bg-app-card-inner-hover'
                 }`}
               >
                 <div>
                   <div className="flex items-center gap-2">
-                    <span className="text-xs font-bold text-blue-600 dark:text-blue-400 font-mono">
+                    <span className="text-xs font-bold text-app-accent font-mono">
                       Track #{track.index}
                     </span>
                     <span className="text-xs font-semibold px-2 py-0.5 rounded bg-app-input text-app-input-text border border-app-input-border shadow-2xs">
@@ -95,7 +95,7 @@ export const AudioTrackModal: React.FC<AudioTrackModalProps> = ({
           })}
         </div>
 
-        <div className="px-5 py-3 bg-app-modal-header border-t border-app-modal-header-border flex justify-end">
+        <div className="px-5 py-3 bg-app-header border-t border-app-header-border flex justify-end">
           <button
             onClick={onClose}
             className="px-4 py-1.5 rounded-xl text-xs font-semibold bg-app-btn hover:bg-app-btn-hover border border-app-btn-border text-app-btn-text transition-colors cursor-pointer"

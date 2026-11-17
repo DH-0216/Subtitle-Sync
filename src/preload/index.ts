@@ -32,6 +32,10 @@ const api = {
     load: () => ipcRenderer.invoke('settings:load'),
     save: (settings: any) => ipcRenderer.invoke('settings:save', settings)
   },
+  window: {
+    setBackgroundMaterial: (material: 'acrylic' | 'mica' | 'none') =>
+      ipcRenderer.invoke('window:setBackgroundMaterial', material)
+  },
   notification: {
     show: (title: string, body: string) => ipcRenderer.invoke('notification:show', { title, body })
   },

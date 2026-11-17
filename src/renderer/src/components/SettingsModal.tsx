@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect } from "react";
 import {
   X,
   Settings as SettingsIcon,
@@ -16,14 +16,18 @@ import {
   CheckCircle2,
   AlertCircle,
   Loader2,
-  Bell
-} from 'lucide-react'
-import toast from 'react-hot-toast'
-import { ThemeSelector, ThemeMode } from './common'
-import { EXTERNAL_LINKS, getGeminiVerifyUrl } from '@shared/links'
-import { formatUserFriendlyError } from '@shared/errorUtils'
-import { APP_VERSION, compareVersions } from '@shared/version'
-import { AiProviderId, AI_PROVIDER_LIST, getAiProvider } from '@shared/aiModels'
+  Bell,
+} from "lucide-react";
+import toast from "react-hot-toast";
+import { ThemeSelector, ThemeMode } from "./common";
+import { EXTERNAL_LINKS, getGeminiVerifyUrl } from "@shared/links";
+import { formatUserFriendlyError } from "@shared/errorUtils";
+import { APP_VERSION, compareVersions } from "@shared/version";
+import {
+  AiProviderId,
+  AI_PROVIDER_LIST,
+  getAiProvider,
+} from "@shared/aiModels";
 
 export const DEFAULT_AI_PROMPT = `You are an expert subtitle translator specializing in natural, authentic spoken colloquial Sinhala (ස්වාභාවික කථාබහ සිංහල) for cinema and movies.
 Translate the following movie subtitle lines into natural, spoken Sinhala as people actually speak in day-to-day life.
@@ -39,38 +43,38 @@ RULES:
 7. 1:1 Complete Line Mapping - NEVER Skip or Merge: Every single numbered line [index] in the input MUST have an exact corresponding [index] in your output. Even short lines like "[120] Hey, you know what?" MUST be translated individually as "[120] ඒයි, දන්නවද වැඩක්?". NEVER combine multiple lines into one and NEVER leave any line untranslated in English.
 8. Maintain the exact format "[index] Translated line".
 9. Return exactly the same number of numbered lines without dropping any lines.
-10. Do not include introductory, markdown formatting or explanatory text.`
+10. Do not include introductory, markdown formatting or explanatory text.`;
 
 interface SettingsModalProps {
-  isOpen: boolean
-  onClose: () => void
-  initialTab?: 'general' | 'ai'
-  theme: ThemeMode
-  setTheme: (t: ThemeMode) => void
-  checkUpdates: boolean
-  setCheckUpdates: (c: boolean) => void
-  autoDownloadUpdates?: boolean
-  setAutoDownloadUpdates?: (a: boolean) => void
-  notificationsEnabled?: boolean
-  setNotificationsEnabled?: (n: boolean) => void
-  aiApiKey: string
-  setAiApiKey: (k: string) => void
-  aiProvider: AiProviderId
-  setAiProvider: (p: AiProviderId) => void
-  aiModel?: string
-  setAiModel?: (m: string) => void
-  aiPrompt: string
-  setAiPrompt: (p: string) => void
-  onSave?: () => void
-  onOpenUpdateModal?: (info: any) => void
+  isOpen: boolean;
+  onClose: () => void;
+  initialTab?: "general" | "ai";
+  theme: ThemeMode;
+  setTheme: (t: ThemeMode) => void;
+  checkUpdates: boolean;
+  setCheckUpdates: (c: boolean) => void;
+  autoDownloadUpdates?: boolean;
+  setAutoDownloadUpdates?: (a: boolean) => void;
+  notificationsEnabled?: boolean;
+  setNotificationsEnabled?: (n: boolean) => void;
+  aiApiKey: string;
+  setAiApiKey: (k: string) => void;
+  aiProvider: AiProviderId;
+  setAiProvider: (p: AiProviderId) => void;
+  aiModel?: string;
+  setAiModel?: (m: string) => void;
+  aiPrompt: string;
+  setAiPrompt: (p: string) => void;
+  onSave?: () => void;
+  onOpenUpdateModal?: (info: any) => void;
 }
 
-const GITHUB_REPO = EXTERNAL_LINKS.REPO_SLUG
+const GITHUB_REPO = EXTERNAL_LINKS.REPO_SLUG;
 
 export const SettingsModal: React.FC<SettingsModalProps> = ({
   isOpen,
   onClose,
-  initialTab = 'general',
+  initialTab = "general",
   theme,
   setTheme,
   checkUpdates,
@@ -83,101 +87,119 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   setAiApiKey,
   aiProvider,
   setAiProvider,
-  aiModel = 'auto',
+  aiModel = "auto",
   setAiModel,
   aiPrompt,
   setAiPrompt,
   onSave,
-  onOpenUpdateModal
+  onOpenUpdateModal,
 }) => {
-  const [activeTab, setActiveTab] = useState<'general' | 'ai'>(initialTab)
-  const [checkingUpdate, setCheckingUpdate] = useState(false)
-  const [updateStatus, setUpdateStatus] = useState<string>(`Current Version: v${APP_VERSION}`)
-  const [updateStatusType, setUpdateStatusType] = useState<'normal' | 'success' | 'warning' | 'error'>('normal')
-  const [updateUrl, setUpdateUrl] = useState<string | null>(null)
-  const [latestUpdateInfo, setLatestUpdateInfo] = useState<any>(null)
-  const [showKey, setShowKey] = useState(false)
-  const [savedSuccess, setSavedSuccess] = useState(false)
+  const [activeTab, setActiveTab] = useState<"general" | "ai">(initialTab);
+  const [checkingUpdate, setCheckingUpdate] = useState(false);
+  const [updateStatus, setUpdateStatus] = useState<string>(
+    `Current Version: v${APP_VERSION}`,
+  );
+  const [updateStatusType, setUpdateStatusType] = useState<
+    "normal" | "success" | "warning" | "error"
+  >("normal");
+  const [updateUrl, setUpdateUrl] = useState<string | null>(null);
+  const [latestUpdateInfo, setLatestUpdateInfo] = useState<any>(null);
+  const [showKey, setShowKey] = useState(false);
+  const [savedSuccess, setSavedSuccess] = useState(false);
 
   // Local draft state for AI settings (only committed when user clicks "Save Changes")
-  const [draftApiKey, setDraftApiKey] = useState(aiApiKey)
-  const [draftProvider, setDraftProvider] = useState<AiProviderId>(aiProvider)
-  const [draftModel, setDraftModel] = useState(aiModel)
-  const [draftPrompt, setDraftPrompt] = useState(aiPrompt)
-  const [isVerifyingKey, setIsVerifyingKey] = useState(false)
-  const [verifyStatus, setVerifyStatus] = useState<{ valid: boolean; message: string } | null>(null)
-  const [availableModels, setAvailableModels] = useState<Array<{ id: string; name: string }>>([])
-  const [isLoadingModels, setIsLoadingModels] = useState(false)
+  const [draftApiKey, setDraftApiKey] = useState(aiApiKey);
+  const [draftProvider, setDraftProvider] = useState<AiProviderId>(aiProvider);
+  const [draftModel, setDraftModel] = useState(aiModel);
+  const [draftPrompt, setDraftPrompt] = useState(aiPrompt);
+  const [isVerifyingKey, setIsVerifyingKey] = useState(false);
+  const [verifyStatus, setVerifyStatus] = useState<{
+    valid: boolean;
+    message: string;
+  } | null>(null);
+  const [availableModels, setAvailableModels] = useState<
+    Array<{ id: string; name: string }>
+  >([]);
+  const [isLoadingModels, setIsLoadingModels] = useState(false);
 
-  const handleFetchModels = async (provider: AiProviderId, key: string, silent: boolean = false) => {
-    if (!key.trim()) return
+  const handleFetchModels = async (
+    provider: AiProviderId,
+    key: string,
+    silent: boolean = false,
+  ) => {
+    if (!key.trim()) return;
     if (!navigator.onLine) {
       if (!silent) {
-        toast.error('You are offline. Connect to the internet to fetch latest models.', { icon: '📡' })
+        toast.error(
+          "You are offline. Connect to the internet to fetch latest models.",
+          { icon: "📡" },
+        );
       }
-      return
+      return;
     }
-    setIsLoadingModels(true)
+    setIsLoadingModels(true);
     try {
       if (window.api?.ai?.fetchModels) {
-        const res = await window.api.ai.fetchModels(provider, key.trim())
+        const res = await window.api.ai.fetchModels(provider, key.trim());
         if (res.success && res.models && res.models.length > 0) {
-          setAvailableModels(res.models)
+          setAvailableModels(res.models);
           if (!silent) {
-            toast.success(`Loaded ${res.models.length} live models!`, { duration: 2500 })
+            toast.success(`Loaded ${res.models.length} live models!`, {
+              duration: 2500,
+            });
           }
           // If current draftModel is a specific model that is no longer in fetched models, revert to auto
-          if (draftModel && draftModel !== 'auto') {
-            const exists = res.models.some((m) => m.id === draftModel)
+          if (draftModel && draftModel !== "auto") {
+            const exists = res.models.some((m) => m.id === draftModel);
             if (!exists) {
-              setDraftModel('auto')
+              setDraftModel("auto");
             }
           }
-          return
+          return;
         }
       }
     } catch (err: any) {
       if (!silent) {
-        toast.error('Failed to fetch models: ' + formatUserFriendlyError(err))
+        toast.error("Failed to fetch models: " + formatUserFriendlyError(err));
       }
     } finally {
-      setIsLoadingModels(false)
+      setIsLoadingModels(false);
     }
-  }
+  };
 
   // Fetch live models if API key exists whenever modal opens
   useEffect(() => {
     if (isOpen && aiApiKey.trim()) {
-      handleFetchModels(aiProvider, aiApiKey.trim(), true)
+      handleFetchModels(aiProvider, aiApiKey.trim(), true);
     }
-  }, [isOpen])
+  }, [isOpen]);
 
   // Reset drafts and tab whenever modal opens
   useEffect(() => {
     if (isOpen) {
       if (initialTab) {
-        setActiveTab(initialTab)
+        setActiveTab(initialTab);
       }
-      setDraftApiKey(aiApiKey)
-      setDraftProvider(aiProvider)
-      setDraftModel(aiModel || 'auto')
-      setDraftPrompt(aiPrompt)
-      setSavedSuccess(false)
-      setVerifyStatus(null)
+      setDraftApiKey(aiApiKey);
+      setDraftProvider(aiProvider);
+      setDraftModel(aiModel || "auto");
+      setDraftPrompt(aiPrompt);
+      setSavedSuccess(false);
+      setVerifyStatus(null);
     }
-  }, [isOpen, initialTab, aiApiKey, aiProvider, aiModel, aiPrompt])
+  }, [isOpen, initialTab, aiApiKey, aiProvider, aiModel, aiPrompt]);
 
   const handleSaveAiSettings = () => {
-    const keyChanged = draftApiKey !== aiApiKey
-    const promptChanged = draftPrompt !== aiPrompt
-    const providerChanged = draftProvider !== aiProvider
-    const modelChanged = draftModel !== aiModel
+    const keyChanged = draftApiKey !== aiApiKey;
+    const promptChanged = draftPrompt !== aiPrompt;
+    const providerChanged = draftProvider !== aiProvider;
+    const modelChanged = draftModel !== aiModel;
 
     // 1. Commit to parent state
-    setAiApiKey(draftApiKey)
-    setAiProvider(draftProvider)
-    if (setAiModel) setAiModel(draftModel)
-    setAiPrompt(draftPrompt)
+    setAiApiKey(draftApiKey);
+    setAiProvider(draftProvider);
+    if (setAiModel) setAiModel(draftModel);
+    setAiPrompt(draftPrompt);
 
     // 2. Persist to encrypted local settings
     window.api?.settings?.save({
@@ -186,168 +208,194 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
       aiApiKey: draftApiKey,
       aiProvider: draftProvider,
       aiModel: draftModel,
-      aiPrompt: draftPrompt
-    })
+      aiPrompt: draftPrompt,
+    });
 
     // 3. User feedback
-    setSavedSuccess(true)
-    setTimeout(() => setSavedSuccess(false), 2000)
+    setSavedSuccess(true);
+    setTimeout(() => setSavedSuccess(false), 2000);
 
     if (keyChanged && promptChanged) {
-      toast.success('API key updated successfully!')
-      toast.success('Translation prompt updated successfully!')
+      toast.success("API key updated successfully!");
+      toast.success("Translation prompt updated successfully!");
     } else if (keyChanged) {
-      toast.success('API key updated successfully!')
+      toast.success("API key updated successfully!");
     } else if (modelChanged) {
-      toast.success(`AI Model set to ${draftModel}!`)
+      toast.success(`AI Model set to ${draftModel}!`);
     } else if (promptChanged) {
-      toast.success('Translation prompt updated successfully!')
+      toast.success("Translation prompt updated successfully!");
     } else if (providerChanged) {
-      toast.success('AI provider updated successfully!')
+      toast.success("AI provider updated successfully!");
     } else {
-      toast.success('AI Translation settings saved!')
+      toast.success("AI Translation settings saved!");
     }
-  }
+  };
 
   const handlePasteApiKey = async () => {
     try {
-      let text = ''
+      let text = "";
       if (window.api?.clipboard?.readText) {
-        text = await window.api.clipboard.readText()
+        text = await window.api.clipboard.readText();
       } else if (navigator?.clipboard?.readText) {
-        text = await navigator.clipboard.readText()
+        text = await navigator.clipboard.readText();
       }
 
       if (text && text.trim().length > 0) {
-        setDraftApiKey(text.trim())
-        setVerifyStatus(null)
-        toast.success('API Key pasted from clipboard!', { duration: 2000 })
+        setDraftApiKey(text.trim());
+        setVerifyStatus(null);
+        toast.success("API Key pasted from clipboard!", { duration: 2000 });
       } else {
-        toast.error('Clipboard is empty!')
+        toast.error("Clipboard is empty!");
       }
     } catch (err) {
-      toast.error('Could not read from clipboard')
+      toast.error("Could not read from clipboard");
     }
-  }
+  };
 
   const handleVerifyApiKey = async () => {
     if (!draftApiKey.trim()) {
-      toast.error('Please enter an API Key to verify.')
-      return
+      toast.error("Please enter an API Key to verify.");
+      return;
     }
 
     if (!navigator.onLine) {
-      toast.error('You are offline. Connect to the internet to verify your API key.', { icon: '📡' })
-      setVerifyStatus({ valid: false, message: 'Offline: Internet connection required to verify API key.' })
-      return
+      toast.error(
+        "You are offline. Connect to the internet to verify your API key.",
+        { icon: "📡" },
+      );
+      setVerifyStatus({
+        valid: false,
+        message: "Offline: Internet connection required to verify API key.",
+      });
+      return;
     }
 
-    const cleanKey = draftApiKey.trim()
-    setIsVerifyingKey(true)
-    setVerifyStatus(null)
+    const cleanKey = draftApiKey.trim();
+    setIsVerifyingKey(true);
+    setVerifyStatus(null);
 
     try {
-      let res: { valid: boolean; message: string; models?: Array<{ id: string; name: string }> }
+      let res: {
+        valid: boolean;
+        message: string;
+        models?: Array<{ id: string; name: string }>;
+      };
 
       if (window.api?.ai?.verifyKey) {
-        res = await window.api.ai.verifyKey(draftProvider, cleanKey)
+        res = await window.api.ai.verifyKey(draftProvider, cleanKey);
         if (res.valid && res.models && res.models.length > 0) {
-          setAvailableModels(res.models)
-          if (draftModel && draftModel !== 'auto') {
-            const exists = res.models.some((m) => m.id === draftModel)
+          setAvailableModels(res.models);
+          if (draftModel && draftModel !== "auto") {
+            const exists = res.models.some((m) => m.id === draftModel);
             if (!exists) {
-              setDraftModel('auto')
+              setDraftModel("auto");
             }
           }
         }
       } else {
         // Direct browser fetch fallback (works even if Electron process hasn't been restarted yet)
-        const providerMeta = getAiProvider(draftProvider)
-        if (draftProvider === 'gemini') {
-          const response = await fetch(getGeminiVerifyUrl(cleanKey))
+        const providerMeta = getAiProvider(draftProvider);
+        if (draftProvider === "gemini") {
+          const response = await fetch(getGeminiVerifyUrl(cleanKey));
           if (response.ok) {
-            const data = await response.json().catch(() => null)
+            const data = await response.json().catch(() => null);
             const rawModels = (data?.models || [])
-              .filter((m: any) => m.supportedGenerationMethods?.includes('generateContent'))
-              .map((m: any) => (m.name || '').replace(/^models\//, ''))
-            const ordered = providerMeta.buildDynamicChain(rawModels)
-            const models = ordered.map((id) => ({ id, name: id }))
+              .filter((m: any) =>
+                m.supportedGenerationMethods?.includes("generateContent"),
+              )
+              .map((m: any) => (m.name || "").replace(/^models\//, ""));
+            const ordered = providerMeta.buildDynamicChain(rawModels);
+            const models = ordered.map((id) => ({ id, name: id }));
             if (models.length > 0) {
-              setAvailableModels(models)
+              setAvailableModels(models);
             }
-            res = { valid: true, message: `${providerMeta.name} API Key is valid and active!`, models }
+            res = {
+              valid: true,
+              message: `${providerMeta.name} API Key is valid and active!`,
+              models,
+            };
           } else {
-            const data = await response.json().catch(() => null)
-            const errMsg = data?.error?.message || `HTTP ${response.status}`
-            res = { valid: false, message: `Invalid ${providerMeta.name} Key: ${errMsg}` }
+            const data = await response.json().catch(() => null);
+            const errMsg = data?.error?.message || `HTTP ${response.status}`;
+            res = {
+              valid: false,
+              message: `Invalid ${providerMeta.name} Key: ${errMsg}`,
+            };
           }
         } else {
           const response = await fetch(EXTERNAL_LINKS.OPENAI_MODELS_API, {
-            headers: { Authorization: `Bearer ${cleanKey}` }
-          })
+            headers: { Authorization: `Bearer ${cleanKey}` },
+          });
           if (response.ok) {
-            const data = await response.json().catch(() => null)
-            const rawIds = (data?.data || []).map((m: any) => m.id || '')
-            const ordered = providerMeta.buildDynamicChain(rawIds)
-            const models = ordered.map((id) => ({ id, name: id }))
+            const data = await response.json().catch(() => null);
+            const rawIds = (data?.data || []).map((m: any) => m.id || "");
+            const ordered = providerMeta.buildDynamicChain(rawIds);
+            const models = ordered.map((id) => ({ id, name: id }));
             if (models.length > 0) {
-              setAvailableModels(models)
+              setAvailableModels(models);
             }
-            res = { valid: true, message: `${providerMeta.name} API Key is valid and active!`, models }
+            res = {
+              valid: true,
+              message: `${providerMeta.name} API Key is valid and active!`,
+              models,
+            };
           } else {
-            const data = await response.json().catch(() => null)
-            const errMsg = data?.error?.message || `HTTP ${response.status}`
-            res = { valid: false, message: `Invalid ${providerMeta.name} Key: ${errMsg}` }
+            const data = await response.json().catch(() => null);
+            const errMsg = data?.error?.message || `HTTP ${response.status}`;
+            res = {
+              valid: false,
+              message: `Invalid ${providerMeta.name} Key: ${errMsg}`,
+            };
           }
         }
       }
 
-      setVerifyStatus(res)
+      setVerifyStatus(res);
       if (res.valid) {
-        toast.success(res.message, { duration: 3500 })
+        toast.success(res.message, { duration: 3500 });
       } else {
-        const friendly = formatUserFriendlyError(res.message)
-        toast.error(friendly, { duration: 4500 })
+        const friendly = formatUserFriendlyError(res.message);
+        toast.error(friendly, { duration: 4500 });
       }
     } catch (err: any) {
-      const msg = err.message || 'Verification failed'
-      const friendly = formatUserFriendlyError(msg)
-      setVerifyStatus({ valid: false, message: friendly })
-      toast.error('Verification failed: ' + friendly)
+      const msg = err.message || "Verification failed";
+      const friendly = formatUserFriendlyError(msg);
+      setVerifyStatus({ valid: false, message: friendly });
+      toast.error("Verification failed: " + friendly);
     } finally {
-      setIsVerifyingKey(false)
+      setIsVerifyingKey(false);
     }
-  }
+  };
 
   const handleClose = () => {
-    if (onSave) onSave()
-    onClose()
-  }
+    if (onSave) onSave();
+    onClose();
+  };
 
   useEffect(() => {
-    if (!isOpen) return
+    if (!isOpen) return;
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') handleClose()
-    }
-    window.addEventListener('keydown', handleKeyDown)
-    return () => window.removeEventListener('keydown', handleKeyDown)
-  }, [isOpen, onClose, onSave])
+      if (e.key === "Escape") handleClose();
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [isOpen, onClose, onSave]);
 
-  if (!isOpen) return null
+  if (!isOpen) return null;
 
   const handleSelectTheme = (newTheme: ThemeMode) => {
-    setTheme(newTheme)
+    setTheme(newTheme);
     window.api?.settings?.save({
       theme: newTheme,
       check_updates_startup: checkUpdates,
       aiApiKey,
       aiProvider,
-      aiPrompt
-    })
-  }
+      aiPrompt,
+    });
+  };
 
   const handleToggleAutoUpdate = (enabled: boolean) => {
-    setCheckUpdates(enabled)
+    setCheckUpdates(enabled);
     window.api?.settings?.save({
       theme,
       check_updates_startup: enabled,
@@ -355,13 +403,13 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
       notificationsEnabled,
       aiApiKey,
       aiProvider,
-      aiPrompt
-    })
-  }
+      aiPrompt,
+    });
+  };
 
   const handleToggleAutoDownload = (enabled: boolean) => {
     if (setAutoDownloadUpdates) {
-      setAutoDownloadUpdates(enabled)
+      setAutoDownloadUpdates(enabled);
     }
     window.api?.settings?.save({
       theme,
@@ -370,18 +418,18 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
       notificationsEnabled,
       aiApiKey,
       aiProvider,
-      aiPrompt
-    })
+      aiPrompt,
+    });
     toast.success(
       enabled
-        ? 'Automatic update downloads enabled (will notify when ready)'
-        : 'Automatic update downloads disabled'
-    )
-  }
+        ? "Automatic update downloads enabled (will notify when ready)"
+        : "Automatic update downloads disabled",
+    );
+  };
 
   const handleToggleNotifications = (enabled: boolean) => {
     if (setNotificationsEnabled) {
-      setNotificationsEnabled(enabled)
+      setNotificationsEnabled(enabled);
     }
     window.api?.settings?.save({
       theme,
@@ -390,164 +438,197 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
       notificationsEnabled: enabled,
       aiApiKey,
       aiProvider,
-      aiPrompt
-    })
-    toast.success(enabled ? 'Desktop notifications enabled' : 'Desktop notifications disabled')
-  }
-
+      aiPrompt,
+    });
+    toast.success(
+      enabled
+        ? "Desktop notifications enabled"
+        : "Desktop notifications disabled",
+    );
+  };
 
   const handleCheckNow = async () => {
     if (!navigator.onLine) {
-      setUpdateStatus('⚠️ Could not check for updates. No internet connection.')
-      setUpdateStatusType('error')
-      toast.error('Could not check for updates. No internet connection.', { icon: '📡' })
-      return
+      setUpdateStatus(
+        "⚠️ Could not check for updates. No internet connection.",
+      );
+      setUpdateStatusType("error");
+      toast.error("Could not check for updates. No internet connection.", {
+        icon: "📡",
+      });
+      return;
     }
 
-    setCheckingUpdate(true)
-    setUpdateStatus('Checking GitHub Releases...')
-    setUpdateStatusType('normal')
+    setCheckingUpdate(true);
+    setUpdateStatus("Checking GitHub Releases...");
+    setUpdateStatusType("normal");
 
     try {
       if (window.api?.updater?.check) {
-        const info = await window.api.updater.check()
+        const info = await window.api.updater.check();
         if (info.error) {
-          setUpdateStatus('⚠️ Could not check for updates. No internet connection.')
-          setUpdateStatusType('error')
-          toast.error('Could not check for updates. No internet connection.', { icon: '📡' })
-        } else if (info.updateAvailable && info.latestVersion && compareVersions(info.latestVersion, APP_VERSION) > 0) {
-          setUpdateStatus(`Update available: v${info.latestVersion}`)
-          setUpdateStatusType('success')
-          setUpdateUrl(info.releaseUrl || EXTERNAL_LINKS.GITHUB_RELEASES_PAGE)
-          setLatestUpdateInfo(info)
+          setUpdateStatus(
+            "⚠️ Could not check for updates. No internet connection.",
+          );
+          setUpdateStatusType("error");
+          toast.error("Could not check for updates. No internet connection.", {
+            icon: "📡",
+          });
+        } else if (
+          info.updateAvailable &&
+          info.latestVersion &&
+          compareVersions(info.latestVersion, APP_VERSION) > 0
+        ) {
+          setUpdateStatus(`Update available: v${info.latestVersion}`);
+          setUpdateStatusType("success");
+          setUpdateUrl(info.releaseUrl || EXTERNAL_LINKS.GITHUB_RELEASES_PAGE);
+          setLatestUpdateInfo(info);
 
           if (onOpenUpdateModal) {
-            onClose()
-            onOpenUpdateModal(info)
+            onClose();
+            onOpenUpdateModal(info);
           }
         } else {
-          setUpdateStatus(`✅ You're on the latest version (v${APP_VERSION})`)
-          setUpdateStatusType('success')
-          setUpdateUrl(null)
-          toast.success(`You're on the latest version (v${APP_VERSION})!`, { duration: 3000, icon: '✅' })
+          setUpdateStatus(`✅ You're on the latest version (v${APP_VERSION})`);
+          setUpdateStatusType("success");
+          setUpdateUrl(null);
+          toast.success(`You're on the latest version (v${APP_VERSION})!`, {
+            duration: 3000,
+            icon: "✅",
+          });
         }
       } else {
         const res = await fetch(EXTERNAL_LINKS.GITHUB_LATEST_RELEASE_API, {
-          headers: { Accept: 'application/vnd.github.v3+json' }
-        })
+          headers: { Accept: "application/vnd.github.v3+json" },
+        });
 
         if (!res.ok) {
-          throw new Error(`HTTP ${res.status}`)
+          throw new Error(`HTTP ${res.status}`);
         }
 
-        const data = await res.json()
-        const latestTag = data.tag_name || ''
-        const cleanLatest = latestTag.replace(/^v/, '')
-        const cleanCurrent = APP_VERSION.replace(/^v/, '')
+        const data = await res.json();
+        const latestTag = data.tag_name || "";
+        const cleanLatest = latestTag.replace(/^v/, "");
+        const cleanCurrent = APP_VERSION.replace(/^v/, "");
 
         if (cleanLatest && compareVersions(cleanLatest, cleanCurrent) > 0) {
-          const assets = Array.isArray(data.assets) ? data.assets : []
+          const assets = Array.isArray(data.assets) ? data.assets : [];
           const setupAsset =
-            assets.find((a: any) => (a.name || '').toLowerCase() === 'subtitlesync-setup.exe') ||
-            assets.find((a: any) => (a.name || '').toLowerCase().includes('setup') && (a.name || '').endsWith('.exe')) ||
-            assets.find((a: any) => (a.name || '').endsWith('.exe'))
+            assets.find(
+              (a: any) =>
+                (a.name || "").toLowerCase() === "subtitlesync-setup.exe",
+            ) ||
+            assets.find(
+              (a: any) =>
+                (a.name || "").toLowerCase().includes("setup") &&
+                (a.name || "").endsWith(".exe"),
+            ) ||
+            assets.find((a: any) => (a.name || "").endsWith(".exe"));
 
           const modalInfo = {
             updateAvailable: true,
             currentVersion: cleanCurrent,
             latestVersion: cleanLatest,
             releaseName: data.name || latestTag,
-            releaseNotes: data.body || 'No release notes provided for this version.',
+            releaseNotes:
+              data.body || "No release notes provided for this version.",
             publishedAt: data.published_at,
             downloadUrl: setupAsset?.browser_download_url,
-            assetName: setupAsset?.name || 'SubtitleSync-Setup.exe',
+            assetName: setupAsset?.name || "SubtitleSync-Setup.exe",
             assetSize: setupAsset?.size,
             deltaSize: Math.round((setupAsset?.size || 151000000) * 0.14),
             isDeltaAvailable: true,
-            releaseUrl: data.html_url || EXTERNAL_LINKS.GITHUB_RELEASES_PAGE
-          }
+            releaseUrl: data.html_url || EXTERNAL_LINKS.GITHUB_RELEASES_PAGE,
+          };
 
-          setUpdateStatus(`Update available: ${latestTag}`)
-          setUpdateStatusType('success')
-          setUpdateUrl(data.html_url || EXTERNAL_LINKS.GITHUB_RELEASES_PAGE)
-          setLatestUpdateInfo(modalInfo)
+          setUpdateStatus(`Update available: ${latestTag}`);
+          setUpdateStatusType("success");
+          setUpdateUrl(data.html_url || EXTERNAL_LINKS.GITHUB_RELEASES_PAGE);
+          setLatestUpdateInfo(modalInfo);
 
           if (onOpenUpdateModal) {
-            onClose()
-            onOpenUpdateModal(modalInfo)
+            onClose();
+            onOpenUpdateModal(modalInfo);
           }
         } else {
-          setUpdateStatus(`✅ You're on the latest version (v${APP_VERSION})`)
-          setUpdateStatusType('success')
-          setUpdateUrl(null)
-          toast.success(`You're on the latest version (v${APP_VERSION})!`, { duration: 3000, icon: '✅' })
+          setUpdateStatus(`✅ You're on the latest version (v${APP_VERSION})`);
+          setUpdateStatusType("success");
+          setUpdateUrl(null);
+          toast.success(`You're on the latest version (v${APP_VERSION})!`, {
+            duration: 3000,
+            icon: "✅",
+          });
         }
       }
     } catch (e: any) {
-      setUpdateStatus('⚠️ Could not check for updates. No internet connection.')
-      setUpdateStatusType('error')
-      toast.error('Could not check for updates. No internet connection.', { icon: '📡' })
+      setUpdateStatus(
+        "⚠️ Could not check for updates. No internet connection.",
+      );
+      setUpdateStatusType("error");
+      toast.error("Could not check for updates. No internet connection.", {
+        icon: "📡",
+      });
     } finally {
-      setCheckingUpdate(false)
+      setCheckingUpdate(false);
     }
-  }
+  };
 
   const handleOpenGitHub = () => {
-    const url = EXTERNAL_LINKS.GITHUB_REPO
+    const url = EXTERNAL_LINKS.GITHUB_REPO;
     if (window.api?.shell?.openExternal) {
-      window.api.shell.openExternal(url)
+      window.api.shell.openExternal(url);
     } else {
-      window.open(url, '_blank')
+      window.open(url, "_blank");
     }
-  }
+  };
 
   const handleOpenKeyPortal = (url?: string) => {
-    if (!url) return
+    if (!url) return;
     if (window.api?.shell?.openExternal) {
-      window.api.shell.openExternal(url)
+      window.api.shell.openExternal(url);
     } else {
-      window.open(url, '_blank')
+      window.open(url, "_blank");
     }
-  }
+  };
 
   const handleOpenUpdate = async () => {
     if (latestUpdateInfo && onOpenUpdateModal) {
-      onClose()
-      onOpenUpdateModal(latestUpdateInfo)
-      return
+      onClose();
+      onOpenUpdateModal(latestUpdateInfo);
+      return;
     }
 
     if (window.api?.updater?.check && onOpenUpdateModal) {
       try {
-        const info = await window.api.updater.check()
+        const info = await window.api.updater.check();
         if (info.updateAvailable) {
-          onClose()
-          onOpenUpdateModal(info)
-          return
+          onClose();
+          onOpenUpdateModal(info);
+          return;
         }
       } catch {}
     }
 
     if (updateUrl && window.api?.shell?.openExternal) {
-      window.api.shell.openExternal(updateUrl)
+      window.api.shell.openExternal(updateUrl);
     } else if (updateUrl) {
-      window.open(updateUrl, '_blank')
+      window.open(updateUrl, "_blank");
     }
-  }
+  };
 
   return (
     <div
       className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs overscroll-contain animate-fade-in"
       onWheel={(e) => e.stopPropagation()}
       onClick={(e) => {
-        if (e.target === e.currentTarget) handleClose()
+        if (e.target === e.currentTarget) handleClose();
       }}
     >
-      <div className="bg-app-modal border border-app-modal-border rounded-2xl w-full max-w-3xl shadow-2xl overflow-hidden flex flex-col h-[560px] max-h-[90vh] transition-colors">
+      <div className="bg-app-modal border border-app-modal-border rounded-2xl w-full max-w-3xl shadow-2xl overflow-hidden flex flex-col h-[560px] max-h-[90vh]">
         {/* Header Row */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-app-modal-header-border bg-app-modal-header shrink-0">
           <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-lg bg-blue-50 border border-blue-200 dark:bg-blue-500/10 dark:border-blue-500/20 flex items-center justify-center text-blue-600 dark:text-blue-400">
+            <div className="w-8 h-8 rounded-lg bg-app-accent-bg border border-app-accent-border flex items-center justify-center text-app-accent">
               <SettingsIcon className="w-4 h-4" />
             </div>
             <div>
@@ -575,11 +656,11 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
             <div className="space-y-1.5">
               <button
                 type="button"
-                onClick={() => setActiveTab('general')}
+                onClick={() => setActiveTab("general")}
                 className={`w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-xs font-semibold transition-all cursor-pointer ${
-                  activeTab === 'general'
-                    ? 'bg-app-primary text-app-primary-fg shadow-2xs font-bold'
-                    : 'text-app-text-muted hover:bg-app-card-inner-hover hover:text-app-text'
+                  activeTab === "general"
+                    ? "bg-app-primary text-app-primary-fg shadow-2xs font-bold"
+                    : "text-app-text hover:bg-app-sidebar-hover hover:text-app-accent"
                 }`}
               >
                 <Sliders className="w-4 h-4 shrink-0" />
@@ -588,11 +669,11 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
 
               <button
                 type="button"
-                onClick={() => setActiveTab('ai')}
+                onClick={() => setActiveTab("ai")}
                 className={`w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-xs font-semibold transition-all cursor-pointer ${
-                  activeTab === 'ai'
-                    ? 'bg-app-primary text-app-primary-fg shadow-2xs font-bold'
-                    : 'text-app-text-muted hover:bg-app-card-inner-hover hover:text-app-text'
+                  activeTab === "ai"
+                    ? "bg-app-primary text-app-primary-fg shadow-2xs font-bold"
+                    : "text-app-text hover:bg-app-sidebar-hover hover:text-app-accent"
                 }`}
               >
                 <Sparkles className="w-4 h-4 shrink-0" />
@@ -609,16 +690,19 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
           </aside>
 
           {/* Right Tab Content Panel */}
-          <main className="flex-1 p-5 overflow-y-auto space-y-4">
-            {activeTab === 'general' && (
+          <main className="flex-1 p-5 overflow-y-auto space-y-4 bg-app-canvas">
+            {activeTab === "general" && (
               <>
                 {/* Card 1: Theme Selector */}
-                <div className="p-4 rounded-xl border border-app-card-inner-border bg-app-card-inner transition-colors">
-                  <ThemeSelector theme={theme} onSelectTheme={handleSelectTheme} />
+                <div className="p-4 rounded-xl border border-app-card-border bg-app-card transition-colors">
+                  <ThemeSelector
+                    theme={theme}
+                    onSelectTheme={handleSelectTheme}
+                  />
                 </div>
 
                 {/* Card 2: Software Updates */}
-                <div className="p-4 rounded-xl border border-app-card-inner-border bg-app-card-inner space-y-3 transition-colors">
+                <div className="p-4 rounded-xl border border-app-card-border bg-app-card space-y-3 transition-colors">
                   <div className="flex items-center justify-between">
                     <div>
                       <h3 className="font-bold text-sm text-app-text">
@@ -640,12 +724,14 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                       </span>
                       <div
                         className={`w-11 h-6 flex items-center rounded-full p-1 transition-colors duration-200 ${
-                          checkUpdates ? 'bg-blue-600' : 'bg-slate-300 dark:bg-slate-700'
+                          checkUpdates
+                            ? "bg-app-primary"
+                            : "bg-app-card-inner-border"
                         }`}
                       >
                         <div
                           className={`bg-white w-4 h-4 rounded-full shadow-md transform transition-transform duration-200 ${
-                            checkUpdates ? 'translate-x-5' : 'translate-x-0'
+                            checkUpdates ? "translate-x-5" : "translate-x-0"
                           }`}
                         />
                       </div>
@@ -659,27 +745,34 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                         Automatically Download Updates
                       </h4>
                       <p className="text-[11px] text-app-text-muted mt-0.5">
-                        Download delta updates silently in background and notify when ready (never auto-restarts)
+                        Download delta updates silently in background and notify
+                        when ready (never auto-restarts)
                       </p>
                     </div>
 
                     <button
                       type="button"
-                      onClick={() => handleToggleAutoDownload(!autoDownloadUpdates)}
+                      onClick={() =>
+                        handleToggleAutoDownload(!autoDownloadUpdates)
+                      }
                       className="flex items-center gap-2.5 cursor-pointer select-none group"
                       title="Toggle auto download"
                     >
                       <span className="text-xs font-semibold text-app-text">
-                        {autoDownloadUpdates ? 'Enabled' : 'Disabled'}
+                        {autoDownloadUpdates ? "Enabled" : "Disabled"}
                       </span>
                       <div
                         className={`w-11 h-6 flex items-center rounded-full p-1 transition-colors duration-200 ${
-                          autoDownloadUpdates ? 'bg-blue-600' : 'bg-slate-300 dark:bg-slate-700'
+                          autoDownloadUpdates
+                            ? "bg-app-primary"
+                            : "bg-app-card-inner-border"
                         }`}
                       >
                         <div
                           className={`bg-white w-4 h-4 rounded-full shadow-md transform transition-transform duration-200 ${
-                            autoDownloadUpdates ? 'translate-x-5' : 'translate-x-0'
+                            autoDownloadUpdates
+                              ? "translate-x-5"
+                              : "translate-x-0"
                           }`}
                         />
                       </div>
@@ -690,11 +783,11 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                     <div className="min-w-0 flex-1">
                       <p
                         className={`text-xs font-medium truncate ${
-                          updateStatusType === 'success'
-                            ? 'text-emerald-600 dark:text-emerald-400'
-                            : updateStatusType === 'error'
-                            ? 'text-rose-600 dark:text-rose-400'
-                            : 'text-app-text-muted'
+                          updateStatusType === "success"
+                            ? "text-emerald-600 dark:text-emerald-400"
+                            : updateStatusType === "error"
+                              ? "text-rose-600 dark:text-rose-400"
+                              : "text-app-text-muted"
                         }`}
                       >
                         {updateStatus}
@@ -703,7 +796,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                         <button
                           type="button"
                           onClick={handleOpenUpdate}
-                          className="text-[11px] text-blue-600 dark:text-blue-400 underline font-medium hover:text-blue-500 mt-0.5 block cursor-pointer"
+                          className="text-[11px] text-app-accent underline font-medium hover:text-app-accent-hover mt-0.5 block cursor-pointer"
                         >
                           Click to download update
                         </button>
@@ -728,34 +821,41 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                 </div>
 
                 {/* Card 3: Desktop Notifications */}
-                <div className="p-4 rounded-xl border border-app-card-inner-border bg-app-card-inner flex items-center justify-between transition-colors">
+                <div className="p-4 rounded-xl border border-app-card-border bg-app-card flex items-center justify-between transition-colors">
                   <div>
                     <h3 className="font-bold text-sm text-app-text flex items-center gap-2">
-                      <Bell className="w-4 h-4 text-blue-600 dark:text-blue-400" />
+                      <Bell className="w-4 h-4 text-app-accent" />
                       Desktop Notifications
                     </h3>
                     <p className="text-xs text-app-text-muted mt-0.5">
-                      Notify me when jobs finish (synchronization, translation, extraction)
+                      Notify me when jobs finish (synchronization, translation,
+                      extraction)
                     </p>
                   </div>
 
                   <button
                     type="button"
-                    onClick={() => handleToggleNotifications(!notificationsEnabled)}
+                    onClick={() =>
+                      handleToggleNotifications(!notificationsEnabled)
+                    }
                     className="flex items-center gap-2.5 cursor-pointer select-none group"
                     title="Toggle desktop notifications"
                   >
                     <span className="text-xs font-semibold text-app-text">
-                      {notificationsEnabled ? 'Enabled' : 'Disabled'}
+                      {notificationsEnabled ? "Enabled" : "Disabled"}
                     </span>
                     <div
                       className={`w-11 h-6 flex items-center rounded-full p-1 transition-colors duration-200 ${
-                        notificationsEnabled ? 'bg-app-primary' : 'bg-slate-300 dark:bg-slate-700'
+                        notificationsEnabled
+                          ? "bg-app-primary"
+                          : "bg-app-card-inner-border"
                       }`}
                     >
                       <div
                         className={`bg-white w-4 h-4 rounded-full shadow-md transform transition-transform duration-200 ${
-                          notificationsEnabled ? 'translate-x-5' : 'translate-x-0'
+                          notificationsEnabled
+                            ? "translate-x-5"
+                            : "translate-x-0"
                         }`}
                       />
                     </div>
@@ -763,7 +863,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                 </div>
 
                 {/* Card 4: About & Developer */}
-                <div className="p-4 rounded-xl border border-app-card-inner-border bg-app-card-inner flex items-center justify-between transition-colors">
+                <div className="p-4 rounded-xl border border-app-card-border bg-app-card flex items-center justify-between transition-colors">
                   <div>
                     <h3 className="font-bold text-sm text-app-text">
                       Subtitle Sync Studio
@@ -785,30 +885,35 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
               </>
             )}
 
-            {activeTab === 'ai' && (
+            {activeTab === "ai" && (
               <>
                 {/* AI API Provider & Key Card - Exact same style as others */}
-                <div className="p-4 rounded-xl border border-app-card-inner-border bg-app-card-inner space-y-3.5 transition-colors">
+                <div className="p-4 rounded-xl border border-app-card-border bg-app-card space-y-3.5 transition-colors">
                   <div className="flex items-start justify-between gap-3">
                     <div>
                       <h3 className="font-bold text-sm text-app-text">
                         AI Subtitle Translation API
                       </h3>
                       <p className="text-xs text-app-text-muted mt-0.5">
-                        Used for translating generated subtitles into languages like Spoken Sinhala
+                        Used for translating generated subtitles into languages
+                        like Spoken Sinhala
                       </p>
                     </div>
 
                     <select
                       value={draftProvider}
                       onChange={(e) => {
-                        const newProvider = e.target.value as AiProviderId
-                        setDraftProvider(newProvider)
-                        setVerifyStatus(null)
-                        setAvailableModels([])
-                        setDraftModel('auto')
+                        const newProvider = e.target.value as AiProviderId;
+                        setDraftProvider(newProvider);
+                        setVerifyStatus(null);
+                        setAvailableModels([]);
+                        setDraftModel("auto");
                         if (draftApiKey.trim()) {
-                          handleFetchModels(newProvider, draftApiKey.trim(), true)
+                          handleFetchModels(
+                            newProvider,
+                            draftApiKey.trim(),
+                            true,
+                          );
                         }
                       }}
                       className="text-xs font-semibold px-2.5 py-1.5 rounded-lg border border-app-input-border bg-app-input text-app-input-text cursor-pointer"
@@ -828,10 +933,18 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                       {getAiProvider(draftProvider).portalUrl && (
                         <button
                           type="button"
-                          onClick={() => handleOpenKeyPortal(getAiProvider(draftProvider).portalUrl)}
-                          className="text-[11px] text-blue-600 dark:text-blue-400 hover:underline flex items-center gap-1 cursor-pointer"
+                          onClick={() =>
+                            handleOpenKeyPortal(
+                              getAiProvider(draftProvider).portalUrl,
+                            )
+                          }
+                          className="text-[11px] text-app-accent hover:underline flex items-center gap-1 cursor-pointer"
                         >
-                          <span>{getAiProvider(draftProvider).portalLabel || 'Get API key'} ↗</span>
+                          <span>
+                            {getAiProvider(draftProvider).portalLabel ||
+                              "Get API key"}{" "}
+                            ↗
+                          </span>
                         </button>
                       )}
                     </div>
@@ -839,12 +952,14 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                     <div className="flex items-center gap-2">
                       <div className="relative flex-1">
                         <input
-                          type={showKey ? 'text' : 'password'}
-                          placeholder={getAiProvider(draftProvider).keyPlaceholder}
+                          type={showKey ? "text" : "password"}
+                          placeholder={
+                            getAiProvider(draftProvider).keyPlaceholder
+                          }
                           value={draftApiKey}
                           onChange={(e) => {
-                            setDraftApiKey(e.target.value)
-                            if (verifyStatus) setVerifyStatus(null)
+                            setDraftApiKey(e.target.value);
+                            if (verifyStatus) setVerifyStatus(null);
                           }}
                           className="w-full pl-3 pr-9 py-2 text-xs rounded-xl border border-app-input-border bg-app-input text-app-input-text font-mono focus:outline-hidden focus:ring-2 focus:ring-blue-500/30"
                         />
@@ -852,9 +967,13 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                           type="button"
                           onClick={() => setShowKey(!showKey)}
                           className="absolute right-2.5 top-1/2 -translate-y-1/2 text-app-text-muted hover:text-app-text cursor-pointer p-1"
-                          title={showKey ? 'Hide Key' : 'Show Key'}
+                          title={showKey ? "Hide Key" : "Show Key"}
                         >
-                          {showKey ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                          {showKey ? (
+                            <EyeOff className="w-3.5 h-3.5" />
+                          ) : (
+                            <Eye className="w-3.5 h-3.5" />
+                          )}
                         </button>
                       </div>
 
@@ -864,7 +983,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                         className="px-3 py-2 text-xs font-semibold rounded-xl border border-app-btn-border bg-app-btn hover:bg-app-btn-hover text-app-btn-text transition-colors shrink-0 flex items-center gap-1.5 cursor-pointer shadow-2xs"
                         title="Paste from clipboard"
                       >
-                        <ClipboardPaste className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
+                        <ClipboardPaste className="w-3.5 h-3.5 text-app-accent" />
                         <span>Paste</span>
                       </button>
 
@@ -874,16 +993,16 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                         disabled={isVerifyingKey || !draftApiKey.trim()}
                         className={`px-3 py-2 text-xs font-semibold rounded-xl border transition-colors shrink-0 flex items-center gap-1.5 cursor-pointer shadow-2xs disabled:opacity-50 ${
                           verifyStatus?.valid
-                            ? 'border-emerald-300 dark:border-emerald-700 bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300'
+                            ? "border-emerald-300 dark:border-emerald-700 bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300"
                             : verifyStatus?.valid === false
-                            ? 'border-rose-300 dark:border-rose-700 bg-rose-50 dark:bg-rose-950/40 text-rose-700 dark:text-rose-300'
-                            : 'border-app-btn-border bg-app-btn hover:bg-app-btn-hover text-app-btn-text'
+                              ? "border-rose-300 dark:border-rose-700 bg-rose-50 dark:bg-rose-950/40 text-rose-700 dark:text-rose-300"
+                              : "border-app-btn-border bg-app-btn hover:bg-app-btn-hover text-app-btn-text"
                         }`}
                         title="Verify API key with provider"
                       >
                         {isVerifyingKey ? (
                           <>
-                            <Loader2 className="w-3.5 h-3.5 animate-spin text-blue-600 dark:text-blue-400" />
+                            <Loader2 className="w-3.5 h-3.5 animate-spin text-app-accent" />
                             <span>Verifying...</span>
                           </>
                         ) : verifyStatus?.valid ? (
@@ -893,7 +1012,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                           </>
                         ) : (
                           <>
-                            <ShieldCheck className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
+                            <ShieldCheck className="w-3.5 h-3.5 text-app-accent" />
                             <span>Verify</span>
                           </>
                         )}
@@ -904,8 +1023,8 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                       <div
                         className={`text-[11px] font-medium flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border ${
                           verifyStatus.valid
-                            ? 'border-emerald-200 dark:border-emerald-900/60 bg-emerald-50/70 dark:bg-emerald-950/30 text-emerald-700 dark:text-emerald-300'
-                            : 'border-rose-200 dark:border-rose-900/60 bg-rose-50/70 dark:bg-rose-950/30 text-rose-700 dark:text-rose-300'
+                            ? "border-emerald-200 dark:border-emerald-900/60 bg-emerald-50/70 dark:bg-emerald-950/30 text-emerald-700 dark:text-emerald-300"
+                            : "border-rose-200 dark:border-rose-900/60 bg-rose-50/70 dark:bg-rose-950/30 text-rose-700 dark:text-rose-300"
                         }`}
                       >
                         {verifyStatus.valid ? (
@@ -932,20 +1051,30 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                         <div className="flex items-center gap-2">
                           <button
                             type="button"
-                            onClick={() => handleFetchModels(draftProvider, draftApiKey, false)}
+                            onClick={() =>
+                              handleFetchModels(
+                                draftProvider,
+                                draftApiKey,
+                                false,
+                              )
+                            }
                             disabled={isLoadingModels || !draftApiKey.trim()}
-                            className="text-[11px] text-blue-600 dark:text-blue-400 hover:underline flex items-center gap-1 cursor-pointer disabled:opacity-40 disabled:no-underline"
+                            className="text-[11px] text-app-accent hover:underline flex items-center gap-1 cursor-pointer disabled:opacity-40 disabled:no-underline"
                             title="Fetch latest available models directly from provider API"
                           >
-                            <RefreshCw className={`w-3 h-3 ${isLoadingModels ? 'animate-spin' : ''}`} />
-                            <span>{isLoadingModels ? 'Fetching...' : 'Fetch Models'}</span>
+                            <RefreshCw
+                              className={`w-3 h-3 ${isLoadingModels ? "animate-spin" : ""}`}
+                            />
+                            <span>
+                              {isLoadingModels ? "Fetching..." : "Fetch Models"}
+                            </span>
                           </button>
                           <span className="text-[11px] text-app-text-muted font-normal">
                             {availableModels.length > 0
-                              ? `${availableModels[0]?.id || ''} recommended`
-                              : draftModel && draftModel !== 'auto'
-                              ? `${draftModel} selected`
-                              : 'Auto-detected from provider'}
+                              ? `${availableModels[0]?.id || ""} recommended`
+                              : draftModel && draftModel !== "auto"
+                                ? `${draftModel} selected`
+                                : "Auto-detected from provider"}
                           </span>
                         </div>
                       </div>
@@ -955,12 +1084,21 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                         onChange={(e) => setDraftModel(e.target.value)}
                         className="w-full px-3 py-2 text-xs rounded-xl border border-app-input-border bg-app-input text-app-input-text cursor-pointer focus:outline-hidden focus:ring-2 focus:ring-blue-500/30 font-medium"
                       >
-                        <option value="auto">Auto-detect latest active model from provider (Recommended)</option>
+                        <option value="auto">
+                          Auto-detect latest active model from provider
+                          (Recommended)
+                        </option>
                         {availableModels.length > 0 ? (
                           <>
-                            {draftModel && draftModel !== 'auto' && !availableModels.some((m) => m.id === draftModel) && (
-                              <option value={draftModel}>{draftModel} (Current selection)</option>
-                            )}
+                            {draftModel &&
+                              draftModel !== "auto" &&
+                              !availableModels.some(
+                                (m) => m.id === draftModel,
+                              ) && (
+                                <option value={draftModel}>
+                                  {draftModel} (Current selection)
+                                </option>
+                              )}
                             {availableModels.map((m) => (
                               <option key={m.id} value={m.id}>
                                 {m.name || m.id}
@@ -968,14 +1106,19 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                             ))}
                           </>
                         ) : (
-                          draftModel && draftModel !== 'auto' && (
-                            <option value={draftModel}>{draftModel} (Current selection)</option>
+                          draftModel &&
+                          draftModel !== "auto" && (
+                            <option value={draftModel}>
+                              {draftModel} (Current selection)
+                            </option>
                           )
                         )}
                       </select>
                       {availableModels.length === 0 && (
                         <p className="text-[10px] text-app-text-muted">
-                          Tip: Click &quot;Fetch Models&quot; or &quot;Verify&quot; to auto-load all current models from {getAiProvider(draftProvider).company}.
+                          Tip: Click &quot;Fetch Models&quot; or
+                          &quot;Verify&quot; to auto-load all current models
+                          from {getAiProvider(draftProvider).company}.
                         </p>
                       )}
                     </div>
@@ -989,14 +1132,15 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                 </div>
 
                 {/* Custom Translation Prompt & Rules Card */}
-                <div className="p-4 rounded-xl border border-app-card-inner-border bg-app-card-inner space-y-3 transition-colors">
+                <div className="p-4 rounded-xl border border-app-card-border bg-app-card space-y-3 transition-colors">
                   <div className="flex items-center justify-between">
                     <div>
                       <h3 className="font-bold text-sm text-app-text">
                         Translation Prompt & Rules
                       </h3>
                       <p className="text-xs text-app-text-muted mt-0.5">
-                        Fixes mistranslated homonyms, literal idioms, and controls colloquial spoken tone
+                        Fixes mistranslated homonyms, literal idioms, and
+                        controls colloquial spoken tone
                       </p>
                     </div>
 
@@ -1022,7 +1166,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                   </div>
 
                   <div className="flex flex-wrap items-center gap-1.5 pt-1">
-                    <span className="text-[10px] font-semibold px-2 py-0.5 rounded-md bg-blue-50 text-blue-600 dark:bg-blue-500/15 dark:text-blue-300">
+                    <span className="text-[10px] font-semibold px-2 py-0.5 rounded-md bg-app-accent-bg text-app-accent border border-app-accent-border">
                       Colloquial Sinhala (කථාබහ බස)
                     </span>
                     <span className="text-[10px] font-semibold px-2 py-0.5 rounded-md bg-emerald-100 text-emerald-800 dark:bg-emerald-500/15 dark:text-emerald-300">
@@ -1061,8 +1205,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
             )}
           </main>
         </div>
-
       </div>
     </div>
-  )
-}
+  );
+};

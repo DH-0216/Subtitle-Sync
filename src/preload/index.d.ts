@@ -22,6 +22,9 @@ export interface IElectronAPI {
     load: () => Promise<any>
     save: (settings: any) => Promise<boolean>
   }
+  window: {
+    setBackgroundMaterial: (material: 'acrylic' | 'mica' | 'none') => Promise<boolean>
+  }
   notification: {
     show: (title: string, body: string) => Promise<boolean>
   }
