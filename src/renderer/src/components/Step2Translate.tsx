@@ -15,27 +15,7 @@ interface Step2TranslateProps {
 }
 
 export const translationLanguages = [
-  { code: 'si', name: 'Sinhala (Spoken Sinhala dialogue - AI Optimized)' },
-  { code: 'en', name: 'English' },
-  { code: 'es', name: 'Spanish (Español)' },
-  { code: 'fr', name: 'French (Français)' },
-  { code: 'de', name: 'German (Deutsch)' },
-  { code: 'it', name: 'Italian (Italiano)' },
-  { code: 'pt', name: 'Portuguese (Português)' },
-  { code: 'ru', name: 'Russian (Русский)' },
-  { code: 'ja', name: 'Japanese (日本語)' },
-  { code: 'ko', name: 'Korean (한국어)' },
-  { code: 'zh', name: 'Chinese (中文)' },
-  { code: 'hi', name: 'Hindi (हिन्दी)' },
-  { code: 'ta', name: 'Tamil (தமிழ்)' },
-  { code: 'ar', name: 'Arabic (العربية)' },
-  { code: 'tr', name: 'Turkish (Türkçe)' },
-  { code: 'vi', name: 'Vietnamese (Tiếng Việt)' },
-  { code: 'th', name: 'Thai (ไทย)' },
-  { code: 'id', name: 'Indonesian (Bahasa Indonesia)' },
-  { code: 'nl', name: 'Dutch (Nederlands)' },
-  { code: 'pl', name: 'Polish (Polski)' },
-  { code: 'sv', name: 'Swedish (Svenska)' }
+  { code: 'si', name: 'Sinhala (Spoken Sinhala dialogue - AI Optimized)' }
 ]
 
 export const Step2Translate: React.FC<Step2TranslateProps> = ({
@@ -98,9 +78,7 @@ export const Step2Translate: React.FC<Step2TranslateProps> = ({
               ))}
             </select>
             <p className="text-[11px] text-app-text-muted">
-              {language === 'si'
-                ? 'Translates into natural Sinhala dialogue while preserving formatting and cue timestamps.'
-                : 'Directly translates dialogues into your target language using your configured AI model.'}
+              Translates into natural spoken Sinhala dialogue while preserving formatting and cue timestamps.
             </p>
           </div>
 
