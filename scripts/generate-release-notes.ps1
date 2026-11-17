@@ -3,7 +3,7 @@
     [string]$Title = "",
     [string]$OutputPath = "dist/RELEASE_NOTES.md",
     [string]$ChecksumPath = "dist/SHA256SUMS.txt",
-    [string]$Repo = ""
+    [string]$Repo = "DH-0216/Subtitle-Sync"
 )
 
 $ErrorActionPreference = "Stop"
@@ -21,8 +21,15 @@ $sb = [System.Text.StringBuilder]::new()
 [void]$sb.AppendLine("Fast, offline subtitle synchronization tool powered by FFmpeg and Whisper.")
 [void]$sb.AppendLine()
 [void]$sb.AppendLine("### 📦 Downloads & Assets")
-[void]$sb.AppendLine('- **Windows Installer**: `SubtitleSync-Setup.exe` *(Recommended)*')
-[void]$sb.AppendLine('- **Portable Version**: `SubtitleSync-Portable.exe` *(No installation required)*')
+
+if ($Repo) {
+    $baseUrl = "https://github.com/$Repo/releases/download/$Tag"
+    [void]$sb.AppendLine("- **Windows Installer**: [SubtitleSync-Setup.exe]($baseUrl/SubtitleSync-Setup.exe) *(Recommended)*")
+    [void]$sb.AppendLine("- **Portable Version**: [SubtitleSync-Portable.exe]($baseUrl/SubtitleSync-Portable.exe) *(No installation required)*")
+} else {
+    [void]$sb.AppendLine('- **Windows Installer**: `SubtitleSync-Setup.exe` *(Recommended)*')
+    [void]$sb.AppendLine('- **Portable Version**: `SubtitleSync-Portable.exe` *(No installation required)*')
+}
 [void]$sb.AppendLine()
 
 if ($checksumContent) {
