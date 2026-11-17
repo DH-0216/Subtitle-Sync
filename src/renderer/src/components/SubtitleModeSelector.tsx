@@ -1,104 +1,107 @@
-import React from 'react'
-import { RefreshCw, Sparkles, FileDown } from 'lucide-react'
-import toast from 'react-hot-toast'
+import React from "react";
+import { RefreshCw, Sparkles, FileUp, Languages } from "lucide-react";
 
-export type SubtitleAction = 'sync' | 'generate' | 'extract'
+export type SubtitleAction = "sync" | "extract" | "generate" | "translate";
 
 interface SubtitleModeSelectorProps {
-  action: SubtitleAction
-  hasVideo: boolean
-  onSelectAction: (action: SubtitleAction) => void
+  action: SubtitleAction;
+  hasVideo?: boolean;
+  onSelectAction: (action: SubtitleAction) => void;
 }
 
 export const SubtitleModeSelector: React.FC<SubtitleModeSelectorProps> = ({
   action,
-  hasVideo,
-  onSelectAction
+  onSelectAction,
 }) => {
-  const handleGenerateClick = () => {
-    if (!hasVideo) {
-      toast.error('Please select a movie/video first in Step 1 to generate subtitles!', {
-        id: 'need-video-for-generation'
-      })
-      return
-    }
-    onSelectAction('generate')
-  }
-
-  const handleExtractClick = () => {
-    if (!hasVideo) {
-      toast.error('Please select a movie/video first in Step 1 to extract subtitles!', {
-        id: 'need-video-for-extract'
-      })
-      return
-    }
-    onSelectAction('extract')
-  }
+  const features = [
+    {
+      id: "sync" as SubtitleAction,
+      title: "Synchronize Subtitle",
+      desc: "Align existing subtitle file (.srt) with movie audio",
+      icon: RefreshCw,
+      badge: null,
+    },
+    {
+      id: "extract" as SubtitleAction,
+      title: "Extract Subtitle",
+      desc: "Extract embedded tracks from MKV / MP4 containers",
+      icon: FileUp,
+      badge: null,
+    },
+    {
+      id: "translate" as SubtitleAction,
+      title: "Translate Subtitle",
+      desc: "Translate subtitle dialogue into other languages with AI",
+      icon: Languages,
+      badge: null,
+    },
+    {
+      id: "generate" as SubtitleAction,
+      title: "Generate Subtitle",
+      desc: "Transcribe speech to text offline using Whisper AI",
+      icon: Sparkles,
+      badge: "BETA",
+    },
+  ];
 
   return (
-    <div className="flex items-center justify-between gap-3 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-800 rounded-xl px-4 py-2 shadow-xs transition-all overflow-hidden">
-      <div className="flex items-center gap-2 min-w-0 overflow-hidden">
-        <span className="text-xs font-bold text-slate-900 dark:text-slate-100 uppercase tracking-wider shrink-0">
-          Subtitle Mode:
-        </span>
-        <span className="text-xs text-slate-700 dark:text-slate-300 truncate hidden xl:inline font-medium">
-          {action === 'sync'
-            ? 'Align existing subtitle file'
-            : action === 'extract'
-            ? 'Extract encoded subtitle from video'
-            : 'Create or translate subtitle via AI'}
-        </span>
-      </div>
-
-      <div className="inline-flex items-center p-1 bg-slate-200/70 dark:bg-slate-950 border border-slate-300 dark:border-slate-800 rounded-lg shrink-0 flex-nowrap">
-        <button
-          type="button"
-          onClick={() => onSelectAction('sync')}
-          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-bold whitespace-nowrap transition-all cursor-pointer ${
-            action === 'sync'
-              ? 'bg-blue-800 dark:bg-blue-600 text-white shadow-xs'
-              : 'text-slate-800 dark:text-slate-300 hover:text-black dark:hover:text-white'
-          }`}
-        >
-          <RefreshCw className="w-3.5 h-3.5 shrink-0" />
-          <span>Synchronize Subtitle</span>
-        </button>
-
-        <button
-          type="button"
-          onClick={handleExtractClick}
-          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-bold whitespace-nowrap transition-all cursor-pointer ${
-            action === 'extract'
-              ? 'bg-blue-800 dark:bg-blue-600 text-white shadow-xs'
-              : 'text-slate-800 dark:text-slate-300 hover:text-black dark:hover:text-white'
-          }`}
-        >
-          <FileDown className="w-3.5 h-3.5 shrink-0" />
-          <span>Extract Subtitle</span>
-        </button>
-
-        <button
-          type="button"
-          onClick={handleGenerateClick}
-          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-bold whitespace-nowrap transition-all cursor-pointer ${
-            action === 'generate'
-              ? 'bg-blue-800 dark:bg-blue-600 text-white shadow-xs'
-              : 'text-slate-800 dark:text-slate-300 hover:text-black dark:hover:text-white'
-          }`}
-        >
-          <Sparkles className="w-3.5 h-3.5 shrink-0" />
-          <span>Generate Subtitle</span>
-          <span
-            className={`text-[9px] font-extrabold uppercase tracking-wider px-1.5 py-0.5 rounded shrink-0 ${
-              action === 'generate'
-                ? 'bg-blue-950 text-white'
-                : 'bg-amber-100 text-amber-900 border border-amber-300/80 dark:bg-amber-500/15 dark:text-amber-300 dark:border-amber-400/30'
+    <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+      {features.map((f) => {
+        const Icon = f.icon;
+        const isActive = action === f.id;
+        return (
+          <button
+            key={f.id}
+            type="button"
+            onClick={() => onSelectAction(f.id)}
+            className={`text-left p-4 rounded-2xl border transition-all duration-200 cursor-pointer flex items-start gap-3.5 relative overflow-hidden group ${
+              isActive
+                ? "bg-blue-800 text-white dark:bg-blue-600 shadow-md border-blue-900 dark:border-blue-500 ring-2 ring-blue-600/30 dark:ring-blue-400/30"
+                : "bg-white dark:bg-slate-900 border-slate-300 dark:border-slate-800 hover:border-blue-400 dark:hover:border-slate-700 text-slate-800 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-850 shadow-2xs"
             }`}
           >
-            BETA
-          </span>
-        </button>
-      </div>
+            <div
+              className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 transition-all ${
+                isActive
+                  ? "bg-white/20 text-white"
+                  : "bg-blue-100 text-blue-700 dark:bg-slate-800 dark:text-blue-400 group-hover:scale-105"
+              }`}
+            >
+              <Icon className="w-5 h-5" />
+            </div>
+
+            <div className="min-w-0 flex-1">
+              <div className="flex items-center gap-2">
+                <span
+                  className={`text-sm font-bold truncate ${isActive ? "text-white" : "text-slate-900 dark:text-slate-100"}`}
+                >
+                  {f.title}
+                </span>
+                {f.badge && (
+                  <span
+                    className={`text-[9px] font-extrabold uppercase tracking-wider px-1.5 py-0.5 rounded shrink-0 ${
+                      isActive
+                        ? "bg-blue-950 text-white"
+                        : "bg-amber-100 text-amber-900 border border-amber-300/80 dark:bg-amber-500/15 dark:text-amber-300 dark:border-amber-400/30"
+                    }`}
+                  >
+                    {f.badge}
+                  </span>
+                )}
+              </div>
+              <p
+                className={`text-xs mt-0.5 leading-snug line-clamp-1 ${
+                  isActive
+                    ? "text-blue-100 dark:text-blue-100/90"
+                    : "text-slate-600 dark:text-slate-400"
+                }`}
+              >
+                {f.desc}
+              </p>
+            </div>
+          </button>
+        );
+      })}
     </div>
-  )
-}
+  );
+};

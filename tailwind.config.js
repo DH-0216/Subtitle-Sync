@@ -24,6 +24,16 @@ module.exports = {
         slate: {
           850: '#151e2e',
           950: '#0b0f19'
+        },
+        smBlue: {
+          100: '#174082',
+          80: '#2252A0',
+          60: '#3566B6',
+          20: '#B6CFF7',
+          15: '#CADEFC',
+          10: '#E0ECFF',
+          5: '#F2F7FD',
+          canvas: '#E8F1FC'
         }
       }
     }

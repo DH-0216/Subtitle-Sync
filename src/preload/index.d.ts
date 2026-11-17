@@ -125,7 +125,7 @@ export interface IElectronAPI {
     checkWhisper: () => Promise<{ exists: boolean; path: string | null }>
     downloadModel: (quality: string) => Promise<{ success: boolean; path?: string; error?: string }>
     cancelDownload: () => Promise<boolean>
-    startGenerate: (params: any) => Promise<{ success: boolean; output?: string; message?: string }>
+    startGenerate: (params: any) => Promise<{ success: boolean; output?: string; message?: string; error?: string }>
     cancelGenerate: () => Promise<boolean>
     onDownloadProgress: (callback: (data: {
       percent: number
@@ -150,6 +150,7 @@ export interface IElectronAPI {
       outputPath?: string
       outputDir?: string
       cleanTags?: boolean
+      isTemporary?: boolean
     }) => Promise<{
       success: boolean
       outputPath?: string

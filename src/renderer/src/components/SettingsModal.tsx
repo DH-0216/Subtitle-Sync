@@ -19,6 +19,7 @@ import {
   Bell
 } from 'lucide-react'
 import toast from 'react-hot-toast'
+import { ThemeSelector, ThemeMode } from './common'
 import { EXTERNAL_LINKS, getGeminiVerifyUrl } from '@shared/links'
 import { formatUserFriendlyError } from '@shared/errorUtils'
 import { APP_VERSION, compareVersions } from '@shared/version'
@@ -44,8 +45,8 @@ interface SettingsModalProps {
   isOpen: boolean
   onClose: () => void
   initialTab?: 'general' | 'ai'
-  theme: 'dark' | 'light'
-  setTheme: (t: 'dark' | 'light') => void
+  theme: ThemeMode
+  setTheme: (t: ThemeMode) => void
   checkUpdates: boolean
   setCheckUpdates: (c: boolean) => void
   autoDownloadUpdates?: boolean
@@ -334,7 +335,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
 
   if (!isOpen) return null
 
-  const handleToggleTheme = (newTheme: 'dark' | 'light') => {
+  const handleSelectTheme = (newTheme: ThemeMode) => {
     setTheme(newTheme)
     window.api?.settings?.save({
       theme: newTheme,
@@ -611,38 +612,9 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
           <main className="flex-1 p-5 overflow-y-auto space-y-4">
             {activeTab === 'general' && (
               <>
-                {/* Card 1: Appearance Mode */}
-                <div className="p-4 rounded-xl border border-slate-200/90 dark:border-slate-800/80 bg-slate-50/70 dark:bg-[#111625]/80 flex items-center justify-between transition-colors">
-                  <div>
-                    <h3 className="font-bold text-sm text-slate-900 dark:text-slate-100">
-                      Appearance Mode
-                    </h3>
-                    <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-                      Toggle between Dark and Light interface themes
-                    </p>
-                  </div>
-
-                  <button
-                    type="button"
-                    onClick={() => handleToggleTheme(theme === 'dark' ? 'light' : 'dark')}
-                    className="flex items-center gap-2.5 cursor-pointer select-none group"
-                    title="Toggle theme"
-                  >
-                    <span className="text-xs font-semibold text-slate-700 dark:text-slate-300">
-                      Dark mode
-                    </span>
-                    <div
-                      className={`w-11 h-6 flex items-center rounded-full p-1 transition-colors duration-200 ${
-                        theme === 'dark' ? 'bg-blue-800 dark:bg-blue-600' : 'bg-slate-300 dark:bg-slate-700'
-                      }`}
-                    >
-                      <div
-                        className={`bg-white w-4 h-4 rounded-full shadow-md transform transition-transform duration-200 ${
-                          theme === 'dark' ? 'translate-x-5' : 'translate-x-0'
-                        }`}
-                      />
-                    </div>
-                  </button>
+                {/* Card 1: Theme Selector */}
+                <div className="p-4 rounded-xl border border-slate-200/90 dark:border-slate-800/80 bg-slate-50/70 dark:bg-[#111625]/80 transition-colors">
+                  <ThemeSelector theme={theme} onSelectTheme={handleSelectTheme} />
                 </div>
 
                 {/* Card 2: Software Updates */}

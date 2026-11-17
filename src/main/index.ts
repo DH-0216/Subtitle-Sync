@@ -139,9 +139,9 @@ function createWindow(): void {
   const iconPath = join(__dirname, '../../app_icon.ico')
 
   mainWindow = new BrowserWindow({
-    width: 900,
+    width: 1150,
     height: 840,
-    minWidth: 720,
+    minWidth: 800,
     minHeight: 580,
     show: false,
     autoHideMenuBar: true,

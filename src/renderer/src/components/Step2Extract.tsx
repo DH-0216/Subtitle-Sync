@@ -1,121 +1,122 @@
 import React from 'react'
-import { FileDown, Folder, CheckSquare, Square, AlertCircle, CheckCircle2, RefreshCw, Sparkles } from 'lucide-react'
+import {
+  FileUp,
+  CheckSquare,
+  Square,
+  AlertCircle,
+  CheckCircle2,
+  RefreshCw,
+  Sparkles
+} from 'lucide-react'
 import { SubtitleTrack } from './Step1Video'
+import { StepCard } from './common/StepCard'
 
 interface Step2ExtractProps {
-  videoPath: string | null
-  subtitleTracks: SubtitleTrack[]
-  selectedTrackIndices: number[]
-  outputDir: string | null
-  onToggleTrack: (trackIndex: number) => void
-  onSelectAllTracks: () => void
-  onDeselectAllTracks: () => void
-  onChangeOutputDir: () => void
-  onExtractSingleNow?: (track: SubtitleTrack) => void
-  onRescan?: () => void
-  onSwitchToGenerate?: () => void
-  isExtracting?: boolean
+  videoPath: string | null;
+  subtitleTracks: SubtitleTrack[];
+  selectedTrackIndices: number[];
+  onToggleTrack: (trackIndex: number) => void;
+  onSelectAllTracks: () => void;
+  onDeselectAllTracks: () => void;
+  onExtractSingleNow?: (track: SubtitleTrack) => void;
+  onRescan?: () => void;
+  onSwitchToGenerate?: () => void;
+  isExtracting?: boolean;
 }
 
 // Map common ISO 639-1 / 639-2 codes to friendly language names
 const LANGUAGE_NAMES: Record<string, string> = {
-  eng: 'English',
-  en: 'English',
-  spa: 'Spanish',
-  es: 'Spanish',
-  fre: 'French',
-  fra: 'French',
-  fr: 'French',
-  ger: 'German',
-  deu: 'German',
-  de: 'German',
-  ita: 'Italian',
-  it: 'Italian',
-  por: 'Portuguese',
-  pt: 'Portuguese',
-  rus: 'Russian',
-  ru: 'Russian',
-  chi: 'Chinese',
-  zho: 'Chinese',
-  zh: 'Chinese',
-  jpn: 'Japanese',
-  ja: 'Japanese',
-  kor: 'Korean',
-  ko: 'Korean',
-  ara: 'Arabic',
-  ar: 'Arabic',
-  hin: 'Hindi',
-  hi: 'Hindi',
-  sin: 'Sinhala',
-  si: 'Sinhala',
-  tam: 'Tamil',
-  ta: 'Tamil',
-  und: 'Undetermined'
-}
+  eng: "English",
+  en: "English",
+  spa: "Spanish",
+  es: "Spanish",
+  fre: "French",
+  fra: "French",
+  fr: "French",
+  ger: "German",
+  deu: "German",
+  de: "German",
+  ita: "Italian",
+  it: "Italian",
+  por: "Portuguese",
+  pt: "Portuguese",
+  rus: "Russian",
+  ru: "Russian",
+  chi: "Chinese",
+  zho: "Chinese",
+  zh: "Chinese",
+  jpn: "Japanese",
+  ja: "Japanese",
+  kor: "Korean",
+  ko: "Korean",
+  ara: "Arabic",
+  ar: "Arabic",
+  hin: "Hindi",
+  hi: "Hindi",
+  sin: "Sinhala",
+  si: "Sinhala",
+  tam: "Tamil",
+  ta: "Tamil",
+  und: "Undetermined",
+};
 
 export const Step2Extract: React.FC<Step2ExtractProps> = ({
   videoPath,
   subtitleTracks,
   selectedTrackIndices,
-  outputDir,
   onToggleTrack,
   onSelectAllTracks,
   onDeselectAllTracks,
-  onChangeOutputDir,
   onExtractSingleNow,
   onRescan,
   onSwitchToGenerate,
-  isExtracting = false
+  isExtracting = false,
 }) => {
-  const textTracks = subtitleTracks.filter((t) => t.isText)
-  const allSelected = textTracks.length > 0 && textTracks.every((t) => selectedTrackIndices.includes(t.index))
-  const someSelected = textTracks.some((t) => selectedTrackIndices.includes(t.index))
+  const textTracks = subtitleTracks.filter((t) => t.isText);
+  const allSelected =
+    textTracks.length > 0 &&
+    textTracks.every((t) => selectedTrackIndices.includes(t.index));
+  const someSelected = textTracks.some((t) =>
+    selectedTrackIndices.includes(t.index),
+  );
 
-  const videoDir = videoPath ? videoPath.substring(0, Math.max(videoPath.lastIndexOf('/'), videoPath.lastIndexOf('\\'))) : ''
-  const displayDir = outputDir || videoDir || 'Same as movie folder'
+  const badge = subtitleTracks.length > 0 ? (
+    <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-slate-200 text-slate-900 border border-slate-300 dark:bg-slate-800 dark:text-slate-200 dark:border-slate-700 whitespace-nowrap shrink-0">
+      {subtitleTracks.length} {subtitleTracks.length === 1 ? 'stream' : 'streams'} detected
+    </span>
+  ) : undefined
+
+  const headerRight = textTracks.length > 0 ? (
+    <button
+      type="button"
+      onClick={allSelected ? onDeselectAllTracks : onSelectAllTracks}
+      disabled={isExtracting}
+      className="text-xs text-blue-800 dark:text-blue-400 hover:text-blue-950 dark:hover:text-blue-300 flex items-center gap-1 font-bold transition-colors cursor-pointer"
+    >
+      {allSelected ? <Square className="w-3.5 h-3.5" /> : <CheckSquare className="w-3.5 h-3.5" />}
+      <span>{allSelected ? 'Deselect All' : 'Select All Text Tracks'}</span>
+    </button>
+  ) : undefined
 
   return (
-    <div className="bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-800 rounded-2xl p-5 shadow-xs transition-all">
-      <div className="flex items-center justify-between pb-3 mb-3.5 border-b border-slate-200 dark:border-slate-800 flex-wrap gap-2">
-        <div className="flex items-center gap-2.5">
-          <span className="w-6 h-6 rounded-full bg-blue-800 dark:bg-blue-600 text-white font-bold text-xs flex items-center justify-center shadow-xs">
-            2
-          </span>
-          <h2 className="font-bold text-slate-900 dark:text-slate-100 text-xs tracking-wider uppercase">
-            Encoded Subtitle Tracks in Container
-          </h2>
-          {subtitleTracks.length > 0 && (
-            <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-slate-200 text-slate-900 border border-slate-300 dark:bg-slate-800 dark:text-slate-200 dark:border-slate-700">
-              {subtitleTracks.length} {subtitleTracks.length === 1 ? 'stream' : 'streams'} detected
-            </span>
-          )}
-        </div>
-
-        {textTracks.length > 0 && (
-          <div className="flex items-center gap-2">
-            <button
-              type="button"
-              onClick={allSelected ? onDeselectAllTracks : onSelectAllTracks}
-              disabled={isExtracting}
-              className="text-xs text-blue-800 dark:text-blue-400 hover:text-blue-950 dark:hover:text-blue-300 flex items-center gap-1 font-bold transition-colors cursor-pointer"
-            >
-              {allSelected ? <Square className="w-3.5 h-3.5" /> : <CheckSquare className="w-3.5 h-3.5" />}
-              <span>{allSelected ? 'Deselect All' : 'Select All Text Tracks'}</span>
-            </button>
-          </div>
-        )}
-      </div>
+    <StepCard
+      step={2}
+      title="Encoded Subtitle Tracks in Container"
+      badge={badge}
+      headerRight={headerRight}
+    >
 
       {!videoPath ? (
         <div className="border-2 border-dashed border-slate-200 dark:border-slate-800 rounded-xl p-8 text-center bg-slate-50/50 dark:bg-[#0B0F19]/40">
           <div className="w-12 h-12 rounded-xl bg-slate-100 dark:bg-slate-800/80 text-slate-400 flex items-center justify-center mx-auto mb-3">
-            <FileDown className="w-6 h-6" />
+            <FileUp className="w-6 h-6" />
           </div>
           <p className="text-sm font-semibold text-slate-700 dark:text-slate-300">
             Please select a movie/video in Step 1 first
           </p>
           <p className="text-xs text-slate-400 mt-1">
-            The app will scan your video container (MKV, MP4, etc.) for encoded subtitle tracks.
+            The app will scan your video container (MKV, MP4, etc.) for encoded
+            subtitle tracks.
           </p>
         </div>
       ) : subtitleTracks.length === 0 ? (
@@ -127,7 +128,8 @@ export const Step2Extract: React.FC<Step2ExtractProps> = ({
             No Embedded Subtitle Streams Detected Yet
           </p>
           <p className="text-xs text-amber-700 dark:text-amber-400/90 mt-1 max-w-md mx-auto">
-            If your video container has embedded subtitle tracks, click the button below to re-scan the file with FFmpeg:
+            If your video container has embedded subtitle tracks, click the
+            button below to re-scan the file with FFmpeg:
           </p>
           {onRescan && (
             <button
@@ -141,7 +143,9 @@ export const Step2Extract: React.FC<Step2ExtractProps> = ({
             </button>
           )}
           <p className="text-xs text-slate-500 dark:text-slate-400 mt-3 max-w-md mx-auto">
-            Note: If subtitles are hardcoded/burned directly into the movie video pixels, they are part of the video image and cannot be extracted as text without optical OCR.
+            Note: If subtitles are hardcoded/burned directly into the movie
+            video pixels, they are part of the video image and cannot be
+            extracted as text without optical OCR.
           </p>
         </div>
       ) : (
@@ -156,7 +160,11 @@ export const Step2Extract: React.FC<Step2ExtractProps> = ({
                     Image-Based Subtitles Detected (DVD Subtitle / PGS)
                   </p>
                   <p className="text-amber-800 dark:text-amber-300/90 leading-relaxed">
-                    These tracks are DVD picture overlays (raster images), not digital text. An .SRT file requires text characters. To create an .SRT subtitle for this movie, use the <strong>Generate Subtitle</strong> mode to automatically transcribe the movie's speech!
+                    These tracks are DVD picture overlays (raster images), not
+                    digital text. An .SRT file requires text characters. To
+                    create an .SRT subtitle for this movie, use the{" "}
+                    <strong>Generate Subtitle</strong> mode to automatically
+                    transcribe the movie's speech!
                   </p>
                 </div>
               </div>
@@ -176,20 +184,21 @@ export const Step2Extract: React.FC<Step2ExtractProps> = ({
           {/* Tracks list */}
           <div className="space-y-2.5 max-h-[360px] overflow-y-auto pr-1">
             {subtitleTracks.map((track) => {
-              const isSelected = selectedTrackIndices.includes(track.index)
-              const langKey = track.language.toLowerCase()
-              const langFriendly = LANGUAGE_NAMES[langKey] || track.language.toUpperCase()
-              const codecDisplay = track.codec.toUpperCase().replace('_', ' ')
+              const isSelected = selectedTrackIndices.includes(track.index);
+              const langKey = track.language.toLowerCase();
+              const langFriendly =
+                LANGUAGE_NAMES[langKey] || track.language.toUpperCase();
+              const codecDisplay = track.codec.toUpperCase().replace("_", " ");
 
               return (
                 <div
                   key={track.index}
                   className={`p-3.5 rounded-xl border transition-all ${
                     !track.isText
-                      ? 'bg-slate-50/60 dark:bg-slate-900/30 border-slate-200 dark:border-slate-800 opacity-70'
+                      ? "bg-slate-50/60 dark:bg-slate-900/30 border-slate-200 dark:border-slate-800 opacity-70"
                       : isSelected
-                      ? 'bg-blue-50/50 border-blue-400 dark:bg-blue-950/20 dark:border-blue-600/50 shadow-2xs'
-                      : 'bg-white dark:bg-[#0B0F19]/70 border-slate-200 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700 shadow-2xs'
+                        ? "bg-blue-50/50 border-blue-400 dark:bg-blue-950/20 dark:border-blue-600/50 shadow-2xs"
+                        : "bg-white dark:bg-[#0B0F19]/70 border-slate-200 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700 shadow-2xs"
                   }`}
                 >
                   <div className="flex items-start justify-between gap-3">
@@ -197,12 +206,14 @@ export const Step2Extract: React.FC<Step2ExtractProps> = ({
                       {/* Checkbox */}
                       <button
                         type="button"
-                        onClick={() => track.isText && onToggleTrack(track.index)}
+                        onClick={() =>
+                          track.isText && onToggleTrack(track.index)
+                        }
                         disabled={!track.isText || isExtracting}
                         className={`mt-0.5 shrink-0 ${
                           !track.isText
-                            ? 'cursor-not-allowed opacity-40'
-                            : 'cursor-pointer text-blue-800 dark:text-blue-400'
+                            ? "cursor-not-allowed opacity-40"
+                            : "cursor-pointer text-blue-800 dark:text-blue-400"
                         }`}
                       >
                         {isSelected ? (
@@ -251,7 +262,8 @@ export const Step2Extract: React.FC<Step2ExtractProps> = ({
                           ) : (
                             <span className="text-amber-700 dark:text-amber-400 flex items-center gap-1 font-medium">
                               <AlertCircle className="w-3.5 h-3.5" />
-                              Bitmap/Image stream (PGS/VobSub) — direct text export not supported
+                              Bitmap/Image stream (PGS/VobSub) — direct text
+                              export not supported
                             </span>
                           )}
                         </div>
@@ -266,40 +278,17 @@ export const Step2Extract: React.FC<Step2ExtractProps> = ({
                         disabled={isExtracting}
                         className="text-xs font-semibold px-2.5 py-1.5 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-800 dark:text-slate-200 border border-slate-300 dark:border-slate-700 hover:bg-blue-800 hover:text-white dark:hover:bg-blue-600 dark:hover:text-white transition-all shrink-0 cursor-pointer flex items-center gap-1 shadow-2xs"
                       >
-                        <FileDown className="w-3.5 h-3.5" />
+                        <FileUp className="w-3.5 h-3.5" />
                         <span>Extract to .SRT</span>
                       </button>
                     )}
                   </div>
                 </div>
-              )
+              );
             })}
-          </div>
-
-          {/* Destination Folder Selector (Compact) */}
-          <div className="flex items-center justify-between gap-2.5 bg-slate-50 dark:bg-[#0B0F19] border border-slate-300 dark:border-slate-800 rounded-lg px-3 py-1.5 shadow-2xs">
-            <div className="flex items-center gap-2 min-w-0">
-              <Folder className="w-3.5 h-3.5 text-blue-700 dark:text-blue-400 shrink-0" />
-              <div className="min-w-0 flex items-center gap-1.5 flex-wrap sm:flex-nowrap">
-                <span className="text-[10px] font-bold text-slate-600 dark:text-slate-400 uppercase tracking-wider shrink-0">
-                  Export To:
-                </span>
-                <span className="text-xs font-semibold text-slate-900 dark:text-slate-100 truncate" title={displayDir}>
-                  {displayDir}
-                </span>
-              </div>
-            </div>
-            <button
-              type="button"
-              onClick={onChangeOutputDir}
-              disabled={isExtracting}
-              className="text-[11px] font-bold text-slate-800 dark:text-slate-200 hover:text-blue-800 dark:hover:text-white px-2.5 py-1 rounded-md border border-slate-300 dark:border-slate-700 bg-white hover:bg-slate-50 dark:bg-slate-800 dark:hover:bg-slate-700 transition-all shrink-0 cursor-pointer shadow-2xs"
-            >
-              Change Folder...
-            </button>
           </div>
         </div>
       )}
-    </div>
+    </StepCard>
   )
 }

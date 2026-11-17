@@ -1,22 +1,25 @@
 import React, { useState, useEffect } from 'react'
-import { FolderOpen } from 'lucide-react'
 import toast, { Toaster } from 'react-hot-toast'
 import { Header } from './components/Header'
+import { Footer } from './components/Footer'
+import { Sidebar } from './components/Sidebar'
 import { Step1Video, SubtitleTrack } from './components/Step1Video'
-import { SubtitleModeSelector, SubtitleAction } from './components/SubtitleModeSelector'
+import { SubtitleAction } from './components/SubtitleModeSelector'
 import { Step2Subtitles, SubtitleItem } from './components/Step2Subtitles'
 import { Step2Generate, GenerateConfig } from './components/Step2Generate'
 import { Step2Extract } from './components/Step2Extract'
+import { Step1Translate } from './components/Step1Translate'
+import { Step2Translate } from './components/Step2Translate'
+import { Step3Translate } from './components/Step3Translate'
 import { Step3Sync, SyncMode } from './components/Step3Sync'
 import { Step3Generate } from './components/Step3Generate'
-import { Step3Extract, ExtractedFileItem } from './components/Step3Extract'
+import { Step3Extract } from './components/Step3Extract'
 import { ActivityConsole } from './components/ActivityConsole'
 import { AudioTrackModal } from './components/AudioTrackModal'
 import { SettingsModal, DEFAULT_AI_PROMPT } from './components/SettingsModal'
 import { AboutModal } from './components/AboutModal'
 import { ModelDownloadModal } from './components/ModelDownloadModal'
 import { UpdateModal, AppUpdateData } from './components/UpdateModal'
-import { EXTERNAL_LINKS } from '@shared/links'
 import { formatUserFriendlyError } from '@shared/errorUtils'
 import { AiProviderId, isValidAiProvider } from '@shared/aiModels'
 import { APP_VERSION, compareVersions } from '@shared/version'
@@ -24,14 +27,30 @@ import {
   cleanPathString,
   isVideoFile,
   isSubtitleFile,
+  getFileExtension,
   getUnsupportedFileMessage,
   getFileName,
   FileValidationItem
 } from '@shared/fileSanitizer'
 
+export type ThemeMode = 'system' | 'dark' | 'light'
+
 export default function App() {
   // Theme & Preferences
-  const [theme, setTheme] = useState<'dark' | 'light'>('dark')
+  const [theme, setTheme] = useState<ThemeMode>('dark')
+  const [isSystemDark, setIsSystemDark] = useState<boolean>(() =>
+    typeof window !== 'undefined' && window.matchMedia ? window.matchMedia('(prefers-color-scheme: dark)').matches : true
+  )
+
+  useEffect(() => {
+    if (typeof window === 'undefined' || !window.matchMedia) return
+    const mq = window.matchMedia('(prefers-color-scheme: dark)')
+    const handler = (e: MediaQueryListEvent) => setIsSystemDark(e.matches)
+    mq.addEventListener('change', handler)
+    return () => mq.removeEventListener('change', handler)
+  }, [])
+
+  const effectiveTheme: 'dark' | 'light' = theme === 'system' ? (isSystemDark ? 'dark' : 'light') : theme
   const [defaultMode, setDefaultMode] = useState<SyncMode>('Standard')
   const [checkUpdates, setCheckUpdates] = useState(true)
   const [notificationsEnabled, setNotificationsEnabled] = useState(true)
@@ -251,14 +270,34 @@ export default function App() {
     }
   }, [isAnyModalOpen])
 
-  // Step 1: Video
+  // Subtitle Workflow Mode (Sync Existing vs Extract vs Generate vs Translate)
+  const [subtitleAction, setSubtitleAction] = useState<SubtitleAction>('sync')
+
+  // Step 1: Video (Shared across modes)
   const [videoPath, setVideoPath] = useState<string | null>(null)
   const [videoDetails, setVideoDetails] = useState<any>(null)
   const [audioTracks, setAudioTracks] = useState<any[]>([])
   const [selectedTrack, setSelectedTrack] = useState<number | null>(null)
+  const [subtitleTracks, setSubtitleTracks] = useState<SubtitleTrack[]>([])
 
-  // Subtitle Workflow Mode (Sync Existing vs Generate)
-  const [subtitleAction, setSubtitleAction] = useState<SubtitleAction>('sync')
+  const handleClearVideoError = () => {
+    setVideoError(null)
+  }
+
+  const handleRemoveVideo = () => {
+    setVideoError(null)
+    setVideoPath(null)
+    setAudioTracks([])
+    setVideoDetails(null)
+    setSelectedTrack(null)
+    setSubtitleTracks([])
+    setSelectedExtractTrackIndices([])
+    setUserSelectedMode(false)
+    setProgress(0)
+    setStatusMessage('')
+    setLastOutputDir(null)
+    setLastOutputFile(null)
+  }
 
   // Step 2 (Generate Mode): Generation Settings
   const [generateConfig, setGenerateConfig] = useState<GenerateConfig>({
@@ -301,14 +340,18 @@ export default function App() {
   }, [])
 
   // Step 2 (Extract Mode): Encoded Subtitles State
-  const [subtitleTracks, setSubtitleTracks] = useState<SubtitleTrack[]>([])
   const [selectedExtractTrackIndices, setSelectedExtractTrackIndices] = useState<number[]>([])
   const [extractOutputDir, setExtractOutputDir] = useState<string | null>(null)
   const [isExtracting, setIsExtracting] = useState(false)
   const [extractProgress, setExtractProgress] = useState(0)
   const [extractStatusMessage, setExtractStatusMessage] = useState('')
-  const [extractedFiles, setExtractedFiles] = useState<ExtractedFileItem[]>([])
   const [extractCleanTags, setExtractCleanTags] = useState(true)
+
+  // Step 1 & 2 (Translate Mode): Subtitle Translation State
+  const [translateSubPath, setTranslateSubPath] = useState<string | null>(null)
+  const [translateLanguage, setTranslateLanguage] = useState('si')
+  const [translateFormat, setTranslateFormat] = useState<'srt' | 'vtt' | 'txt'>('srt')
+  const [translateSubError, setTranslateSubError] = useState<string | null>(null)
 
   // Step 2 (Sync Mode): Subtitles
   const [subtitles, setSubtitles] = useState<SubtitleItem[]>([])
@@ -349,12 +392,12 @@ export default function App() {
 
   // Sync theme with HTML class
   useEffect(() => {
-    if (theme === 'dark') {
+    if (effectiveTheme === 'dark') {
       document.documentElement.classList.add('dark')
     } else {
       document.documentElement.classList.remove('dark')
     }
-  }, [theme])
+  }, [effectiveTheme])
 
   const notifyJobComplete = (title: string, body: string) => {
     if (notificationsEnabled && window.api?.notification?.show) {
@@ -362,7 +405,7 @@ export default function App() {
     }
   }
 
-  const handleSetTheme = (newTheme: 'dark' | 'light') => {
+  const handleSetTheme = (newTheme: ThemeMode) => {
     setTheme(newTheme)
     window.api?.settings?.save({
       theme: newTheme,
@@ -562,6 +605,10 @@ export default function App() {
 
     // 1. Direct synchronous format check: Subtitle file dropped on video
     if (isSubtitleFile(cleanPath)) {
+      if (subtitleAction === 'translate') {
+        handleSelectTranslateSubtitle(cleanPath)
+        return
+      }
       const fileName = getFileName(cleanPath)
       const msg = `"${fileName}" is a subtitle file, not a movie. Routed to Step 2 Subtitles instead!`
       toast(msg, { icon: '📝' })
@@ -582,9 +629,16 @@ export default function App() {
     }
 
     setVideoError(null)
+    if (subtitleAction === 'translate') {
+      setTranslateSubPath(null)
+      setTranslateSubError(null)
+    }
     setVideoPath(cleanPath)
     setUserSelectedMode(false)
     setProgress(0)
+    setExtractProgress(0)
+    setGenerateProgress(0)
+    setExtractOutputDir(null)
     setLastOutputDir(null)
     setLastOutputFile(null)
     setLogs((prev) => [...prev, `[MEDIA] Loading video: ${cleanPath}`])
@@ -593,18 +647,16 @@ export default function App() {
     try {
       const res = await window.api.engine.probe(cleanPath)
       if (res) {
-        setAudioTracks(res.tracks || [])
-        setVideoDetails(res.details || null)
+        const audio = res.tracks || []
+        const details = res.details || null
         const subTracks = res.subtitleTracks || []
-        setSubtitleTracks(subTracks)
-        const textTracks = subTracks.filter((t) => t.isText)
-        setSelectedExtractTrackIndices(textTracks.map((t) => t.index))
-        setExtractedFiles([])
-        setExtractOutputDir(null)
+        const firstAudioIdx = audio.length > 0 ? audio[0].index : 0
 
-        if (res.tracks && res.tracks.length > 0) {
-          setSelectedTrack(res.tracks[0].index)
-        }
+        setAudioTracks(audio)
+        setVideoDetails(details)
+        setSubtitleTracks(subTracks)
+        setSelectedTrack(firstAudioIdx)
+        setSelectedExtractTrackIndices([])
 
         if (subTracks.length > 0) {
           const subSummary = subTracks
@@ -617,16 +669,16 @@ export default function App() {
             .join(', ')
           setLogs((prev) => [
             ...prev,
-            `[MEDIA] Detected ${res.tracks?.length || 0} audio stream(s), ${
+            `[MEDIA] Detected ${audio.length} audio stream(s), ${
               subTracks.length
             } embedded subtitle track(s): ${subSummary}`
           ])
         } else {
           setLogs((prev) => [
             ...prev,
-            `[MEDIA] Detected ${res.tracks?.length || 0} audio stream(s), 0 embedded subtitle track(s). Duration: ${
-              res.details?.duration || 'Unknown'
-            }, FPS: ${res.details?.fps || 'Unknown'}`
+            `[MEDIA] Detected ${audio.length} audio stream(s), 0 embedded subtitle track(s). Duration: ${
+              details?.duration || 'Unknown'
+            }, FPS: ${details?.fps || 'Unknown'}`
           ])
         }
       }
@@ -660,7 +712,7 @@ export default function App() {
 
   // Browse video
   const handleBrowseVideo = async () => {
-    setVideoError(null)
+    handleClearVideoError()
     const file = await window.api.dialog.openVideo()
     if (file) {
       handleSelectVideo(file)
@@ -1002,20 +1054,163 @@ export default function App() {
     }
   }
 
-  const handleTranslateExtractedWithAi = (item: ExtractedFileItem) => {
-    setGenerateConfig((prev) => ({
+  const handleSelectTranslateSubtitle = (path: string) => {
+    const clean = cleanPathString(path)
+    const ext = getFileExtension(clean)
+    if (!['srt', 'vtt', 'ass', 'sub'].includes(ext)) {
+      const msg = `Unsupported file format ".${ext}". Please provide a subtitle file (.srt, .vtt, .ass).`
+      setTranslateSubError(msg)
+      toast.error(msg)
+      return
+    }
+    setTranslateSubError(null)
+    setTranslateSubPath(clean)
+    if (videoPath) {
+      handleRemoveVideo()
+    }
+    toast.success(`Selected subtitle: ${getFileName(clean)}`)
+    setLogs((prev) => [...prev, `[TRANSLATE] Selected subtitle file: ${clean}`])
+  }
+
+  const handleBrowseTranslateSubtitle = async () => {
+    try {
+      const files = await window.api.dialog.openSubtitles()
+      if (files && files.length > 0) {
+        handleSelectTranslateSubtitle(files[0])
+      }
+    } catch (e: any) {
+      toast.error('Failed to open subtitle: ' + e?.message)
+    }
+  }
+
+  const handleExtractAndTranslateSubtitle = async (track: SubtitleTrack) => {
+    const vPath = videoPath
+    if (!vPath) return
+
+    if (!aiApiKey.trim()) {
+      toast.error('Please enter your AI API Key in Settings to translate subtitles!', {
+        duration: 5000,
+        icon: '🔑'
+      })
+      setSettingsInitialTab('ai')
+      setSettingsModalOpen(true)
+      return
+    }
+
+    if (!isOnline) {
+      toast.error('Internet connection required for AI translation.', { icon: '📡' })
+      return
+    }
+
+    setIsExtracting(true)
+    setExtractStatusMessage(`Extracting Track #${track.index + 1} (${track.language.toUpperCase()})...`)
+    setLogs((prev) => [
       ...prev,
-      sourceType: 'subtitle',
-      sourceSubPath: item.outputPath,
-      language: 'si'
-    }))
-    setSubtitleAction('generate')
-    toast.success(`Loaded "${item.fileName}" for AI Translation!`, { icon: '✨' })
-    setLogs((prev) => [...prev, `[AI TRANSLATION] Switched to AI Translate for extracted track: ${item.fileName}`])
+      `[EXTRACT] Extracting embedded subtitle track #${track.index + 1} (${track.language.toUpperCase()}) temporarily for AI translation from ${vPath}`
+    ])
+
+    try {
+      const res = await window.api.extractor.extractSingle({
+        videoPath: vPath,
+        track,
+        isTemporary: true,
+        cleanTags: extractCleanTags
+      })
+
+      if (res.success && res.outputPath) {
+        setTranslateSubPath(res.outputPath)
+        setTranslateLanguage('si')
+        toast.success(`Track #${track.index + 1} selected! Ready for translation.`, { duration: 3500, icon: '✨' })
+        setLogs((prev) => [...prev, `[AI TRANSLATION] Subtitle extracted to temporary file: ${res.outputPath}`])
+      } else {
+        toast.error(res.error || 'Failed to extract embedded subtitle track')
+      }
+    } catch (err: any) {
+      toast.error(err.message || 'Failed to extract embedded subtitle track')
+    } finally {
+      setIsExtracting(false)
+    }
+  }
+
+  const handleStartTranslate = async () => {
+    if (!translateSubPath) {
+      toast.error('Please choose a subtitle file to translate in Step 1!')
+      return
+    }
+
+    if (!isOnline) {
+      toast.error('Internet connection required for AI translation.', { duration: 5000, icon: '📡' })
+      return
+    }
+
+    if (!aiApiKey.trim()) {
+      toast.error('Please enter your AI API Key in Settings to translate subtitles!', {
+        duration: 5000,
+        icon: '🔑'
+      })
+      setSettingsInitialTab('ai')
+      setSettingsModalOpen(true)
+      return
+    }
+
+    setIsGenerating(true)
+    setGenerateProgress(5)
+    setGenerateStatusMessage('Starting AI subtitle translation...')
+    setLastOutputDir(null)
+    setLastOutputFile(null)
+
+    setLogs((prev) => [
+      ...prev,
+      `=== Starting AI Subtitle Translation ===`,
+      `Source Subtitle: ${translateSubPath}`,
+      `Target Language: ${translateLanguage.toUpperCase()}`,
+      `AI Provider: ${aiProvider.toUpperCase()} (${aiModel || 'default'})`
+    ])
+
+    try {
+      const res = await window.api.generator.startGenerate({
+        video: videoPath || '',
+        trackIndex: 0,
+        sourceType: 'subtitle',
+        sourceSubPath: translateSubPath,
+        language: translateLanguage,
+        format: translateFormat,
+        aiApiKey,
+        aiProvider,
+        aiModel,
+        customPrompt: aiPrompt
+      })
+
+      if (res?.success) {
+        setGenerateProgress(100)
+        setGenerateStatusMessage('AI subtitle translation complete!')
+        toast.success('Subtitle translated successfully!', { duration: 4000 })
+        if (res.output) {
+          const folder = res.output.substring(
+            0,
+            Math.max(res.output.lastIndexOf('/'), res.output.lastIndexOf('\\'))
+          )
+          setLastOutputDir(folder)
+          setLastOutputFile(res.output)
+        }
+      } else {
+        setGenerateProgress(0)
+        const errMsg = res?.message || (res as any)?.error || 'Translation failed.'
+        setGenerateStatusMessage(errMsg)
+        toast.error(`Translation failed: ${errMsg}`)
+      }
+    } catch (err: any) {
+      setGenerateProgress(0)
+      setGenerateStatusMessage('Translation error occurred.')
+      toast.error(`Error: ${err?.message || err}`)
+    } finally {
+      setIsGenerating(false)
+    }
   }
 
   const handleExtractAndUseSubtitle = async (track: SubtitleTrack) => {
-    if (!videoPath) return
+    const vPath = videoPath
+    if (!vPath) return
 
     // Pre-check AI API Key if translating to Spoken Sinhala
     if (!aiApiKey.trim()) {
@@ -1037,45 +1232,34 @@ export default function App() {
     setExtractStatusMessage(`Extracting Track #${track.index + 1} (${track.language.toUpperCase()})...`)
     setLogs((prev) => [
       ...prev,
-      `[EXTRACT] Extracting embedded subtitle track #${track.index + 1} (${track.language.toUpperCase()}) for AI translation from ${videoPath}`
+      `[EXTRACT] Extracting embedded subtitle track #${track.index + 1} (${track.language.toUpperCase()}) temporarily for AI translation from ${vPath}`
     ])
 
     try {
       const res = await window.api.extractor.extractSingle({
-        videoPath,
+        videoPath: vPath,
         track,
-        outputDir: extractOutputDir || undefined,
+        isTemporary: true,
         cleanTags: extractCleanTags
       })
 
       if (res.success && res.outputPath) {
-        const fileItem: ExtractedFileItem = {
-          outputPath: res.outputPath,
-          fileName: res.outputPath.split(/[/\\]/).pop() || 'subtitle.extracted.srt',
-          trackIndex: res.trackIndex,
-          language: res.language,
-          title: res.title,
-          cuesCount: res.cuesCount,
-          durationStr: res.durationStr
-        }
-        setExtractedFiles((prev) => [
-          fileItem,
-          ...prev.filter((f) => f.outputPath !== fileItem.outputPath)
-        ])
         setGenerateConfig((prev) => ({
           ...prev,
           sourceType: 'subtitle',
           sourceSubPath: res.outputPath,
+          deleteSourceAfter: true,
           language: 'si'
         }))
         setSubtitleAction('generate')
         toast.success(`Track #${track.index + 1} extracted! Starting AI Translation...`, { duration: 3000, icon: '🚀' })
-        setLogs((prev) => [...prev, `[AI TRANSLATION] Subtitle extracted. Launching AI translation immediately: ${fileItem.fileName}`])
+        setLogs((prev) => [...prev, `[AI TRANSLATION] Subtitle extracted temporarily. Launching AI translation immediately...`])
 
-        // Immediately start AI translation on the extracted track!
+        // Immediately start AI translation on the extracted track and clean up extracted track after finish!
         await handleStartGenerate({
           sourceType: 'subtitle',
           sourceSubPath: res.outputPath,
+          deleteSourceAfter: true,
           language: 'si'
         })
       } else {
@@ -1207,7 +1391,7 @@ export default function App() {
 
     try {
       const res = await window.api.generator.startGenerate({
-        video: videoPath,
+        video: videoPath || '',
         trackIndex: selectedTrack,
         trackLanguage,
         durationSec: videoDetails?.durationSec,
@@ -1219,6 +1403,13 @@ export default function App() {
       })
 
       if (res?.success) {
+        if (effectiveConfig.deleteSourceAfter) {
+          setGenerateConfig((prev) => ({
+            ...prev,
+            sourceSubPath: null,
+            deleteSourceAfter: false
+          }))
+        }
         setGenerateProgress(100)
         setGenerateStatusMessage(isSubtitleSource ? 'Subtitle translation complete!' : 'Subtitles generated successfully!')
         toast.success(isSubtitleSource ? 'Subtitle translated successfully!' : 'Subtitle generated successfully!', { duration: 4000 })
@@ -1237,6 +1428,13 @@ export default function App() {
           setLastOutputFile(res.output)
         }
       } else {
+        if (effectiveConfig.deleteSourceAfter) {
+          setGenerateConfig((prev) => ({
+            ...prev,
+            sourceSubPath: null,
+            deleteSourceAfter: false
+          }))
+        }
         setGenerateProgress(0)
         setLastOutputDir(null)
         setLastOutputFile(null)
@@ -1249,6 +1447,13 @@ export default function App() {
         }
       }
     } catch (err: any) {
+      if (effectiveConfig.deleteSourceAfter) {
+        setGenerateConfig((prev) => ({
+          ...prev,
+          sourceSubPath: null,
+          deleteSourceAfter: false
+        }))
+      }
       setGenerateProgress(0)
       setLastOutputDir(null)
       setLastOutputFile(null)
@@ -1336,7 +1541,7 @@ export default function App() {
 
     try {
       const res = await window.api.extractor.extractMultiple({
-        videoPath,
+        videoPath: videoPath,
         tracks: tracksToExtract,
         outputDir: extractOutputDir || undefined,
         cleanTags: extractCleanTags
@@ -1347,32 +1552,23 @@ export default function App() {
         setExtractStatusMessage('Extraction cancelled by user.')
         toast('Extraction cancelled', { icon: '⏹️' })
       } else if (res.success && res.extracted.length > 0) {
-        const fileItems: ExtractedFileItem[] = res.extracted.map((e) => ({
-          outputPath: e.outputPath!,
-          fileName: e.outputPath!.split(/[/\\]/).pop() || 'subtitle.extracted.srt',
-          trackIndex: e.trackIndex,
-          language: e.language,
-          title: e.title,
-          cuesCount: e.cuesCount,
-          durationStr: e.durationStr
-        }))
-
-        setExtractedFiles(fileItems)
+        const lastFile = res.extracted[res.extracted.length - 1].outputPath || ''
         setExtractProgress(100)
-        setExtractStatusMessage(`Extracted ${fileItems.length} subtitle file(s) successfully!`)
-        toast.success(`Extracted ${fileItems.length} subtitle(s) to .SRT!`, { duration: 4500 })
+        setExtractStatusMessage(`Extracted ${res.extracted.length} subtitle file(s) successfully!`)
+        toast.success(`Extracted ${res.extracted.length} subtitle(s) to .SRT!`, { duration: 4500 })
         notifyJobComplete(
           'Subtitle Extraction Complete',
-          `Successfully extracted ${fileItems.length} subtitle track(s) to .SRT!`
+          `Successfully extracted ${res.extracted.length} subtitle track(s) to .SRT!`
         )
 
-        const lastFile = fileItems[fileItems.length - 1].outputPath
-        const folder = lastFile.substring(
-          0,
-          Math.max(lastFile.lastIndexOf('/'), lastFile.lastIndexOf('\\'))
-        )
-        setLastOutputDir(folder)
-        setLastOutputFile(lastFile)
+        if (lastFile) {
+          const folder = lastFile.substring(
+            0,
+            Math.max(lastFile.lastIndexOf('/'), lastFile.lastIndexOf('\\'))
+          )
+          setLastOutputDir(folder)
+          setLastOutputFile(lastFile)
+        }
       } else {
         setExtractProgress(0)
         setExtractStatusMessage('Failed to extract subtitle tracks.')
@@ -1399,29 +1595,17 @@ export default function App() {
 
     try {
       const res = await window.api.extractor.extractSingle({
-        videoPath,
+        videoPath: videoPath,
         track,
         outputDir: extractOutputDir || undefined,
         cleanTags: extractCleanTags
       })
 
       if (res.success && res.outputPath) {
-        const fileItem: ExtractedFileItem = {
-          outputPath: res.outputPath,
-          fileName: res.outputPath.split(/[/\\]/).pop() || 'subtitle.extracted.srt',
-          trackIndex: res.trackIndex,
-          language: res.language,
-          title: res.title,
-          cuesCount: res.cuesCount,
-          durationStr: res.durationStr
-        }
-        setExtractedFiles((prev) => [
-          fileItem,
-          ...prev.filter((f) => f.outputPath !== fileItem.outputPath)
-        ])
+        const fileName = res.outputPath.split(/[/\\]/).pop() || 'subtitle.extracted.srt'
         setExtractProgress(100)
         setExtractStatusMessage(`Track #${track.index + 1} extracted successfully!`)
-        toast.success(`Extracted to ${fileItem.fileName}!`, { duration: 4000 })
+        toast.success(`Extracted to ${fileName}!`, { duration: 4000 })
         const folder = res.outputPath.substring(
           0,
           Math.max(res.outputPath.lastIndexOf('/'), res.outputPath.lastIndexOf('\\'))
@@ -1452,37 +1636,6 @@ export default function App() {
     setExtractStatusMessage('Extraction cancelled by user')
     toast('Extraction cancelled', { icon: '⏹️', duration: 2500 })
     setLogs((prev) => [...prev, '[USER] Subtitle extraction cancelled.'])
-  }
-
-  const handleSendExtractedToSync = async (item: ExtractedFileItem) => {
-    try {
-      const info = await window.api.engine.inspectSubtitle(item.outputPath)
-      const newItem: SubtitleItem = {
-        id: `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
-        path: item.outputPath,
-        name: item.fileName,
-        cues: info?.cueCount || item.cuesCount,
-        fps: info?.fps,
-        tag: info?.tag,
-        lines: info?.lines,
-        span: info?.span
-      }
-
-      setUserSelectedMode(false)
-      setProgress(0)
-      setStatusMessage('Ready')
-      setLastOutputDir(null)
-      setLastOutputFile(null)
-      setSubtitles([newItem])
-      setSubtitleAction('sync')
-      toast.success(`Loaded "${item.fileName}" into Synchronizer!`, { icon: '🔄', duration: 4000 })
-      setLogs((prev) => [
-        ...prev,
-        `[WORKFLOW] Sent extracted subtitle "${item.fileName}" to Synchronizer queue.`
-      ])
-    } catch (e: any) {
-      toast.error(`Failed to load subtitle: ${e.message}`)
-    }
   }
 
   const handleOpenFolder = async () => {
@@ -1556,80 +1709,89 @@ export default function App() {
 
   return (
     <div
-      className={`min-h-screen ${
-        theme === 'dark' ? 'dark bg-[#0B0F19] text-slate-100' : 'bg-slate-100 text-slate-900'
+      className={`h-screen w-screen overflow-hidden ${
+        effectiveTheme === 'dark' ? 'dark bg-[#0B0F19] text-slate-100' : 'bg-[#E8F1FC] text-slate-900'
       } ${isAnyModalOpen ? 'overflow-hidden max-h-screen' : ''} flex flex-col font-sans transition-colors duration-200`}
     >
+      {/* Top Unified Header */}
       <Header
-        theme={theme}
-        setTheme={handleSetTheme}
+        currentAction={subtitleAction}
         onOpenSettings={() => {
           setSettingsInitialTab('general')
           setSettingsModalOpen(true)
         }}
         onOpenAbout={() => setAboutModalOpen(true)}
-        engineReady={engineReady}
-        isOnline={isOnline}
         isUpdateReady={isUpdateReady}
         onRestartToApplyUpdate={handleRestartToApply}
       />
 
-      <main className="flex-1 max-w-5xl xl:max-w-6xl 2xl:max-w-[1400px] w-full mx-auto p-6 space-y-5">
-        {/* Step 1: Reference Movie */}
-        <Step1Video
-          videoPath={videoPath}
-          videoDetails={videoDetails}
-          audioTracks={audioTracks}
-          selectedTrack={selectedTrack}
-          subtitleTracks={subtitleTracks}
-          errorMessage={videoError}
-          onClearError={() => setVideoError(null)}
-          onBrowse={handleBrowseVideo}
-          onRemove={() => {
-            setVideoError(null)
-            setVideoPath(null)
-            setAudioTracks([])
-            setVideoDetails(null)
-            setSelectedTrack(null)
-            setSubtitleTracks([])
-            setSelectedExtractTrackIndices([])
-            setExtractedFiles([])
-            setSubtitleAction('sync')
-            setUserSelectedMode(false)
-            setProgress(0)
-            setStatusMessage('')
-            setLastOutputDir(null)
-            setLastOutputFile(null)
-          }}
-          onSelectTrackModal={() => setAudioModalOpen(true)}
-          onDropFile={(path) => handleSelectVideo(path)}
-          onDropFiles={handleDropFilesOnVideo}
-        />
-
-        {/* Selection Option above Step 2 */}
-        <SubtitleModeSelector
-          action={subtitleAction}
-          hasVideo={Boolean(videoPath)}
+      {/* Main Workspace: Left Sidebar + Right Content Workspace */}
+      <div className="flex-1 flex overflow-hidden min-h-0">
+        {/* Left Sidebar Navigation */}
+        <Sidebar
+          currentAction={subtitleAction}
           onSelectAction={(action) => {
-            if ((action === 'generate' || action === 'extract') && !videoPath) return
             setSubtitleAction(action)
-            if (action === 'extract' && videoPath && subtitleTracks.length === 0) {
-              handleSelectVideo(videoPath)
-            }
             setLogs((prev) => [
               ...prev,
               `[WORKFLOW] Switched to: ${
                 action === 'sync'
-                  ? 'Synchronize Existing Subtitle'
+                  ? 'Synchronize Subtitle'
+                  : action === 'extract'
+                  ? 'Extract Subtitle'
                   : action === 'generate'
-                  ? 'Generate Subtitle'
-                  : 'Extract Encoded Subtitles'
+                  ? 'Generate Subtitle (Whisper AI)'
+                  : 'Translate Subtitle (Cloud AI)'
               }`
             ])
           }}
+          engineReady={engineReady}
+          isOnline={isOnline}
         />
 
-        {/* Step 2: Subtitle Files, Generation Settings, or Extractor */}
+        {/* Right Content Pane */}
+        <div className="flex-1 flex flex-col h-full overflow-hidden min-w-0">
+          {/* Scrollable Middle Content Area */}
+          <div className="flex-1 overflow-y-auto min-h-0 flex flex-col">
+            <main className="max-w-5xl xl:max-w-6xl 2xl:max-w-[1400px] w-full mx-auto px-6 pt-6 pb-3.5 flex flex-col gap-5 flex-1">
+            {/* Step 1: Reference Movie or Source Subtitle for Translation */}
+        {subtitleAction === 'translate' ? (
+          <Step1Translate
+            sourceSubPath={translateSubPath}
+            onSelectSubtitle={handleSelectTranslateSubtitle}
+            onBrowseSubtitle={handleBrowseTranslateSubtitle}
+            onRemoveSubtitle={() => {
+              setTranslateSubPath(null)
+              setTranslateSubError(null)
+            }}
+            errorMessage={translateSubError}
+            onClearError={() => setTranslateSubError(null)}
+            videoPath={videoPath}
+            subtitleTracks={subtitleTracks}
+            onExtractAndUseSubtitle={handleExtractAndTranslateSubtitle}
+            isExtracting={isExtracting}
+            onBrowseVideo={handleBrowseVideo}
+            onSelectVideo={handleSelectVideo}
+            onRemoveVideo={handleRemoveVideo}
+          />
+        ) : (
+          <Step1Video
+            videoPath={videoPath}
+            videoDetails={videoDetails}
+            audioTracks={audioTracks}
+            selectedTrack={selectedTrack}
+            subtitleTracks={subtitleTracks}
+            errorMessage={videoError}
+            onClearError={handleClearVideoError}
+            onBrowse={handleBrowseVideo}
+            onRemove={handleRemoveVideo}
+            onSelectTrackModal={() => setAudioModalOpen(true)}
+            onDropFile={(path) => handleSelectVideo(path)}
+            onDropFiles={(paths) => handleDropFilesOnVideo(paths)}
+          />
+        )}
+
+        {/* Step 2: Settings per Action */}
         {subtitleAction === 'sync' ? (
           <Step2Subtitles
             subtitles={subtitles}
@@ -1647,6 +1809,19 @@ export default function App() {
               setLastOutputFile(null)
             }}
             onDropFiles={(paths) => handleAddSubtitles(paths)}
+          />
+        ) : subtitleAction === 'extract' ? (
+          <Step2Extract
+            videoPath={videoPath}
+            subtitleTracks={subtitleTracks}
+            selectedTrackIndices={selectedExtractTrackIndices}
+            onToggleTrack={handleToggleExtractTrack}
+            onSelectAllTracks={handleSelectAllExtractTracks}
+            onDeselectAllTracks={handleDeselectAllExtractTracks}
+            onExtractSingleNow={handleExtractSingleNow}
+            onRescan={() => videoPath && handleSelectVideo(videoPath)}
+            onSwitchToGenerate={() => setSubtitleAction('generate')}
+            isExtracting={isExtracting}
           />
         ) : subtitleAction === 'generate' ? (
           <Step2Generate
@@ -1666,37 +1841,31 @@ export default function App() {
             isLoadingModels={isLoadingWhisperModels}
             onRefreshModels={() => loadWhisperModels(true)}
             modelsSource={whisperModelsSource}
-            extractedFiles={extractedFiles}
-            onBrowseSubtitle={handleBrowseGenerateSubtitle}
-            onDropSubtitle={handleSelectGenerateSubtitle}
-            errorMessage={generateSubError}
-            onClearError={() => setGenerateSubError(null)}
-            subtitleTracks={subtitleTracks}
-            onExtractAndUseSubtitle={handleExtractAndUseSubtitle}
-            isExtracting={isExtracting}
             isGenerating={isGenerating}
+            subtitleTracks={subtitleTracks}
+            onSwitchToTranslate={() => setSubtitleAction('translate')}
           />
         ) : (
-          <Step2Extract
-            videoPath={videoPath}
-            subtitleTracks={subtitleTracks}
-            selectedTrackIndices={selectedExtractTrackIndices}
-            outputDir={extractOutputDir}
-            onToggleTrack={handleToggleExtractTrack}
-            onSelectAllTracks={handleSelectAllExtractTracks}
-            onDeselectAllTracks={handleDeselectAllExtractTracks}
-            onChangeOutputDir={handleChangeExtractOutputDir}
-            onExtractSingleNow={handleExtractSingleNow}
-            onRescan={() => videoPath && handleSelectVideo(videoPath)}
-            onSwitchToGenerate={() => setSubtitleAction('generate')}
-            isExtracting={isExtracting}
+          <Step2Translate
+            language={translateLanguage}
+            onChangeLanguage={setTranslateLanguage}
+            format={translateFormat}
+            onChangeFormat={setTranslateFormat}
+            aiApiKey={aiApiKey}
+            aiProvider={aiProvider}
+            aiModel={aiModel}
+            onOpenSettings={() => {
+              setSettingsInitialTab('ai')
+              setSettingsModalOpen(true)
+            }}
+            isOnline={isOnline}
           />
         )}
 
-        {/* Step 3: Synchronization, Generate Action, or Extract Action */}
+        {/* Step 3: Action Execution (Always visible, unlocked when ready, grayed out when locked) */}
         {subtitleAction === 'sync' ? (
           <Step3Sync
-            unlocked={isUnlocked}
+            unlocked={Boolean(videoPath && subtitles.length > 0)}
             isSyncing={isSyncing}
             syncMode={syncMode}
             setSyncMode={handleSetSyncMode}
@@ -1711,13 +1880,26 @@ export default function App() {
             onCancelSync={handleCancelSync}
             onOpenFolder={handleOpenFolder}
           />
+        ) : subtitleAction === 'extract' ? (
+          <Step3Extract
+            unlocked={Boolean(videoPath && subtitleTracks.length > 0 && selectedExtractTrackIndices.length > 0)}
+            isExtracting={isExtracting}
+            selectedCount={selectedExtractTrackIndices.length}
+            progress={extractProgress}
+            statusMessage={extractStatusMessage}
+            lastOutputDir={lastOutputDir}
+            cleanTags={extractCleanTags}
+            setCleanTags={setExtractCleanTags}
+            onStartExtract={handleStartExtract}
+            onCancelExtract={handleCancelExtract}
+            onOpenFolder={handleOpenFolder}
+            videoPath={videoPath}
+            outputDir={extractOutputDir}
+            onChangeOutputDir={handleChangeExtractOutputDir}
+          />
         ) : subtitleAction === 'generate' ? (
           <Step3Generate
-            unlocked={
-              generateConfig.sourceType === 'subtitle'
-                ? Boolean(generateConfig.sourceSubPath)
-                : Boolean(videoPath)
-            }
+            unlocked={Boolean(videoPath)}
             isGenerating={isGenerating}
             config={generateConfig}
             selectedTrack={selectedTrack}
@@ -1729,101 +1911,34 @@ export default function App() {
             onOpenFolder={handleOpenFolder}
           />
         ) : (
-          <Step3Extract
-            unlocked={Boolean(videoPath && subtitleTracks.length > 0)}
-            isExtracting={isExtracting}
-            selectedCount={selectedExtractTrackIndices.length}
-            progress={extractProgress}
-            statusMessage={extractStatusMessage}
+          <Step3Translate
+            unlocked={Boolean(translateSubPath)}
+            isTranslating={isGenerating}
+            sourceSubPath={translateSubPath}
+            language={translateLanguage}
+            aiProvider={aiProvider}
+            aiModel={aiModel}
+            format={translateFormat}
+            progress={generateProgress}
+            statusMessage={generateStatusMessage}
             lastOutputDir={lastOutputDir}
-            extractedFiles={extractedFiles}
-            cleanTags={extractCleanTags}
-            setCleanTags={setExtractCleanTags}
-            onStartExtract={handleStartExtract}
-            onCancelExtract={handleCancelExtract}
+            onStartTranslate={handleStartTranslate}
+            onCancelTranslate={handleCancelGenerate}
             onOpenFolder={handleOpenFolder}
-            onSendToSync={handleSendExtractedToSync}
-            onTranslateWithAi={handleTranslateExtractedWithAi}
           />
         )}
 
         {/* Live Activity Console */}
-        <ActivityConsole logs={logs} onClear={() => setLogs([])} isSyncing={isSyncing || isGenerating || isExtracting} />
+        <div className="!mt-auto pt-2 pb-1" style={{ marginTop: 'auto' }}>
+          <ActivityConsole logs={logs} onClear={() => setLogs([])} isSyncing={isSyncing || isGenerating || isExtracting} />
+        </div>
       </main>
+    </div>
+  </div>
+</div>
 
-      {/* ---------------- FOOTER ---------------- */}
-      <footer className="max-w-5xl xl:max-w-6xl 2xl:max-w-[1400px] w-full mx-auto px-6 pb-6 pt-1 space-y-2.5">
-        {/* Status bar row */}
-        {/* Bottom Status & Destination bar */}
-        <div className="flex items-center justify-between text-xs py-2 px-3.5 rounded-xl bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-800 shadow-xs">
-          <div className="flex items-center gap-2 text-slate-900 dark:text-slate-100 font-bold">
-            <span
-              className={`text-sm leading-none ${
-                (subtitleAction === 'sync' ? isSyncing : subtitleAction === 'generate' ? isGenerating : isExtracting)
-                  ? 'text-blue-800 dark:text-blue-400 animate-pulse'
-                  : (subtitleAction === 'sync' ? progress === 100 : subtitleAction === 'generate' ? generateProgress === 100 : extractProgress === 100) && lastOutputDir
-                  ? 'text-emerald-700 dark:text-emerald-400'
-                  : 'text-slate-500 dark:text-slate-400'
-              }`}
-            >
-              ●
-            </span>
-            <span>
-              {subtitleAction === 'sync'
-                ? statusMessage || 'Select movie and subtitle(s)'
-                : subtitleAction === 'generate'
-                ? generateStatusMessage || (videoPath ? 'Ready to generate subtitle from movie audio' : 'Select reference movie in Step 1')
-                : extractStatusMessage || (videoPath ? (subtitleTracks.length > 0 ? `${subtitleTracks.length} embedded track(s) detected` : 'No embedded subtitle tracks detected') : 'Select movie file in Step 1')}
-            </span>
-          </div>
-
-          <button
-            onClick={handleOpenFolder}
-            disabled={!lastOutputDir && subtitles.length === 0 && !videoPath}
-            className={`flex items-center gap-2 px-3.5 py-1.5 rounded-lg border font-bold text-xs transition-all duration-200 ${
-              lastOutputDir || subtitles.length > 0 || videoPath
-                ? 'border-blue-800 bg-blue-800 hover:bg-blue-900 text-white shadow-xs dark:bg-blue-600 dark:hover:bg-blue-500 dark:border-blue-600 cursor-pointer active:scale-98'
-                : 'border-slate-300 bg-slate-100 text-slate-600 dark:border-slate-800 dark:bg-slate-800 dark:text-slate-400 cursor-not-allowed shadow-none'
-            }`}
-            title={
-              lastOutputDir
-                ? 'Open folder containing generated / synced subtitles'
-                : subtitles.length > 0
-                ? 'Open folder containing original selected subtitle'
-                : videoPath
-                ? 'Open folder containing selected movie'
-                : 'No movie or subtitle selected yet'
-            }
-          >
-            <FolderOpen
-              className={`w-3.5 h-3.5 ${
-                lastOutputDir || subtitles.length > 0 || videoPath
-                  ? 'text-white dark:text-blue-400'
-                  : 'text-slate-500 dark:text-slate-400'
-              }`}
-            />
-            <span>Open Output Folder</span>
-          </button>
-        </div>
-
-        {/* Developer attribution & GitHub row */}
-        <div className="flex items-center justify-between text-[11px] pt-2 border-t border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-400 font-semibold">
-          <span>Developed by DH-0216</span>
-          <button
-            onClick={() => {
-              const url = EXTERNAL_LINKS.GITHUB_REPO
-              if (window.api?.shell?.openExternal) {
-                window.api.shell.openExternal(url)
-              } else {
-                window.open(url, '_blank')
-              }
-            }}
-            className="text-blue-600 dark:text-blue-400 hover:text-blue-700 font-semibold flex items-center gap-1 cursor-pointer"
-          >
-            <span>GitHub Repository ↗</span>
-          </button>
-        </div>
-      </footer>
+      {/* ---------------- FOOTER (Full screen width, completely across whole app) ---------------- */}
+      <Footer />
 
       {/* Modals */}
       <AudioTrackModal

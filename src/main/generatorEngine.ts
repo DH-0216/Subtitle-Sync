@@ -35,6 +35,7 @@ export interface GenerateParams {
   video?: string
   sourceType?: 'video' | 'subtitle'
   sourceSubPath?: string
+  deleteSourceAfter?: boolean
   trackIndex?: number | null
   trackLanguage?: string | null
   durationSec?: number | null
@@ -1103,7 +1104,7 @@ export async function executeSubtitleGeneration(
   // Clean slate for tracking only current temporary scratch files (never delete previously saved user files)
   activeCreatedFiles.clear()
 
-  const { video, trackIndex, modelQuality = 'base', format, language, aiApiKey, aiProvider, aiModel, customPrompt, sourceType, sourceSubPath } = params
+  const { video, trackIndex, modelQuality = 'base', format, language, aiApiKey, aiProvider, aiModel, customPrompt, sourceType, sourceSubPath, deleteSourceAfter } = params
 
   // Workflow A: Translate an existing subtitle file (.srt) directly via AI
   if (sourceType === 'subtitle' || (!video && sourceSubPath)) {
@@ -1111,88 +1112,114 @@ export async function executeSubtitleGeneration(
       throw new Error(`Subtitle file not found: ${sourceSubPath || 'None'}`)
     }
 
-    onEvent({ type: 'status', message: 'Reading subtitle file...' })
-    onEvent({ type: 'progress', percent: 10, message: 'Reading subtitle cues...' })
-    onEvent({ type: 'log', message: `[SUBTITLE] Translating existing subtitle file: ${sourceSubPath}` })
-
-    const rawSrt = fs.readFileSync(sourceSubPath, 'utf-8')
-    const cues = parseSrt(rawSrt)
-    if (!cues || cues.length === 0) {
-      throw new Error('No valid subtitle cues found in the chosen subtitle file.')
+    if (deleteSourceAfter) {
+      activeCreatedFiles.add(sourceSubPath)
     }
 
-    onEvent({ type: 'log', message: `[SUBTITLE] Loaded ${cues.length} cues from ${sourceSubPath}` })
+    try {
+      onEvent({ type: 'status', message: 'Reading subtitle file...' })
+      onEvent({ type: 'progress', percent: 10, message: 'Reading subtitle cues...' })
+      onEvent({ type: 'log', message: `[SUBTITLE] Translating existing subtitle file: ${sourceSubPath}` })
 
-    let processedCues = removeHallucinationLoops(cues)
-    const initialCuesCount = processedCues.length
-    processedCues = cleanSdhFromCues(processedCues)
-    const sdhCleanedCount = initialCuesCount - processedCues.length
-    if (sdhCleanedCount > 0) {
-      onEvent({
-        type: 'log',
-        message: `[SDH CLEANER] Purged ${sdhCleanedCount} background sound effect cues (e.g. [music], [screaming], (sighs)). Retained ${processedCues.length} clean dialogue cues.`
-      })
-    }
-    let finalSrtPath = sourceSubPath
-
-    if (language === 'si') {
-      if (!aiApiKey) {
-        throw new Error('AI API Key required for Spoken Sinhala translation. Please configure your Gemini or OpenAI API Key in Settings.')
+      const rawSrt = fs.readFileSync(sourceSubPath, 'utf-8')
+      const cues = parseSrt(rawSrt)
+      if (!cues || cues.length === 0) {
+        throw new Error('No valid subtitle cues found in the chosen subtitle file.')
       }
 
-      onEvent({ type: 'status', message: 'Translating subtitles into Spoken Sinhala via AI...' })
-      onEvent({ type: 'progress', percent: 20, message: 'Translating dialogue into Spoken Sinhala...' })
+      onEvent({ type: 'log', message: `[SUBTITLE] Loaded ${cues.length} cues from ${sourceSubPath}` })
 
-      const translatedCues = await translateCuesViaAi(
-        processedCues,
-        aiProvider || 'gemini',
-        aiApiKey,
-        aiModel,
-        customPrompt,
-        (msg) => {
-          onEvent({ type: 'log', message: msg })
-        },
-        (batchIdx, totalBatches) => {
-          const translatePct = Math.min(95, Math.round(20 + (batchIdx / totalBatches) * 75))
-          onEvent({
-            type: 'progress',
-            percent: translatePct,
-            message: `Translating to Spoken Sinhala (${batchIdx}/${totalBatches})...`
-          })
+      let processedCues = removeHallucinationLoops(cues)
+      const initialCuesCount = processedCues.length
+      processedCues = cleanSdhFromCues(processedCues)
+      const sdhCleanedCount = initialCuesCount - processedCues.length
+      if (sdhCleanedCount > 0) {
+        onEvent({
+          type: 'log',
+          message: `[SDH CLEANER] Purged ${sdhCleanedCount} background sound effect cues (e.g. [music], [screaming], (sighs)). Retained ${processedCues.length} clean dialogue cues.`
+        })
+      }
+
+      const targetBase = video ? video.replace(/\.[^/.]+$/, '') : sourceSubPath.replace(/\.[^/.]+$/, '')
+      let finalSrtPath = sourceSubPath
+
+      if (language === 'si') {
+        if (!aiApiKey) {
+          throw new Error('AI API Key required for Spoken Sinhala translation. Please configure your Gemini or OpenAI API Key in Settings.')
         }
-      )
 
-      if (isGenerationCancelled) {
-        throw new Error('Subtitle translation cancelled by user.')
+        onEvent({ type: 'status', message: 'Translating subtitles into Spoken Sinhala via AI...' })
+        onEvent({ type: 'progress', percent: 20, message: 'Translating dialogue into Spoken Sinhala...' })
+
+        const translatedCues = await translateCuesViaAi(
+          processedCues,
+          aiProvider || 'gemini',
+          aiApiKey,
+          aiModel,
+          customPrompt,
+          (msg) => {
+            onEvent({ type: 'log', message: msg })
+          },
+          (batchIdx, totalBatches) => {
+            const translatePct = Math.min(95, Math.round(20 + (batchIdx / totalBatches) * 75))
+            onEvent({
+              type: 'progress',
+              percent: translatePct,
+              message: `Translating to Spoken Sinhala (${batchIdx}/${totalBatches})...`
+            })
+          }
+        )
+
+        if (isGenerationCancelled) {
+          throw new Error('Subtitle translation cancelled by user.')
+        }
+
+        processedCues = cleanSdhFromCues(removeHallucinationLoops(translatedCues))
+        finalSrtPath = targetBase + '.sinhala.translated.srt'
+      } else {
+        finalSrtPath = targetBase + `.${language.toLowerCase()}.translated.srt`
       }
 
-      processedCues = cleanSdhFromCues(removeHallucinationLoops(translatedCues))
-      finalSrtPath = sourceSubPath.replace(/\.[^/.]+$/, '') + '.sinhala.translated.srt'
-    } else {
-      finalSrtPath = sourceSubPath.replace(/\.[^/.]+$/, '') + `.${language}.translated.srt`
+      // Auto-increment (1), (2), etc. if file already exists so previous subtitles are never overwritten
+      finalSrtPath = getUniqueFilePath(finalSrtPath)
+
+      let finalContent = writeSrt(processedCues)
+      let finalOutputPath = finalSrtPath
+
+      if (format === 'vtt') {
+        const vttContent = `WEBVTT\n\n${finalContent.replace(/(\d{2}:\d{2}:\d{2}),(\d{3})/g, '$1.$2')}`
+        finalOutputPath = getUniqueFilePath(finalSrtPath.replace(/\.srt$/, '.vtt'))
+        fs.writeFileSync(finalOutputPath, vttContent, 'utf-8')
+      } else {
+        fs.writeFileSync(finalOutputPath, finalContent, 'utf-8')
+      }
+
+      // Clean up temporary extracted source file if requested (direct extract & translate mode)
+      if (deleteSourceAfter && fs.existsSync(sourceSubPath)) {
+        try {
+          fs.unlinkSync(sourceSubPath)
+        } catch (cleanupErr: any) {
+          // ignore
+        }
+        activeCreatedFiles.delete(sourceSubPath)
+      }
+
+      // Clear cancellation tracker: successfully generated file should never be deleted
+      activeCreatedFiles.clear()
+      onEvent({ type: 'progress', percent: 100, message: 'Subtitle translation complete!' })
+      onEvent({ type: 'status', message: 'Subtitle translation complete!' })
+      onEvent({ type: 'log', message: `[SUBTITLE] Translated subtitle saved: ${finalOutputPath}` })
+
+      return { success: true, output: finalOutputPath }
+    } catch (err: any) {
+      if (deleteSourceAfter && fs.existsSync(sourceSubPath)) {
+        try {
+          fs.unlinkSync(sourceSubPath)
+        } catch {}
+        activeCreatedFiles.delete(sourceSubPath)
+      }
+      throw err
     }
-
-    // Auto-increment (1), (2), etc. if file already exists so previous subtitles are never overwritten
-    finalSrtPath = getUniqueFilePath(finalSrtPath)
-
-    let finalContent = writeSrt(processedCues)
-    let finalOutputPath = finalSrtPath
-
-    if (format === 'vtt') {
-      const vttContent = `WEBVTT\n\n${finalContent.replace(/(\d{2}:\d{2}:\d{2}),(\d{3})/g, '$1.$2')}`
-      finalOutputPath = getUniqueFilePath(finalSrtPath.replace(/\.srt$/, '.vtt'))
-      fs.writeFileSync(finalOutputPath, vttContent, 'utf-8')
-    } else {
-      fs.writeFileSync(finalOutputPath, finalContent, 'utf-8')
-    }
-
-    // Clear cancellation tracker: successfully generated file should never be deleted
-    activeCreatedFiles.clear()
-    onEvent({ type: 'progress', percent: 100, message: 'Subtitle translation complete!' })
-    onEvent({ type: 'status', message: 'Subtitle translation complete!' })
-    onEvent({ type: 'log', message: `[SUBTITLE] Translated subtitle saved: ${finalOutputPath}` })
-
-    return { success: true, output: finalOutputPath }
   }
 
   // Workflow B: Transcribe video audio via Whisper speech-to-text
@@ -1312,10 +1339,11 @@ export async function executeSubtitleGeneration(
     const langSlug = getLanguageSlug(language)
 
     // Step 2: Run Whisper with maximum CPU threads and performance flags
-    // For Sinhala, Whisper creates a temporary English translation bridge file first.
+    // For Sinhala (bridge translation), Whisper creates a temporary English bridge file in the temp directory.
     // For English or Original, Whisper outputs directly with the language name.
-    const outBase = language === 'si'
-      ? video.replace(/\.[^/.]+$/, `.temp_en_${Date.now()}`)
+    const isBridgeTranslation = language === 'si'
+    const outBase = isBridgeTranslation
+      ? join(app.getPath('temp'), `whisper_bridge_${Date.now()}`)
       : getUniqueFilePath(video.replace(/\.[^/.]+$/, `.${langSlug}.generated.srt`)).replace(/\.srt$/, '')
 
     const generatedSrt = `${outBase}.srt`
@@ -1578,14 +1606,19 @@ export async function executeSubtitleGeneration(
           try {
             fs.unlinkSync(generatedSrt)
           } catch (cleanupErr: any) {
-            onEvent({
-              type: 'log',
-              message: `[MEDIA] Notice: Could not remove temporary bridge file (${cleanupErr?.message || 'File in use by OS'})`
-            })
+            // ignore
           }
         }
         activeCreatedFiles.delete(generatedSrt)
       } catch (err: any) {
+        // If translation failed, remove temporary bridge file — never save bridge language file
+        if (fs.existsSync(generatedSrt)) {
+          try {
+            fs.unlinkSync(generatedSrt)
+          } catch {}
+        }
+        activeCreatedFiles.delete(generatedSrt)
+
         if (isGenerationCancelled) {
           throw err
         }
@@ -1593,12 +1626,7 @@ export async function executeSubtitleGeneration(
           type: 'log',
           message: `[AI TRANSLATION] Translation notice: ${err.message}`
         })
-        onEvent({
-          type: 'log',
-          message: `[AI TRANSLATION] Preserving original transcribed subtitle so your transcription is not lost: ${generatedSrt}`
-        })
-        finalSrtPath = generatedSrt
-        throw new Error(`AI Translation issue: ${err.message}. Your speech-to-text transcription was successfully generated and preserved at: ${generatedSrt}`)
+        throw new Error(`AI Translation issue: ${err.message}`)
       }
     }
 

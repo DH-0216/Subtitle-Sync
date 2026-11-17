@@ -6,6 +6,7 @@
 import { spawn, ChildProcess } from 'child_process'
 import { join, dirname, basename, extname, resolve } from 'path'
 import * as fs from 'fs'
+import { app } from 'electron'
 import { getFfmpegPath, SubtitleTrackInfo, killProcessTree } from './media'
 import { parseSrt, formatHms } from './srtTools'
 
@@ -20,6 +21,7 @@ export interface ExtractSingleParams {
   outputPath?: string
   outputDir?: string
   cleanTags?: boolean
+  isTemporary?: boolean
 }
 
 export interface ExtractSingleResult {
@@ -127,7 +129,7 @@ export async function extractSingleSubtitleTrack(
   params: ExtractSingleParams,
   onLog?: (line: string) => void
 ): Promise<ExtractSingleResult> {
-  const { videoPath, track, outputDir, cleanTags = true } = params
+  const { videoPath, track, outputDir, cleanTags = true, isTemporary = false } = params
 
   if (!fs.existsSync(videoPath)) {
     return {
@@ -140,7 +142,12 @@ export async function extractSingleSubtitleTrack(
     }
   }
 
-  const outPath = params.outputPath || buildDefaultSrtOutputPath(videoPath, track, outputDir)
+  const targetDir = isTemporary ? app.getPath('temp') : (outputDir || dirname(videoPath))
+  const outPath =
+    params.outputPath ||
+    (isTemporary
+      ? join(targetDir, `temp_extract_${Date.now()}_track${track.index + 1}.srt`)
+      : buildDefaultSrtOutputPath(videoPath, track, outputDir))
   const ffmpegRaw = getFfmpegPath()
   const ffmpeg = resolve(ffmpegRaw)
 
