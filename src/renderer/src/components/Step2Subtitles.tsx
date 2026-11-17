@@ -112,10 +112,10 @@ export const Step2Subtitles: React.FC<Step2SubtitlesProps> = ({
             {subtitles.map((sub) => (
               <div
                 key={sub.id}
-                className="bg-slate-50 dark:bg-[#0B0F19] border border-slate-300 dark:border-slate-800 rounded-xl p-3 flex items-center justify-between gap-3 group hover:border-slate-400 dark:hover:border-slate-700 transition-colors shadow-2xs"
+                className="bg-app-card-inner border border-app-card-inner-border rounded-xl p-3 flex items-center justify-between gap-3 group hover:border-slate-400 dark:hover:border-slate-700 transition-colors shadow-2xs"
               >
                 <div className="flex items-center gap-3 min-w-0">
-                  <div className="w-8 h-8 rounded-lg bg-blue-600 text-white shadow-xs flex items-center justify-center shrink-0">
+                  <div className="w-8 h-8 rounded-lg bg-app-primary text-app-primary-fg shadow-xs flex items-center justify-center shrink-0">
                     <FileText className="w-4 h-4" />
                   </div>
                   <div className="min-w-0">
@@ -157,7 +157,7 @@ export const Step2Subtitles: React.FC<Step2SubtitlesProps> = ({
           <button
             type="button"
             onClick={onBrowse}
-            className="w-full py-2.5 border-2 border-dashed border-slate-400 hover:border-blue-500 text-slate-800 hover:text-blue-600 bg-white hover:bg-slate-50 dark:border-slate-700 dark:hover:border-slate-600 dark:text-slate-300 dark:hover:text-blue-300 dark:bg-[#0B0F19] rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition-colors shadow-2xs cursor-pointer"
+            className="w-full py-2.5 border-2 border-dashed border-app-btn-border hover:border-app-primary text-app-btn-text hover:text-app-primary bg-app-btn hover:bg-app-btn-hover rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition-colors shadow-2xs cursor-pointer"
           >
             <Plus className="w-3.5 h-3.5" /> Add more subtitles
           </button>

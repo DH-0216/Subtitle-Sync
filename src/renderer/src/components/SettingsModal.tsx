@@ -543,9 +543,9 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
         if (e.target === e.currentTarget) handleClose()
       }}
     >
-      <div className="bg-white dark:bg-[#0B0F19] border border-slate-200 dark:border-slate-800 rounded-2xl w-full max-w-3xl shadow-2xl overflow-hidden flex flex-col h-[560px] max-h-[90vh] transition-colors">
+      <div className="bg-app-modal border border-app-modal-border rounded-2xl w-full max-w-3xl shadow-2xl overflow-hidden flex flex-col h-[560px] max-h-[90vh] transition-colors">
         {/* Header Row */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 dark:border-slate-800/80 bg-white dark:bg-[#0B0F19] shrink-0">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-app-modal-header-border bg-app-modal-header shrink-0">
           <div className="flex items-center gap-2.5">
             <div className="w-8 h-8 rounded-lg bg-blue-50 border border-blue-200 dark:bg-blue-500/10 dark:border-blue-500/20 flex items-center justify-center text-blue-600 dark:text-blue-400">
               <SettingsIcon className="w-4 h-4" />
@@ -571,14 +571,14 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
         {/* Modal Body with Sidebar Tabs */}
         <div className="flex-1 flex overflow-hidden">
           {/* Left Sidebar Tabs */}
-          <aside className="w-48 sm:w-52 bg-slate-50/70 dark:bg-slate-950/40 border-r border-slate-100 dark:border-slate-800/80 p-3 shrink-0 flex flex-col justify-between">
+          <aside className="w-48 sm:w-52 bg-app-modal-sidebar border-r border-app-modal-sidebar-border p-3 shrink-0 flex flex-col justify-between">
             <div className="space-y-1.5">
               <button
                 type="button"
                 onClick={() => setActiveTab('general')}
                 className={`w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-xs font-semibold transition-all cursor-pointer ${
                   activeTab === 'general'
-                    ? 'bg-blue-600 text-white shadow-2xs font-bold'
+                    ? 'bg-app-primary text-app-primary-fg shadow-2xs font-bold'
                     : 'text-slate-600 dark:text-slate-400 hover:bg-slate-200/60 dark:hover:bg-slate-800/60 hover:text-slate-900 dark:hover:text-slate-100'
                 }`}
               >
@@ -591,7 +591,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                 onClick={() => setActiveTab('ai')}
                 className={`w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-xs font-semibold transition-all cursor-pointer ${
                   activeTab === 'ai'
-                    ? 'bg-blue-600 text-white shadow-2xs font-bold'
+                    ? 'bg-app-primary text-app-primary-fg shadow-2xs font-bold'
                     : 'text-slate-600 dark:text-slate-400 hover:bg-slate-200/60 dark:hover:bg-slate-800/60 hover:text-slate-900 dark:hover:text-slate-100'
                 }`}
               >
@@ -613,12 +613,12 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
             {activeTab === 'general' && (
               <>
                 {/* Card 1: Theme Selector */}
-                <div className="p-4 rounded-xl border border-slate-200/90 dark:border-slate-800/80 bg-slate-50/70 dark:bg-[#111625]/80 transition-colors">
+                <div className="p-4 rounded-xl border border-app-card-inner-border bg-app-card-inner transition-colors">
                   <ThemeSelector theme={theme} onSelectTheme={handleSelectTheme} />
                 </div>
 
                 {/* Card 2: Software Updates */}
-                <div className="p-4 rounded-xl border border-slate-200/90 dark:border-slate-800/80 bg-slate-50/70 dark:bg-[#111625]/80 space-y-3 transition-colors">
+                <div className="p-4 rounded-xl border border-app-card-inner-border bg-app-card-inner space-y-3 transition-colors">
                   <div className="flex items-center justify-between">
                     <div>
                       <h3 className="font-bold text-sm text-slate-900 dark:text-slate-100">
@@ -713,7 +713,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                     <button
                       onClick={handleCheckNow}
                       disabled={checkingUpdate}
-                      className="px-3 py-1.5 text-xs font-semibold rounded-lg border border-slate-300 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200 transition-colors shrink-0 flex items-center gap-1.5 disabled:opacity-50 cursor-pointer"
+                      className="px-3 py-1.5 text-xs font-semibold rounded-lg border border-app-btn-border bg-app-btn hover:bg-app-btn-hover text-app-btn-text transition-colors shrink-0 flex items-center gap-1.5 disabled:opacity-50 cursor-pointer"
                     >
                       {checkingUpdate ? (
                         <>
@@ -728,7 +728,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                 </div>
 
                 {/* Card 3: Desktop Notifications */}
-                <div className="p-4 rounded-xl border border-slate-200/90 dark:border-slate-800/80 bg-slate-50/70 dark:bg-[#111625]/80 flex items-center justify-between transition-colors">
+                <div className="p-4 rounded-xl border border-app-card-inner-border bg-app-card-inner flex items-center justify-between transition-colors">
                   <div>
                     <h3 className="font-bold text-sm text-slate-900 dark:text-slate-100 flex items-center gap-2">
                       <Bell className="w-4 h-4 text-blue-600 dark:text-blue-400" />
@@ -750,7 +750,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                     </span>
                     <div
                       className={`w-11 h-6 flex items-center rounded-full p-1 transition-colors duration-200 ${
-                        notificationsEnabled ? 'bg-blue-600' : 'bg-slate-300 dark:bg-slate-700'
+                        notificationsEnabled ? 'bg-app-primary' : 'bg-slate-300 dark:bg-slate-700'
                       }`}
                     >
                       <div
@@ -763,7 +763,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                 </div>
 
                 {/* Card 4: About & Developer */}
-                <div className="p-4 rounded-xl border border-slate-200/90 dark:border-slate-800/80 bg-slate-50/70 dark:bg-[#111625]/80 flex items-center justify-between transition-colors">
+                <div className="p-4 rounded-xl border border-app-card-inner-border bg-app-card-inner flex items-center justify-between transition-colors">
                   <div>
                     <h3 className="font-bold text-sm text-slate-900 dark:text-slate-100">
                       Subtitle Sync Studio
@@ -775,7 +775,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
 
                   <button
                     onClick={handleOpenGitHub}
-                    className="px-3 py-1.5 text-xs font-semibold rounded-lg border border-slate-300 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200 transition-colors flex items-center gap-1.5 cursor-pointer"
+                    className="px-3 py-1.5 text-xs font-semibold rounded-lg border border-app-btn-border bg-app-btn hover:bg-app-btn-hover text-app-btn-text transition-colors flex items-center gap-1.5 cursor-pointer"
                     title="Open GitHub Repository"
                   >
                     <span>GitHub</span>
@@ -788,7 +788,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
             {activeTab === 'ai' && (
               <>
                 {/* AI API Provider & Key Card - Exact same style as others */}
-                <div className="p-4 rounded-xl border border-slate-200/90 dark:border-slate-800/80 bg-slate-50/70 dark:bg-[#111625]/80 space-y-3.5 transition-colors">
+                <div className="p-4 rounded-xl border border-app-card-inner-border bg-app-card-inner space-y-3.5 transition-colors">
                   <div className="flex items-start justify-between gap-3">
                     <div>
                       <h3 className="font-bold text-sm text-slate-900 dark:text-slate-100">
@@ -811,7 +811,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                           handleFetchModels(newProvider, draftApiKey.trim(), true)
                         }
                       }}
-                      className="text-xs font-semibold px-2.5 py-1.5 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200 cursor-pointer"
+                      className="text-xs font-semibold px-2.5 py-1.5 rounded-lg border border-app-input-border bg-app-input text-app-input-text cursor-pointer"
                     >
                       {AI_PROVIDER_LIST.map((p) => (
                         <option key={p.id} value={p.id}>
@@ -846,7 +846,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                             setDraftApiKey(e.target.value)
                             if (verifyStatus) setVerifyStatus(null)
                           }}
-                          className="w-full pl-3 pr-9 py-2 text-xs rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 font-mono focus:outline-hidden focus:ring-2 focus:ring-blue-500/30"
+                          className="w-full pl-3 pr-9 py-2 text-xs rounded-xl border border-app-input-border bg-app-input text-app-input-text font-mono focus:outline-hidden focus:ring-2 focus:ring-blue-500/30"
                         />
                         <button
                           type="button"
@@ -861,7 +861,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                       <button
                         type="button"
                         onClick={handlePasteApiKey}
-                        className="px-3 py-2 text-xs font-semibold rounded-xl border border-slate-300 dark:border-slate-700 hover:bg-slate-200/60 dark:hover:bg-slate-800/70 text-slate-700 dark:text-slate-200 transition-colors shrink-0 flex items-center gap-1.5 cursor-pointer shadow-2xs"
+                        className="px-3 py-2 text-xs font-semibold rounded-xl border border-app-btn-border bg-app-btn hover:bg-app-btn-hover text-app-btn-text transition-colors shrink-0 flex items-center gap-1.5 cursor-pointer shadow-2xs"
                         title="Paste from clipboard"
                       >
                         <ClipboardPaste className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
@@ -877,7 +877,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                             ? 'border-emerald-300 dark:border-emerald-700 bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300'
                             : verifyStatus?.valid === false
                             ? 'border-rose-300 dark:border-rose-700 bg-rose-50 dark:bg-rose-950/40 text-rose-700 dark:text-rose-300'
-                            : 'border-slate-300 dark:border-slate-700 hover:bg-slate-200/60 dark:hover:bg-slate-800/70 text-slate-700 dark:text-slate-200'
+                            : 'border-app-btn-border bg-app-btn hover:bg-app-btn-hover text-app-btn-text'
                         }`}
                         title="Verify API key with provider"
                       >
@@ -953,7 +953,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                       <select
                         value={draftModel}
                         onChange={(e) => setDraftModel(e.target.value)}
-                        className="w-full px-3 py-2 text-xs rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 cursor-pointer focus:outline-hidden focus:ring-2 focus:ring-blue-500/30 font-medium"
+                        className="w-full px-3 py-2 text-xs rounded-xl border border-app-input-border bg-app-input text-app-input-text cursor-pointer focus:outline-hidden focus:ring-2 focus:ring-blue-500/30 font-medium"
                       >
                         <option value="auto">Auto-detect latest active model from provider (Recommended)</option>
                         {availableModels.length > 0 ? (
@@ -989,7 +989,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                 </div>
 
                 {/* Custom Translation Prompt & Rules Card */}
-                <div className="p-4 rounded-xl border border-slate-200/90 dark:border-slate-800/80 bg-slate-50/70 dark:bg-[#111625]/80 space-y-3 transition-colors">
+                <div className="p-4 rounded-xl border border-app-card-inner-border bg-app-card-inner space-y-3 transition-colors">
                   <div className="flex items-center justify-between">
                     <div>
                       <h3 className="font-bold text-sm text-slate-900 dark:text-slate-100">
@@ -1003,7 +1003,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                     <button
                       type="button"
                       onClick={() => setDraftPrompt(DEFAULT_AI_PROMPT)}
-                      className="px-2.5 py-1 text-xs font-semibold rounded-lg border border-slate-300 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-300 transition-colors flex items-center gap-1.5 cursor-pointer"
+                      className="px-2.5 py-1 text-xs font-semibold rounded-lg border border-app-btn-border bg-app-btn hover:bg-app-btn-hover text-app-btn-text transition-colors flex items-center gap-1.5 cursor-pointer"
                       title="Reset to default prompt"
                     >
                       <RotateCcw className="w-3 h-3" />
@@ -1017,7 +1017,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                       value={draftPrompt}
                       onChange={(e) => setDraftPrompt(e.target.value)}
                       placeholder="Enter custom AI translation instructions and idiom rules..."
-                      className="w-full p-3 text-xs rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200 font-sans leading-relaxed resize-y focus:outline-hidden focus:ring-2 focus:ring-blue-500/30"
+                      className="w-full p-3 text-xs rounded-xl border border-app-input-border bg-app-input text-app-input-text font-sans leading-relaxed resize-y focus:outline-hidden focus:ring-2 focus:ring-blue-500/30"
                     />
                   </div>
 
@@ -1042,7 +1042,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                   <button
                     type="button"
                     onClick={handleSaveAiSettings}
-                    className="px-5 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-semibold text-xs transition-all shadow-2xs active:scale-[0.99] flex items-center gap-1.5 cursor-pointer"
+                    className="px-5 py-2 rounded-xl bg-app-primary hover:bg-app-primary-hover text-app-primary-fg font-semibold text-xs transition-all shadow-2xs active:scale-[0.99] flex items-center gap-1.5 cursor-pointer"
                   >
                     {savedSuccess ? (
                       <>

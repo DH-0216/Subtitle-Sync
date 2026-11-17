@@ -162,7 +162,7 @@ export const Step2Generate: React.FC<Step2GenerateProps> = ({
             value={currentTrackIndex}
             onChange={(e) => onSelectTrack(Number(e.target.value))}
             disabled={!videoPath || audioTracks.length === 0}
-            className="w-full text-xs font-medium px-3 py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800/80 text-slate-900 dark:text-slate-100 focus:outline-hidden focus:ring-2 focus:ring-blue-700/30 transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+            className="w-full text-xs font-medium px-3 py-2.5 rounded-xl border border-app-input-border bg-app-input text-app-input-text focus:outline-hidden focus:ring-2 focus:ring-blue-700/30 transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {audioTracks.length > 0 ? (
               audioTracks.map((t) => (
@@ -188,7 +188,7 @@ export const Step2Generate: React.FC<Step2GenerateProps> = ({
           <select
             value={config.language}
             onChange={(e) => onChangeConfig({ language: e.target.value })}
-            className="w-full text-xs font-medium px-3 py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800/80 text-slate-900 dark:text-slate-100 focus:outline-hidden focus:ring-2 focus:ring-blue-700/30 transition-all cursor-pointer"
+            className="w-full text-xs font-medium px-3 py-2.5 rounded-xl border border-app-input-border bg-app-input text-app-input-text focus:outline-hidden focus:ring-2 focus:ring-blue-700/30 transition-all cursor-pointer"
           >
             {subtitleLanguages.map((l) => (
               <option key={l.code} value={l.code}>
@@ -211,7 +211,7 @@ export const Step2Generate: React.FC<Step2GenerateProps> = ({
         <select
           value={config.format}
           onChange={(e) => onChangeConfig({ format: e.target.value as 'srt' | 'vtt' })}
-          className="w-full text-xs font-medium px-3 py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800/80 text-slate-900 dark:text-slate-100 focus:outline-hidden focus:ring-2 focus:ring-blue-700/30 transition-all cursor-pointer"
+          className="w-full text-xs font-medium px-3 py-2.5 rounded-xl border border-app-input-border bg-app-input text-app-input-text focus:outline-hidden focus:ring-2 focus:ring-blue-700/30 transition-all cursor-pointer"
         >
           <option value="srt">SubRip (.srt) — Universal standard format for media players</option>
           <option value="vtt">WebVTT (.vtt) — Modern web-based video player format</option>
@@ -244,7 +244,7 @@ export const Step2Generate: React.FC<Step2GenerateProps> = ({
         </button>
 
         {showAdvanced && (
-          <div className="mt-3.5 space-y-4 p-4 rounded-xl border border-slate-300 dark:border-slate-800 bg-slate-50/70 dark:bg-[#0B0F19]/60">
+          <div className="mt-3.5 space-y-4 p-4 rounded-xl border border-app-card-inner-border bg-app-card-inner">
             {/* Model Quality Selection */}
             <div className="space-y-1.5">
               <div className="flex items-center justify-between">
@@ -268,7 +268,7 @@ export const Step2Generate: React.FC<Step2GenerateProps> = ({
               <select
                 value={config.modelQuality}
                 onChange={(e) => onChangeConfig({ modelQuality: e.target.value })}
-                className="w-full text-xs font-medium px-3 py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 focus:outline-hidden focus:ring-2 focus:ring-blue-700/30 cursor-pointer"
+                className="w-full text-xs font-medium px-3 py-2.5 rounded-xl border border-app-input-border bg-app-input text-app-input-text focus:outline-hidden focus:ring-2 focus:ring-blue-700/30 cursor-pointer"
               >
                 {recommendedModels.length > 0 && (
                   <optgroup label="⭐ Recommended Models">
@@ -323,7 +323,7 @@ export const Step2Generate: React.FC<Step2GenerateProps> = ({
 
               {/* Selected Model Status Card */}
               {selectedModel && (
-                <div className="p-3 rounded-lg border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-xs flex items-center justify-between gap-3">
+                <div className="p-3 rounded-lg border border-app-card-inner-border bg-app-input text-xs flex items-center justify-between gap-3">
                   <div className="flex items-center gap-2">
                     <span
                       className={`w-2 h-2 rounded-full ${

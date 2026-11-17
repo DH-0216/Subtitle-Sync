@@ -28,7 +28,7 @@ export const TipMessage: React.FC<TipMessageProps> = ({
     blue: {
       container: 'border-blue-200 bg-blue-50/80 text-blue-950 dark:border-blue-900/60 dark:bg-blue-950/30 dark:text-blue-100',
       iconBg: 'bg-blue-100 text-blue-700 dark:bg-blue-900/60 dark:text-blue-300',
-      btn: 'bg-blue-600 hover:bg-blue-500 text-white',
+      btn: 'bg-app-primary hover:bg-app-primary-hover text-app-primary-fg',
       accent: 'text-blue-700 dark:text-blue-300'
     },
     indigo: {

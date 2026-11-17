@@ -131,10 +131,10 @@ export const Step1Video: React.FC<Step1VideoProps> = ({
           onClick={onBrowse}
         />
       ) : (
-        <div className="bg-slate-50 dark:bg-[#0B0F19] border border-slate-300 dark:border-slate-800 rounded-xl p-4 space-y-3 shadow-2xs">
+        <div className="bg-app-card-inner border border-app-card-inner-border rounded-xl p-4 space-y-3 shadow-2xs">
           <div className="flex items-start justify-between gap-3">
             <div className="flex items-center gap-3 min-w-0">
-              <div className="w-10 h-10 rounded-xl bg-blue-600 text-white shadow-xs flex items-center justify-center shrink-0">
+              <div className="w-10 h-10 rounded-xl bg-app-primary text-app-primary-fg shadow-xs flex items-center justify-center shrink-0">
                 <Film className="w-5 h-5" />
               </div>
               <div className="min-w-0">
@@ -163,7 +163,7 @@ export const Step1Video: React.FC<Step1VideoProps> = ({
               <button
                 type="button"
                 onClick={onBrowse}
-                className="text-xs font-semibold px-2.5 py-1.5 rounded-lg border border-slate-300 dark:border-slate-700 bg-white hover:bg-slate-50 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 transition-colors cursor-pointer shadow-2xs"
+                className="text-xs font-semibold px-2.5 py-1.5 rounded-lg border border-app-btn-border bg-app-btn hover:bg-app-btn-hover text-app-btn-text transition-colors cursor-pointer shadow-2xs"
               >
                 Change
               </button>
@@ -216,7 +216,7 @@ export const Step1Video: React.FC<Step1VideoProps> = ({
                 <button
                   type="button"
                   onClick={onSelectTrackModal}
-                  className="text-xs font-bold text-white bg-blue-600 hover:bg-blue-500 shadow-2xs px-3 py-1 rounded-lg transition-all cursor-pointer shrink-0 ml-auto"
+                  className="text-xs font-bold text-app-primary-fg bg-app-primary hover:bg-app-primary-hover shadow-2xs px-3 py-1 rounded-lg transition-all cursor-pointer shrink-0 ml-auto"
                 >
                   Change Audio Track ({audioTracks.length})
                 </button>

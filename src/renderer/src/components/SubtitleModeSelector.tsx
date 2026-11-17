@@ -56,8 +56,8 @@ export const SubtitleModeSelector: React.FC<SubtitleModeSelectorProps> = ({
             onClick={() => onSelectAction(f.id)}
             className={`text-left p-4 rounded-2xl border transition-all duration-200 cursor-pointer flex items-start gap-3.5 relative overflow-hidden group ${
               isActive
-                ? "bg-blue-600 text-white shadow-md border-blue-500 ring-2 ring-blue-500/30"
-                : "bg-white dark:bg-slate-900 border-slate-300 dark:border-slate-800 hover:border-blue-400 dark:hover:border-slate-700 text-slate-800 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-850 shadow-2xs"
+                ? "bg-app-primary text-app-primary-fg shadow-md border-blue-500 ring-2 ring-blue-500/30"
+                : "bg-app-card-inner border-app-card-inner-border hover:border-app-primary text-app-text hover:bg-app-card-inner-hover shadow-2xs"
             }`}
           >
             <div

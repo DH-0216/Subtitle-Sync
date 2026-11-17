@@ -136,7 +136,7 @@ export const Step2Extract: React.FC<Step2ExtractProps> = ({
               type="button"
               onClick={onRescan}
               disabled={isExtracting}
-              className="mt-3 inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-semibold bg-blue-600 hover:bg-blue-500 text-white shadow-2xs transition-all cursor-pointer"
+              className="mt-3 inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-semibold bg-app-primary hover:bg-app-primary-hover text-app-primary-fg shadow-2xs transition-all cursor-pointer"
             >
               <RefreshCw className="w-3.5 h-3.5" />
               <span>Re-scan Video for Subtitles</span>
@@ -198,7 +198,7 @@ export const Step2Extract: React.FC<Step2ExtractProps> = ({
                       ? "bg-slate-50/60 dark:bg-slate-900/30 border-slate-200 dark:border-slate-800 opacity-70"
                       : isSelected
                         ? "bg-blue-50/50 border-blue-400 dark:bg-blue-950/20 dark:border-blue-600/50 shadow-2xs"
-                        : "bg-white dark:bg-[#0B0F19]/70 border-slate-200 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700 shadow-2xs"
+                        : "bg-app-card-inner border border-app-card-inner-border hover:border-slate-300 dark:hover:border-slate-700 shadow-2xs"
                   }`}
                 >
                   <div className="flex items-start justify-between gap-3">
@@ -276,7 +276,7 @@ export const Step2Extract: React.FC<Step2ExtractProps> = ({
                         type="button"
                         onClick={() => onExtractSingleNow(track)}
                         disabled={isExtracting}
-                        className="text-xs font-semibold px-2.5 py-1.5 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-800 dark:text-slate-200 border border-slate-300 dark:border-slate-700 hover:bg-blue-600 hover:text-white transition-all shrink-0 cursor-pointer flex items-center gap-1 shadow-2xs"
+                        className="text-xs font-semibold px-2.5 py-1.5 rounded-lg bg-app-btn text-app-btn-text border border-app-btn-border hover:bg-app-primary hover:text-app-primary-fg transition-all shrink-0 cursor-pointer flex items-center gap-1 shadow-2xs"
                       >
                         <FileUp className="w-3.5 h-3.5" />
                         <span>Extract to .SRT</span>

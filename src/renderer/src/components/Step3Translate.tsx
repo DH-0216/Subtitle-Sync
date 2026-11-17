@@ -47,8 +47,8 @@ export const Step3Translate: React.FC<Step3TranslateProps> = ({
       lockedMessage="Select subtitle file in Step 1 first"
     >
       {/* Summary Banner */}
-      <div className="mb-4 p-4 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/70 dark:bg-[#0B0F19]/60 flex items-start gap-3">
-        <div className="p-2 rounded-lg bg-blue-600 text-white shadow-2xs shrink-0">
+      <div className="mb-4 p-4 rounded-xl border border-app-card-inner-border bg-app-card-inner flex items-start gap-3">
+        <div className="p-2 rounded-lg bg-app-primary text-app-primary-fg shadow-2xs shrink-0">
           <Sparkles className="w-4 h-4" />
         </div>
         <div className="text-xs space-y-1">

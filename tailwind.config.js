@@ -32,6 +32,25 @@ module.exports = {
           'card-border': 'var(--app-card-border)',
           'card-header': 'var(--app-card-header)',
           'card-header-border': 'var(--app-card-header-border)',
+          'card-inner': 'var(--app-card-inner-bg)',
+          'card-inner-border': 'var(--app-card-inner-border)',
+          'card-inner-hover': 'var(--app-card-inner-hover)',
+
+          modal: 'var(--app-modal-bg)',
+          'modal-border': 'var(--app-modal-border)',
+          'modal-header': 'var(--app-modal-header-bg)',
+          'modal-header-border': 'var(--app-modal-header-border)',
+          'modal-sidebar': 'var(--app-modal-sidebar-bg)',
+          'modal-sidebar-border': 'var(--app-modal-sidebar-border)',
+
+          input: 'var(--app-input-bg)',
+          'input-border': 'var(--app-input-border)',
+          'input-text': 'var(--app-input-text)',
+
+          btn: 'var(--app-btn-secondary-bg)',
+          'btn-hover': 'var(--app-btn-secondary-hover)',
+          'btn-border': 'var(--app-btn-secondary-border)',
+          'btn-text': 'var(--app-btn-secondary-text)',
 
           dropzone: 'var(--app-dropzone-bg)',
           'dropzone-border': 'var(--app-dropzone-border)',

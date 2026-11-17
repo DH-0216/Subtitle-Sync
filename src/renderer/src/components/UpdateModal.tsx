@@ -98,9 +98,9 @@ export const UpdateModal: React.FC<UpdateModalProps> = ({
 
   return (
     <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 animate-in fade-in duration-200">
-      <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl w-full max-w-lg shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
+      <div className="bg-app-modal border border-app-modal-border rounded-2xl w-full max-w-lg shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
         {/* Header */}
-        <div className="p-5 border-b border-slate-200 dark:border-slate-800/80 flex items-center justify-between bg-slate-50/70 dark:bg-slate-950/40">
+        <div className="p-5 border-b border-app-modal-header-border flex items-center justify-between bg-app-modal-header">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-xl bg-blue-100 dark:bg-blue-950/70 text-blue-700 dark:text-blue-400 flex items-center justify-center shrink-0 border border-blue-200 dark:border-blue-800">
               <Sparkles className="w-5 h-5" />
@@ -134,7 +134,7 @@ export const UpdateModal: React.FC<UpdateModalProps> = ({
         {/* Modal Body */}
         <div className="p-5 space-y-4 overflow-y-auto flex-1">
           {/* Version Transition Banner */}
-          <div className="p-3.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-[#111625] flex items-center justify-between">
+          <div className="p-3.5 rounded-xl border border-app-card-inner-border bg-app-card-inner flex items-center justify-between">
             <div className="flex items-center gap-2 text-xs font-semibold text-slate-700 dark:text-slate-300">
               <span className="text-slate-500 dark:text-slate-400 font-normal">Installed:</span>
               <span className="font-mono bg-slate-200/70 dark:bg-slate-800 px-2 py-0.5 rounded text-slate-800 dark:text-slate-200">
@@ -229,13 +229,13 @@ export const UpdateModal: React.FC<UpdateModalProps> = ({
         </div>
 
         {/* Footer Actions */}
-        <div className="p-4 border-t border-slate-200 dark:border-slate-800/80 bg-slate-50/70 dark:bg-slate-950/40 flex items-center justify-between gap-3">
+        <div className="p-4 border-t border-app-modal-header-border bg-app-modal-header flex items-center justify-between gap-3">
           {isDownloading ? (
             <div className="w-full flex justify-end">
               <button
                 type="button"
                 onClick={onCancelDownload}
-                className="px-4 py-2 text-xs font-semibold rounded-xl border border-slate-300 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-200/60 dark:hover:bg-slate-800 transition-colors cursor-pointer"
+                className="px-4 py-2 text-xs font-semibold rounded-xl border border-app-btn-border bg-app-btn text-app-btn-text hover:bg-app-btn-hover transition-colors cursor-pointer"
               >
                 Cancel Download
               </button>
@@ -245,7 +245,7 @@ export const UpdateModal: React.FC<UpdateModalProps> = ({
               <button
                 type="button"
                 onClick={onRestartLater || onClose}
-                className="px-4 py-2 text-xs font-semibold rounded-xl border border-slate-300 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-200/60 dark:hover:bg-slate-800 transition-colors cursor-pointer"
+                className="px-4 py-2 text-xs font-semibold rounded-xl border border-app-btn-border bg-app-btn text-app-btn-text hover:bg-app-btn-hover transition-colors cursor-pointer"
               >
                 Restart Later
               </button>
@@ -264,7 +264,7 @@ export const UpdateModal: React.FC<UpdateModalProps> = ({
               <button
                 type="button"
                 onClick={onClose}
-                className="px-4 py-2 text-xs font-semibold rounded-xl border border-slate-300 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-200/60 dark:hover:bg-slate-800 transition-colors cursor-pointer"
+                className="px-4 py-2 text-xs font-semibold rounded-xl border border-app-btn-border bg-app-btn text-app-btn-text hover:bg-app-btn-hover transition-colors cursor-pointer"
               >
                 Remind Me Later
               </button>
@@ -274,7 +274,7 @@ export const UpdateModal: React.FC<UpdateModalProps> = ({
                   <button
                     type="button"
                     onClick={() => onDownloadAndInstall(updateInfo.downloadUrl!)}
-                    className="px-4 py-2 text-xs font-bold rounded-xl bg-blue-600 hover:bg-blue-500 text-white flex items-center gap-1.5 transition-all cursor-pointer shadow-xs"
+                    className="px-4 py-2 text-xs font-bold rounded-xl bg-app-primary hover:bg-app-primary-hover text-app-primary-fg flex items-center gap-1.5 transition-all cursor-pointer shadow-xs"
                   >
                     <Download className="w-3.5 h-3.5" />
                     <span>Download &amp; Install</span>
@@ -283,7 +283,7 @@ export const UpdateModal: React.FC<UpdateModalProps> = ({
                   <button
                     type="button"
                     onClick={() => window.api?.shell?.openExternal(targetUrl)}
-                    className="px-4 py-2 text-xs font-bold rounded-xl bg-blue-600 hover:bg-blue-500 text-white flex items-center gap-1.5 transition-all cursor-pointer shadow-xs"
+                    className="px-4 py-2 text-xs font-bold rounded-xl bg-app-primary hover:bg-app-primary-hover text-app-primary-fg flex items-center gap-1.5 transition-all cursor-pointer shadow-xs"
                   >
                     <ExternalLink className="w-3.5 h-3.5" />
                     <span>Open GitHub Release</span>

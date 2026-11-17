@@ -134,14 +134,14 @@ export const Step3Sync: React.FC<Step3SyncProps> = ({
                 unlocked
                   ? selected
                     ? 'bg-blue-50 border-2 border-blue-600 shadow-xs dark:bg-blue-950/50 dark:border-blue-500 cursor-pointer'
-                    : 'bg-white hover:bg-slate-50 border-slate-300 dark:bg-[#0B0F19] dark:border-slate-800 dark:hover:border-slate-700 shadow-2xs cursor-pointer'
+                    : 'bg-app-card-inner hover:bg-app-card-inner-hover border-app-card-inner-border dark:hover:border-slate-700 shadow-2xs cursor-pointer'
                   : selected
                     ? 'bg-slate-100/80 dark:bg-slate-800/40 border-2 border-slate-300 dark:border-slate-700'
                     : 'bg-slate-50/60 dark:bg-slate-900/40 border border-slate-200 dark:border-slate-800'
               } ${!unlocked || isSyncing ? 'cursor-not-allowed pointer-events-none' : ''}`}
             >
               {isRec && unlocked && (
-                <span className="absolute -top-2.5 right-2 text-[10px] font-bold uppercase tracking-wider bg-blue-600 text-white px-2 py-0.5 rounded-full shadow-xs flex items-center gap-1">
+                <span className="absolute -top-2.5 right-2 text-[10px] font-bold uppercase tracking-wider bg-app-primary text-app-primary-fg px-2 py-0.5 rounded-full shadow-xs flex items-center gap-1">
                   <Sparkles className="w-2.5 h-2.5" /> Best Match
                 </span>
               )}
@@ -149,7 +149,7 @@ export const Step3Sync: React.FC<Step3SyncProps> = ({
                 <div
                   className={`p-1.5 rounded-lg transition-colors ${
                     unlocked && selected
-                      ? 'bg-blue-600 text-white shadow-2xs'
+                      ? 'bg-app-primary text-app-primary-fg shadow-2xs'
                       : 'bg-slate-100 text-slate-600 border border-slate-200 dark:bg-slate-800 dark:text-slate-400 dark:border-slate-700'
                   }`}
                 >

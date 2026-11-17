@@ -3,6 +3,7 @@
    Adding, editing or removing themes requires editing ONLY the CSS variables below!
    Components use semantic utilities:
      bg-app-canvas, bg-app-card, bg-app-header, bg-app-footer, bg-app-sidebar
+     bg-app-modal, bg-app-card-inner, bg-app-input, bg-app-btn
      bg-app-dropzone, bg-app-primary, hover:bg-app-primary-hover
      border-app-card-border, border-app-header-border, text-app-text, text-app-accent
    ========================================================================== */
@@ -38,6 +39,25 @@
   --app-card-border: #CADEFC;
   --app-card-header: #E8F1FC;
   --app-card-header-border: #CADEFC;
+  --app-card-inner-bg: #F8FAFC;
+  --app-card-inner-border: #E2E8F0;
+  --app-card-inner-hover: rgba(241, 245, 249, 0.7);
+
+  --app-modal-bg: #FFFFFF;
+  --app-modal-border: #E2E8F0;
+  --app-modal-header-bg: #FFFFFF;
+  --app-modal-header-border: #F1F5F9;
+  --app-modal-sidebar-bg: rgba(248, 250, 252, 0.7);
+  --app-modal-sidebar-border: #F1F5F9;
+
+  --app-input-bg: #FFFFFF;
+  --app-input-border: #CBD5E1;
+  --app-input-text: #0F172A;
+
+  --app-btn-secondary-bg: #FFFFFF;
+  --app-btn-secondary-hover: #F8FAFC;
+  --app-btn-secondary-border: #CBD5E1;
+  --app-btn-secondary-text: #1E293B;
 
   --app-dropzone-bg: #F2F7FD;
   --app-dropzone-border: #B6CFF7;
@@ -85,6 +105,25 @@
   --app-card-border: #1E293B;
   --app-card-header: #0F172A;
   --app-card-header-border: #1E293B;
+  --app-card-inner-bg: #0B0F19;
+  --app-card-inner-border: #1E293B;
+  --app-card-inner-hover: #0B0F19;
+
+  --app-modal-bg: #0B0F19;
+  --app-modal-border: #1E293B;
+  --app-modal-header-bg: #0B0F19;
+  --app-modal-header-border: rgba(30, 41, 59, 0.8);
+  --app-modal-sidebar-bg: rgba(2, 6, 23, 0.4);
+  --app-modal-sidebar-border: rgba(30, 41, 59, 0.8);
+
+  --app-input-bg: #0F172A;
+  --app-input-border: #334155;
+  --app-input-text: #F1F5F9;
+
+  --app-btn-secondary-bg: #1E293B;
+  --app-btn-secondary-hover: #334155;
+  --app-btn-secondary-border: #334155;
+  --app-btn-secondary-text: #E2E8F0;
 
   --app-dropzone-bg: #0B0F19;
   --app-dropzone-border: #334155;

@@ -87,9 +87,9 @@ export const ModelDownloadModal: React.FC<ModelDownloadModalProps> = ({
         if (e.target === e.currentTarget && !isDownloading) onClose()
       }}
     >
-      <div className="bg-white dark:bg-[#0B0F19] border border-slate-200 dark:border-slate-800 rounded-2xl w-full max-w-[480px] shadow-2xl p-6 transition-colors">
+      <div className="bg-app-modal border border-app-modal-border rounded-2xl w-full max-w-[480px] shadow-2xl p-6 transition-colors">
         {/* Header */}
-        <div className="flex items-center justify-between pb-3.5 mb-4 border-b border-slate-100 dark:border-slate-800/80">
+        <div className="flex items-center justify-between pb-3.5 mb-4 border-b border-app-modal-header-border">
           <div className="flex items-center gap-3">
             <div className="w-9 h-9 rounded-xl bg-blue-50 border border-blue-200 dark:bg-blue-500/10 dark:border-blue-500/20 flex items-center justify-center text-blue-600 dark:text-blue-400">
               <Cpu className="w-5 h-5" />
@@ -194,7 +194,7 @@ export const ModelDownloadModal: React.FC<ModelDownloadModalProps> = ({
             <button
               type="button"
               onClick={onClose}
-              className="px-4 py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 text-slate-700 dark:text-slate-300 text-xs font-semibold hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
+              className="px-4 py-2.5 rounded-xl border border-app-btn-border bg-app-btn hover:bg-app-btn-hover text-app-btn-text text-xs font-semibold transition-colors cursor-pointer"
             >
               Cancel
             </button>
@@ -202,7 +202,7 @@ export const ModelDownloadModal: React.FC<ModelDownloadModalProps> = ({
             <button
               type="button"
               onClick={onStartDownload}
-              className="flex-1 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-semibold text-xs flex items-center justify-center gap-2 transition-all shadow-2xs active:scale-[0.99] cursor-pointer"
+              className="flex-1 py-2.5 rounded-xl bg-app-primary hover:bg-app-primary-hover text-app-primary-fg font-semibold text-xs flex items-center justify-center gap-2 transition-all shadow-2xs active:scale-[0.99] cursor-pointer"
             >
               <Download className="w-4 h-4" />
               <span>Start Download ({currentInfo.size})</span>

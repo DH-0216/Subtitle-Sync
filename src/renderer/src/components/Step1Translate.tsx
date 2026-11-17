@@ -146,7 +146,7 @@ export const Step1Translate: React.FC<Step1TranslateProps> = ({
                       <button
                         type="button"
                         onClick={handleBrowseSubtitleChoice}
-                        className="text-[10.5px] font-bold text-slate-700 dark:text-slate-300 hover:text-blue-700 dark:hover:text-blue-300 px-2 py-0.5 rounded border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700 transition-all cursor-pointer shadow-2xs"
+                        className="text-[10.5px] font-bold text-app-btn-text px-2 py-0.5 rounded border border-app-btn-border bg-app-btn hover:bg-app-btn-hover transition-all cursor-pointer shadow-2xs"
                       >
                         Change
                       </button>
@@ -252,7 +252,7 @@ export const Step1Translate: React.FC<Step1TranslateProps> = ({
                       <button
                         type="button"
                         onClick={handleBrowseVideoChoice}
-                        className="text-[10.5px] font-bold text-slate-700 dark:text-slate-300 hover:text-blue-700 dark:hover:text-blue-300 px-2 py-0.5 rounded border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700 transition-all cursor-pointer shadow-2xs"
+                        className="text-[10.5px] font-bold text-app-btn-text px-2 py-0.5 rounded border border-app-btn-border bg-app-btn hover:bg-app-btn-hover transition-all cursor-pointer shadow-2xs"
                       >
                         Change
                       </button>
@@ -316,7 +316,7 @@ export const Step1Translate: React.FC<Step1TranslateProps> = ({
                         <button
                           type="button"
                           onClick={handleBrowseVideoChoice}
-                          className="text-[10.5px] font-bold text-slate-700 dark:text-slate-300 hover:text-blue-700 dark:hover:text-blue-300 px-2 py-0.5 rounded border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700 transition-all cursor-pointer shadow-2xs"
+                          className="text-[10.5px] font-bold text-app-btn-text px-2 py-0.5 rounded border border-app-btn-border bg-app-btn hover:bg-app-btn-hover transition-all cursor-pointer shadow-2xs"
                         >
                           Change
                         </button>
@@ -367,7 +367,7 @@ export const Step1Translate: React.FC<Step1TranslateProps> = ({
                           }
                         }}
                         disabled={isExtracting}
-                        className="px-3 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold flex items-center justify-center gap-1.5 transition-all cursor-pointer shrink-0 shadow-2xs disabled:opacity-50"
+                        className="px-3 py-1.5 rounded-lg bg-app-primary hover:bg-app-primary-hover text-app-primary-fg text-xs font-bold flex items-center justify-center gap-1.5 transition-all cursor-pointer shrink-0 shadow-2xs disabled:opacity-50"
                         title="Extract this subtitle track and use it for translation"
                       >
                         {isExtracting ? (

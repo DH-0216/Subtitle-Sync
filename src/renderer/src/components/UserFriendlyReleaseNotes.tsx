@@ -452,7 +452,7 @@ export const UserFriendlyReleaseNotes: React.FC<UserFriendlyReleaseNotesProps> =
       </div>
 
       {/* Main Release Notes Content Box */}
-      <div className="max-h-60 overflow-y-auto p-4 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/80 dark:bg-slate-950/60 font-sans text-xs text-slate-700 dark:text-slate-300 select-text leading-relaxed">
+      <div className="max-h-60 overflow-y-auto p-4 rounded-xl border border-app-card-inner-border bg-app-card-inner font-sans text-xs text-slate-700 dark:text-slate-300 select-text leading-relaxed">
         {isEmpty ? (
           /* Friendly Empty / Generic Fallback Card */
           <div className="p-4 rounded-xl bg-blue-50/50 dark:bg-blue-950/20 border border-blue-100 dark:border-blue-900/40 text-center space-y-2">

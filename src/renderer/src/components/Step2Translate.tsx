@@ -89,7 +89,7 @@ export const Step2Translate: React.FC<Step2TranslateProps> = ({
             <select
               value={language}
               onChange={(e) => onChangeLanguage(e.target.value)}
-              className="w-full text-xs font-medium px-3 py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800/80 text-slate-900 dark:text-slate-100 focus:outline-hidden focus:ring-2 focus:ring-blue-700/30 transition-all cursor-pointer"
+              className="w-full text-xs font-medium px-3 py-2.5 rounded-xl border border-app-input-border bg-app-input text-app-input-text focus:outline-hidden focus:ring-2 focus:ring-blue-700/30 transition-all cursor-pointer"
             >
               {translationLanguages.map((l) => (
                 <option key={l.code} value={l.code}>
@@ -112,7 +112,7 @@ export const Step2Translate: React.FC<Step2TranslateProps> = ({
             <select
               value={format}
               onChange={(e) => onChangeFormat(e.target.value as 'srt' | 'vtt' | 'txt')}
-              className="w-full text-xs font-medium px-3 py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800/80 text-slate-900 dark:text-slate-100 focus:outline-hidden focus:ring-2 focus:ring-blue-700/30 transition-all cursor-pointer"
+              className="w-full text-xs font-medium px-3 py-2.5 rounded-xl border border-app-input-border bg-app-input text-app-input-text focus:outline-hidden focus:ring-2 focus:ring-blue-700/30 transition-all cursor-pointer"
             >
               <option value="srt">SubRip (.srt) — Universal standard for media players</option>
               <option value="vtt">WebVTT (.vtt) — Web video standard</option>
@@ -147,7 +147,7 @@ export const Step2Translate: React.FC<Step2TranslateProps> = ({
             <button
               type="button"
               onClick={onOpenSettings}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 text-xs font-semibold transition-all cursor-pointer shadow-2xs"
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-app-btn-border bg-app-btn hover:bg-app-btn-hover text-app-btn-text text-xs font-semibold transition-all cursor-pointer shadow-2xs"
             >
               <Settings className="w-3.5 h-3.5 text-slate-600 dark:text-slate-400" />
               <span>Configure AI Settings</span>
