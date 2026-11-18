@@ -1190,6 +1190,10 @@ export default function App() {
         setGenerateProgress(100)
         setGenerateStatusMessage('AI subtitle translation complete!')
         toast.success('Subtitle translated successfully!', { duration: 4000 })
+        notifyJobComplete(
+          'Subtitle Translation Complete',
+          'Your translated subtitle is ready!'
+        )
         if (res.output) {
           const folder = res.output.substring(
             0,
