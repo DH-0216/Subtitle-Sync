@@ -482,8 +482,20 @@ export default function App() {
                   subtitleTracks={video.subtitleTracks}
                   onExtractAndTranslateSubtitle={translate.handleExtractAndTranslateSubtitle}
                   isExtracting={extract.isExtracting}
-                  onBrowseVideo={video.handleBrowseVideo}
-                  onSelectVideo={video.handleSelectVideo}
+                  onBrowseVideo={async () => {
+                    video.handleClearVideoError()
+                    const file = await window.api.dialog.openVideo()
+                    if (file) {
+                      translate.setTranslateSubPath(null)
+                      translate.setTranslateSubError(null)
+                      video.handleSelectVideo(file)
+                    }
+                  }}
+                  onSelectVideo={(path) => {
+                    translate.setTranslateSubPath(null)
+                    translate.setTranslateSubError(null)
+                    video.handleSelectVideo(path)
+                  }}
                   onRemoveVideo={video.handleRemoveVideo}
                   translateLanguage={translate.translateLanguage}
                   onChangeLanguage={translate.setTranslateLanguage}

@@ -91,18 +91,16 @@ export const Step1Translate: React.FC<Step1TranslateProps> = ({
   }
 
   const handleBrowseSubtitleChoice = () => {
-    if (onRemoveVideo) onRemoveVideo()
     onBrowseSubtitle()
   }
 
   const handleBrowseVideoChoice = () => {
-    onRemoveSubtitle()
     if (onBrowseVideo) onBrowseVideo()
   }
 
   const handleRemoveMovieChoice = () => {
-    if (onRemoveVideo) onRemoveVideo()
     if (isMovieSubReady) onRemoveSubtitle()
+    if (onRemoveVideo) onRemoveVideo()
   }
 
   const headerRight = sourceSubPath ? (
