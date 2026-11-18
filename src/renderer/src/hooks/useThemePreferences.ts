@@ -10,7 +10,15 @@ import {
 } from '../theme'
 
 export function useThemePreferences() {
-  const [theme, setTheme] = useState<ThemeMode>('dark')
+  const [theme, setTheme] = useState<ThemeMode>(() => {
+    if (typeof window !== 'undefined' && window.localStorage) {
+      const cached = window.localStorage.getItem('app_theme') as ThemeMode
+      if (cached === 'glass' || cached === 'light' || cached === 'dark' || cached === 'system') {
+        return cached
+      }
+    }
+    return 'dark'
+  })
   const [isSystemDark, setIsSystemDark] = useState<boolean>(() =>
     typeof window !== 'undefined' && window.matchMedia ? window.matchMedia('(prefers-color-scheme: dark)').matches : true
   )
@@ -45,6 +53,11 @@ export function useThemePreferences() {
   }, [notificationsEnabled])
 
   const handleSetTheme = useCallback((newTheme: ThemeMode, autoDownloadUpdates?: boolean) => {
+    try {
+      if (typeof window !== 'undefined' && window.localStorage) {
+        window.localStorage.setItem('app_theme', newTheme)
+      }
+    } catch {}
     setTheme(newTheme)
     window.api?.settings?.save({
       theme: newTheme,

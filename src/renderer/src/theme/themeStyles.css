@@ -217,6 +217,17 @@
   -webkit-backdrop-filter: blur(28px) saturate(150%);
 }
 
+/* Prevent GPU shader flickering on backdrop-filtered translucent elements during theme transitions */
+[data-theme='glass'] body,
+[data-theme='glass'] .bg-app-canvas,
+[data-theme='glass'] .bg-app-sidebar,
+[data-theme='glass'] .bg-app-header,
+[data-theme='glass'] .bg-app-footer,
+[data-theme='glass'] .bg-app-card,
+[data-theme='glass'] .bg-app-modal {
+  transition: none !important;
+}
+
 [data-theme='glass'] .bg-app-sidebar {
   backdrop-filter: blur(28px) saturate(170%);
   -webkit-backdrop-filter: blur(28px) saturate(170%);

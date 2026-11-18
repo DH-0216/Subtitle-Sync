@@ -1,5 +1,6 @@
 import React from "react";
 import { Sliders, Sparkles } from "lucide-react";
+import { APP_VERSION } from "@shared/version";
 import { ModalHeader, SidebarNav, SidebarNavItem, ThemeMode } from "./common";
 import {
   SettingsGeneralTab,
@@ -39,32 +40,47 @@ export const SettingsModal: React.FC<SettingsModalProps> = (props) => {
   ];
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs transition-opacity animate-in fade-in duration-200">
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs overscroll-contain animate-fade-in"
+      onWheel={(e) => e.stopPropagation()}
+      onClick={(e) => {
+        if (e.target === e.currentTarget) state.handleClose();
+      }}
+    >
       <div
-        className="w-full max-w-4xl bg-app-modal border border-app-modal-border rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh] transition-all"
+        className="bg-app-modal border border-app-modal-border rounded-2xl w-full max-w-3xl shadow-2xl overflow-hidden flex flex-col h-[560px] max-h-[90vh]"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Unified Modal Header */}
         <ModalHeader
           title="Settings & Preferences"
           subtitle="Configure application options and AI subtitle translation"
+          icon={<Sliders className="w-4 h-4" />}
           onClose={state.handleClose}
         />
 
-        {/* Modal Body: Left Sidebar Tabs + Right Scrollable Content */}
-        <div className="flex-1 flex overflow-hidden min-h-[460px]">
-          {/* Navigation Sidebar */}
-          <aside className="w-52 border-r border-app-modal-sidebar-border p-3 flex flex-col gap-1.5 shrink-0 bg-app-modal-sidebar">
+        {/* Modal Body with Sidebar Tabs */}
+        <div className="flex-1 flex overflow-hidden">
+          {/* Left Sidebar Tabs */}
+          <aside className="w-48 sm:w-52 bg-app-modal-sidebar border-r border-app-modal-sidebar-border p-3 shrink-0 flex flex-col justify-between">
             <SidebarNav<"general" | "ai">
               items={navItems}
               activeId={state.activeTab}
               onSelect={(id) => state.setActiveTab(id)}
-              className="space-y-1"
+              className="space-y-1.5"
+              itemClassName="px-3 py-2.5"
             />
+
+            {/* Bottom-left of setting window: Version */}
+            <div className="pt-3 px-1 text-left">
+              <span className="text-[11px] font-medium text-app-text-muted tracking-wide select-none">
+                v{APP_VERSION}
+              </span>
+            </div>
           </aside>
 
-          {/* Tab Content Panels */}
-          <main className="flex-1 p-6 overflow-y-auto space-y-5 bg-transparent">
+          {/* Right Tab Content Panel */}
+          <main className="flex-1 p-5 overflow-y-auto space-y-4 bg-app-canvas">
             {state.activeTab === "general" && (
               <SettingsGeneralTab
                 theme={theme}

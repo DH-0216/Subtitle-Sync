@@ -42,12 +42,12 @@ export const SettingsGeneralTab: React.FC<SettingsGeneralTabProps> = ({
   return (
     <>
       {/* Card 1: Theme Selector */}
-      <div className="p-4 rounded-xl border border-app-card-inner-border bg-app-card-inner transition-colors">
+      <div className="p-4 rounded-xl border border-app-card-border bg-app-card transition-colors">
         <ThemeSelector theme={theme} onSelectTheme={onSelectTheme} />
       </div>
 
       {/* Card 2: Software Updates */}
-      <div className="p-4 rounded-xl border border-app-card-inner-border bg-app-card-inner space-y-3 transition-colors">
+      <div className="p-4 rounded-xl border border-app-card-border bg-app-card space-y-3 transition-colors">
         <div className="flex items-center justify-between">
           <div>
             <h3 className="font-bold text-sm text-app-text">Automatic Updates</h3>
@@ -155,7 +155,7 @@ export const SettingsGeneralTab: React.FC<SettingsGeneralTabProps> = ({
       </div>
 
       {/* Card 3: Desktop Notifications */}
-      <div className="p-4 rounded-xl border border-app-card-inner-border bg-app-card-inner flex items-center justify-between transition-colors">
+      <div className="p-4 rounded-xl border border-app-card-border bg-app-card flex items-center justify-between transition-colors">
         <div>
           <h3 className="font-bold text-sm text-app-text flex items-center gap-2">
             <Bell className="w-4 h-4 text-app-accent" />
@@ -190,7 +190,7 @@ export const SettingsGeneralTab: React.FC<SettingsGeneralTabProps> = ({
       </div>
 
       {/* Card 4: About & Developer */}
-      <div className="p-4 rounded-xl border border-app-card-inner-border bg-app-card-inner flex items-center justify-between transition-colors">
+      <div className="p-4 rounded-xl border border-app-card-border bg-app-card flex items-center justify-between transition-colors">
         <div>
           <h3 className="font-bold text-sm text-app-text">Subtitle Sync Studio</h3>
           <p className="text-xs text-app-text-muted mt-0.5">Developed by DH-0216</p>

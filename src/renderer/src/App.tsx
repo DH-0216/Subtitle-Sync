@@ -197,7 +197,14 @@ export default function App() {
   useEffect(() => {
     window.api?.settings?.load().then((s: any) => {
       if (s) {
-        if (s.theme) setTheme(s.theme)
+        if (s.theme) {
+          try {
+            if (typeof window !== 'undefined' && window.localStorage) {
+              window.localStorage.setItem('app_theme', s.theme)
+            }
+          } catch {}
+          setTheme(s.theme)
+        }
         if (s.defaultMode) {
           setDefaultMode(s.defaultMode)
           sync.setSyncMode(s.defaultMode)

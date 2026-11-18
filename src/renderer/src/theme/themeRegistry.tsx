@@ -191,6 +191,8 @@ export const ALL_THEME_HTML_CLASSES = Array.from(
   new Set(['glass', ...THEME_DEFINITIONS.flatMap((t) => t.htmlClasses)])
 )
 
+let lastAppliedMaterial: string | null = null
+
 /**
  * Pure helper to apply the active theme classes & data attributes to document.documentElement.
  */
@@ -231,19 +233,23 @@ export function applyThemeToDocument(themeDef: ThemeDefinition, mode: ThemeMode)
   // Force reflow so the new theme values apply instantly without intermediate interpolation
   window.getComputedStyle(root).opacity
 
-  // Re-enable transitions on the next frame cleanly
+  // Re-enable transitions after the browser has completed the paint cycle cleanly
   requestAnimationFrame(() => {
-    try {
-      if (disableTransitions.parentNode) {
-        disableTransitions.parentNode.removeChild(disableTransitions)
-      }
-    } catch {}
+    requestAnimationFrame(() => {
+      try {
+        if (disableTransitions.parentNode) {
+          disableTransitions.parentNode.removeChild(disableTransitions)
+        }
+      } catch {}
+    })
   })
 
   // Switch native Windows acrylic material dynamically when supported
   try {
-    if (window.api?.window?.setBackgroundMaterial) {
-      window.api.window.setBackgroundMaterial(themeDef.id === 'glass' ? 'acrylic' : 'none')
+    const targetMaterial = themeDef.id === 'glass' ? 'acrylic' : 'none'
+    if (window.api?.window?.setBackgroundMaterial && lastAppliedMaterial !== targetMaterial) {
+      lastAppliedMaterial = targetMaterial
+      window.api.window.setBackgroundMaterial(targetMaterial)
     }
   } catch {}
 }
