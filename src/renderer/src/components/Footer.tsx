@@ -1,4 +1,5 @@
 import React from 'react'
+import { Github } from 'lucide-react'
 import { EXTERNAL_LINKS } from '@shared/links'
 
 export const Footer: React.FC = () => {
@@ -17,9 +18,11 @@ export const Footer: React.FC = () => {
       <button
         type="button"
         onClick={handleOpenRepo}
-        className="text-app-accent hover:text-app-accent-hover font-semibold flex items-center gap-1 cursor-pointer"
+        className="p-1.5 rounded-lg text-app-text-muted hover:text-app-text hover:bg-app-card-inner-hover transition-colors cursor-pointer"
+        title="Open GitHub Repository"
+        aria-label="Open GitHub Repository"
       >
-        <span>GitHub Repository ↗</span>
+        <Github className="w-4 h-4" />
       </button>
     </footer>
   )

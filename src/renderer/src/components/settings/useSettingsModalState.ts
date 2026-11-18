@@ -19,6 +19,8 @@ export interface SettingsModalProps {
   setAutoDownloadUpdates?: (a: boolean) => void;
   notificationsEnabled?: boolean;
   setNotificationsEnabled?: (n: boolean) => void;
+  defaultSubtitleFormat?: 'srt' | 'vtt' | 'txt';
+  setDefaultSubtitleFormat?: (fmt: 'srt' | 'vtt' | 'txt') => void;
   aiApiKey: string;
   setAiApiKey: (k: string) => void;
   aiProvider: AiProviderId;
@@ -46,6 +48,8 @@ export function useSettingsModalState(props: SettingsModalProps) {
     setAutoDownloadUpdates,
     notificationsEnabled = true,
     setNotificationsEnabled,
+    defaultSubtitleFormat = 'srt',
+    setDefaultSubtitleFormat,
     aiApiKey,
     setAiApiKey,
     aiProvider,
@@ -418,6 +422,16 @@ export function useSettingsModalState(props: SettingsModalProps) {
     );
   };
 
+  const handleSelectDefaultSubtitleFormat = (format: 'srt' | 'vtt' | 'txt') => {
+    if (setDefaultSubtitleFormat) {
+      setDefaultSubtitleFormat(format);
+    }
+    window.api?.settings?.save({
+      defaultSubtitleFormat: format
+    });
+    toast.success(`Default subtitle format set to .${format.toUpperCase()}`);
+  };
+
   const handleCheckNow = async () => {
     if (!navigator.onLine) {
       setUpdateStatus(
@@ -622,6 +636,8 @@ export function useSettingsModalState(props: SettingsModalProps) {
     handleToggleAutoUpdate,
     handleToggleAutoDownload,
     handleToggleNotifications,
+    defaultSubtitleFormat,
+    handleSelectDefaultSubtitleFormat,
     handleCheckNow,
     handleOpenGitHub,
     handleOpenKeyPortal,

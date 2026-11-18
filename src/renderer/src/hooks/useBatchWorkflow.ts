@@ -18,7 +18,7 @@ import {
 } from '../utils/batchMatcher'
 import { SyncMode } from '../components/Step3Sync'
 
-export type BatchOperationType = 'sync' | 'generate' | 'translate'
+export type BatchOperationType = 'sync' | 'extract' | 'generate' | 'translate'
 export type BatchItemStatus = 'pending' | 'processing' | 'completed' | 'failed' | 'cancelled'
 
 export interface BatchItem {
@@ -77,6 +77,8 @@ export function useBatchWorkflow({
   const [translateFormat, setTranslateFormat] = useState<'srt' | 'vtt' | 'txt'>('srt')
   const [translateSource, setTranslateSource] = useState<'subtitles' | 'embedded'>('subtitles')
   const [preferredTrackLang, setPreferredTrackLang] = useState('en')
+  const [extractTrackOption, setExtractTrackOption] = useState('en')
+  const [extractCleanTags, setExtractCleanTags] = useState(true)
 
   // Last output folder for quick reveal
   const [lastBatchOutputDir, setLastBatchOutputDir] = useState<string | null>(null)
@@ -238,6 +240,23 @@ export function useBatchWorkflow({
         const matchedCount = matches.filter((m) => m.subPath).length
         toast.success(`Loaded ${newItems.length} video(s) (${matchedCount} paired with subtitles)!`)
         addLog(`[BATCH] Loaded folder "${getFileName(folder)}": ${newItems.length} episodes, ${matchedCount} subtitles paired.`)
+      } else if (batchMode === 'extract') {
+        if (videos.length === 0) {
+          toast.error('No supported video files found in selected folder.')
+          return
+        }
+        const sorted = naturalSortPaths(videos)
+        const newItems: BatchItem[] = sorted.map((p) => ({
+          id: nextId(),
+          name: getFileName(p),
+          jobType: 'extract',
+          videoPath: p,
+          status: 'pending',
+          progress: 0
+        }))
+        setItems((prev) => [...prev, ...newItems])
+        toast.success(`Added ${newItems.length} video(s) for embedded subtitle extraction!`)
+        addLog(`[BATCH] Added ${newItems.length} video(s) from folder "${getFileName(folder)}" for extraction.`)
       } else if (batchMode === 'generate') {
         if (videos.length === 0) {
           toast.error('No supported video files found in selected folder.')
@@ -403,6 +422,30 @@ export function useBatchWorkflow({
           pairedCount > 0 ? ` (${pairedCount} paired with subtitles)` : ''
         }!`
       )
+    } else if (batchMode === 'extract') {
+      if (discoveredVideos.length === 0) {
+        toast.error('No video files dropped. Subtitle extraction requires video container files (.mkv, .mp4, etc.).')
+        return
+      }
+      const existingVideos = new Set(items.map((it) => it.videoPath).filter(Boolean))
+      const freshVideos = discoveredVideos.filter((v) => !existingVideos.has(v))
+
+      if (freshVideos.length === 0) {
+        toast('Dropped video file(s) are already in the queue.', { icon: 'ℹ️' })
+        return
+      }
+
+      const sorted = naturalSortPaths(freshVideos)
+      const newItems: BatchItem[] = sorted.map((p) => ({
+        id: nextId(),
+        name: getFileName(p),
+        jobType: 'extract',
+        videoPath: p,
+        status: 'pending',
+        progress: 0
+      }))
+      setItems((prev) => [...prev, ...newItems])
+      toast.success(`Added ${newItems.length} video(s) for embedded subtitle extraction!`)
     } else if (batchMode === 'generate') {
       if (discoveredVideos.length === 0) {
         toast.error('No video files dropped. Whisper generation requires video files.')
@@ -826,6 +869,132 @@ export function useBatchWorkflow({
             throw new Error(result?.message || result?.error || 'Translation failed.')
           }
         }
+
+        // --- JOB D: Embedded Extract ---
+        else if (currentItem.jobType === 'extract') {
+          const video = cleanPathString(currentItem.videoPath!)
+          if (!video) {
+            throw new Error('No video file provided for subtitle extraction.')
+          }
+
+          setItems((prev) =>
+            prev.map((it) =>
+              it.id === currentItem.id
+                ? { ...it, statusMessage: 'Scanning embedded subtitle tracks...' }
+                : it
+            )
+          )
+
+          const probeRes = await window.api.engine.probe(video)
+          const textTracks = (probeRes?.subtitleTracks || []).filter((t: any) => t.isText)
+          if (!textTracks || textTracks.length === 0) {
+            throw new Error(`No embedded text subtitle tracks found in "${currentItem.name}".`)
+          }
+
+          if (cancelRequestedRef.current) break
+
+          let finalOut: string | undefined
+          let outDir: string | undefined
+
+          if (extractTrackOption === 'all') {
+            setItems((prev) =>
+              prev.map((it) =>
+                it.id === currentItem.id
+                  ? { ...it, statusMessage: `Extracting all ${textTracks.length} tracks...` }
+                  : it
+              )
+            )
+            addLog(`[BATCH EXTRACT] Extracting all ${textTracks.length} tracks from "${currentItem.name}"...`)
+
+            const extractRes = await window.api.extractor.extractMultiple({
+              videoPath: video,
+              tracks: textTracks,
+              cleanTags: extractCleanTags
+            })
+
+            if (!extractRes?.success || !extractRes?.extracted?.length) {
+              throw new Error(extractRes?.failed?.[0]?.error || 'Failed to extract subtitle tracks.')
+            }
+
+            finalOut = extractRes.extracted[0]?.outputPath
+            outDir = finalOut
+              ? finalOut.substring(0, Math.max(finalOut.lastIndexOf('/'), finalOut.lastIndexOf('\\')))
+              : undefined
+            if (outDir) setLastBatchOutputDir(outDir)
+
+            setItems((prev) =>
+              prev.map((it) =>
+                it.id === currentItem.id
+                  ? {
+                      ...it,
+                      status: 'completed',
+                      progress: 100,
+                      statusMessage: `Extracted ${extractRes.extracted.length} track(s) successfully!`,
+                      outputPath: finalOut,
+                      outputDir: outDir
+                    }
+                  : it
+              )
+            )
+            completedCount++
+            addLog(`[BATCH SUCCESS] Extracted ${extractRes.extracted.length} tracks from "${currentItem.name}".`)
+          } else {
+            // Find track by preferred language or fallback
+            let chosenTrack = textTracks.find(
+              (t: any) =>
+                extractTrackOption &&
+                extractTrackOption !== 'auto' &&
+                (t.language?.toLowerCase() === extractTrackOption.toLowerCase() ||
+                 t.title?.toLowerCase().includes(extractTrackOption.toLowerCase()))
+            )
+            if (!chosenTrack) {
+              chosenTrack = textTracks.find((t: any) => t.isDefault) || textTracks[0]
+            }
+
+            const trackLabel = `Track #${chosenTrack.index + 1} (${chosenTrack.language?.toUpperCase() || 'SUB'}${chosenTrack.title ? ' - ' + chosenTrack.title : ''})`
+            setItems((prev) =>
+              prev.map((it) =>
+                it.id === currentItem.id
+                  ? { ...it, statusMessage: `Extracting ${trackLabel}...` }
+                  : it
+              )
+            )
+            addLog(`[BATCH EXTRACT] Extracting ${trackLabel} from "${currentItem.name}"...`)
+
+            const extractRes = await window.api.extractor.extractSingle({
+              videoPath: video,
+              track: chosenTrack,
+              cleanTags: extractCleanTags
+            })
+
+            if (!extractRes?.success || !extractRes?.outputPath) {
+              throw new Error(extractRes?.error || 'Failed to extract subtitle track from video.')
+            }
+
+            finalOut = extractRes.outputPath
+            outDir = finalOut
+              ? finalOut.substring(0, Math.max(finalOut.lastIndexOf('/'), finalOut.lastIndexOf('\\')))
+              : undefined
+            if (outDir) setLastBatchOutputDir(outDir)
+
+            setItems((prev) =>
+              prev.map((it) =>
+                it.id === currentItem.id
+                  ? {
+                      ...it,
+                      status: 'completed',
+                      progress: 100,
+                      statusMessage: `Extracted ${trackLabel} successfully!`,
+                      outputPath: finalOut,
+                      outputDir: outDir
+                    }
+                  : it
+              )
+            )
+            completedCount++
+            addLog(`[BATCH SUCCESS] Extracted ${trackLabel}: ${finalOut}`)
+          }
+        }
       } catch (err: any) {
         if (cancelRequestedRef.current) {
           setItems((prev) =>
@@ -890,7 +1059,9 @@ export function useBatchWorkflow({
     translateFormat,
     translateLanguage,
     preferredTrackLang,
-    whisperModelQuality
+    whisperModelQuality,
+    extractTrackOption,
+    extractCleanTags
   ])
 
   // 8. Stop / Cancel batch
@@ -900,6 +1071,7 @@ export function useBatchWorkflow({
     try {
       await window.api.engine.cancelSync()
       await window.api.generator.cancelGenerate()
+      await window.api.extractor?.cancel?.()
     } catch {}
 
     const curId = activeItemIdRef.current
@@ -938,6 +1110,10 @@ export function useBatchWorkflow({
     setTranslateSource,
     preferredTrackLang,
     setPreferredTrackLang,
+    extractTrackOption,
+    setExtractTrackOption,
+    extractCleanTags,
+    setExtractCleanTags,
     lastBatchOutputDir,
     handleAddFiles,
     handleAddFolder,

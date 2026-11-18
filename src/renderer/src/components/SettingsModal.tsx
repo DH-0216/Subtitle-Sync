@@ -85,6 +85,8 @@ export const SettingsModal: React.FC<SettingsModalProps> = (props) => {
               <SettingsGeneralTab
                 theme={theme}
                 onSelectTheme={state.handleSelectTheme}
+                defaultSubtitleFormat={state.defaultSubtitleFormat}
+                onSelectDefaultSubtitleFormat={state.handleSelectDefaultSubtitleFormat}
                 checkUpdates={checkUpdates}
                 onToggleAutoUpdate={state.handleToggleAutoUpdate}
                 autoDownloadUpdates={autoDownloadUpdates}

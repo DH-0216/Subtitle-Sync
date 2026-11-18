@@ -4,8 +4,7 @@ import {
   AlertCircle,
   Music,
   Sliders,
-  ChevronDown,
-  FileCode
+  ChevronDown
 } from 'lucide-react'
 import { AudioTrack, SubtitleTrack } from './Step1Video'
 import { TipMessage } from './TipMessage'
@@ -179,26 +178,7 @@ export const Step2Generate: React.FC<Step2GenerateProps> = ({
         </div>
       </div>
 
-      {/* Row 2: Output Format */}
-      <div className="mb-4">
-        <label className="text-xs font-bold text-app-text flex items-center gap-1.5 mb-1.5">
-          <FileCode className="w-3.5 h-3.5 text-blue-700 dark:text-blue-400" />
-          <span>Output Format</span>
-        </label>
-        <select
-          value={config.format}
-          onChange={(e) => onChangeConfig({ format: e.target.value as 'srt' | 'vtt' })}
-          className="w-full text-xs font-medium px-3 py-2.5 rounded-xl border border-app-input-border bg-app-input text-app-input-text focus:outline-hidden focus:ring-2 focus:ring-blue-700/30 transition-all cursor-pointer"
-        >
-          <option value="srt">SubRip (.srt) — Universal standard format for media players</option>
-          <option value="vtt">WebVTT (.vtt) — Modern web-based video player format</option>
-        </select>
-        <p className="text-[11px] text-app-text-muted mt-1">
-          Standard SubRip (.srt) is universally supported by all media players and TV devices.
-        </p>
-      </div>
-
-      {/* Row 3: Advanced Whisper Settings */}
+      {/* Advanced Whisper Settings */}
       <div className="pt-2 border-t border-app-card-inner-border">
         <button
           type="button"

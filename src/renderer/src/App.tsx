@@ -13,6 +13,7 @@ import { ModelDownloadModal } from './components/ModelDownloadModal'
 import { UpdateModal } from './components/UpdateModal'
 import { isValidAiProvider } from '@shared/aiModels'
 import { DEFAULT_AI_PROMPT } from '@shared/translationPrompts'
+import { cleanPathString } from '@shared/fileSanitizer'
 import { ThemeMode } from './theme'
 import {
   useThemePreferences,
@@ -63,6 +64,7 @@ export default function App() {
   const [aboutModalOpen, setAboutModalOpen] = useState(false)
   const [engineReady, setEngineReady] = useState(false)
   const [isOnline, setIsOnline] = useState(typeof navigator !== 'undefined' ? navigator.onLine : true)
+  const [defaultSubtitleFormat, setDefaultSubtitleFormat] = useState<'srt' | 'vtt' | 'txt'>('srt')
 
   // 1. Theme & Settings Hook
   const {
@@ -252,6 +254,14 @@ export default function App() {
         if (s.checkUpdates !== undefined) setCheckUpdates(s.checkUpdates)
         if (s.autoDownloadUpdates !== undefined) updater.setAutoDownloadUpdates(s.autoDownloadUpdates)
         if (s.notificationsEnabled !== undefined) setNotificationsEnabled(s.notificationsEnabled)
+        if (s.defaultSubtitleFormat) {
+          setDefaultSubtitleFormat(s.defaultSubtitleFormat)
+          const whisperFormat = s.defaultSubtitleFormat === 'txt' ? 'srt' : s.defaultSubtitleFormat
+          generate.setGenerateConfig((prev) => ({ ...prev, format: whisperFormat }))
+          translate.setTranslateFormat(s.defaultSubtitleFormat)
+          batch.setGenerateFormat(whisperFormat)
+          batch.setTranslateFormat(s.defaultSubtitleFormat)
+        }
         if (s.aiApiKey) setAiApiKey(s.aiApiKey)
         if (s.aiProvider && isValidAiProvider(s.aiProvider)) setAiProvider(s.aiProvider)
         if (s.aiModel) setAiModel(s.aiModel)
@@ -376,35 +386,52 @@ export default function App() {
     return () => unsub()
   }, [])
 
-  // Open containing folder
-  const handleOpenFolder = useCallback(async () => {
-    if (sync.lastOutputFile && window.api?.shell?.showItemInFolder) {
-      const opened = await window.api.shell.showItemInFolder(sync.lastOutputFile)
-      if (opened) return
-    }
-    if (sync.lastOutputDir) {
-      if (window.api?.shell?.openPath) {
-        const opened = await window.api.shell.openPath(sync.lastOutputDir)
-        if (opened) return
-      } else if (window.api?.shell?.showItemInFolder) {
-        const opened = await window.api.shell.showItemInFolder(sync.lastOutputDir)
-        if (opened) return
+  // Open containing folder or highlight destination file
+  const handleOpenFolder = useCallback(
+    async (explicitPath?: string) => {
+      const candidateList: (string | null | undefined)[] = [explicitPath]
+
+      // Add workflow fallbacks in priority order
+      candidateList.push(
+        batch.lastBatchOutputDir,
+        extract.extractOutputDir,
+        sync.lastOutputFile,
+        sync.lastOutputDir,
+        sync.subtitles[0]?.path,
+        video.videoPath
+      )
+
+      for (const target of candidateList) {
+        if (target && typeof target === 'string' && target.trim()) {
+          const clean = cleanPathString(target)
+          if (clean) {
+            try {
+              if (window.api?.shell?.showItemInFolder) {
+                const opened = await window.api.shell.showItemInFolder(clean)
+                if (opened) return
+              }
+              if (window.api?.shell?.openPath) {
+                const opened = await window.api.shell.openPath(clean)
+                if (opened) return
+              }
+            } catch (err) {
+              console.warn('Failed to open path:', err)
+            }
+          }
+        }
       }
-    }
-    if (sync.subtitles.length > 0 && sync.subtitles[0]?.path) {
-      if (window.api?.shell?.showItemInFolder) {
-        const opened = await window.api.shell.showItemInFolder(sync.subtitles[0].path)
-        if (opened) return
-      }
-    }
-    if (video.videoPath) {
-      if (window.api?.shell?.showItemInFolder) {
-        const opened = await window.api.shell.showItemInFolder(video.videoPath)
-        if (opened) return
-      }
-    }
-    toast.error('No folder or subtitle selected yet.')
-  }, [sync.lastOutputFile, sync.lastOutputDir, sync.subtitles, video.videoPath])
+
+      toast.error('Could not locate destination file or folder.')
+    },
+    [
+      batch.lastBatchOutputDir,
+      extract.extractOutputDir,
+      sync.lastOutputFile,
+      sync.lastOutputDir,
+      sync.subtitles,
+      video.videoPath
+    ]
+  )
 
   const isAnyModalOpen =
     audioModalOpen ||
@@ -654,6 +681,10 @@ export default function App() {
                   setTranslateSource={batch.setTranslateSource}
                   preferredTrackLang={batch.preferredTrackLang}
                   setPreferredTrackLang={batch.setPreferredTrackLang}
+                  extractTrackOption={batch.extractTrackOption}
+                  setExtractTrackOption={batch.setExtractTrackOption}
+                  extractCleanTags={batch.extractCleanTags}
+                  setExtractCleanTags={batch.setExtractCleanTags}
                   availableWhisperModels={generate.whisperModels}
                   aiApiKey={aiApiKey}
                   aiProvider={aiProvider}
@@ -724,6 +755,15 @@ export default function App() {
         setAutoDownloadUpdates={updater.setAutoDownloadUpdates}
         notificationsEnabled={notificationsEnabled}
         setNotificationsEnabled={setNotificationsEnabled}
+        defaultSubtitleFormat={defaultSubtitleFormat}
+        setDefaultSubtitleFormat={(fmt) => {
+          setDefaultSubtitleFormat(fmt)
+          const whisperFormat = fmt === 'txt' ? 'srt' : fmt
+          generate.setGenerateConfig((prev) => ({ ...prev, format: whisperFormat }))
+          translate.setTranslateFormat(fmt)
+          batch.setGenerateFormat(whisperFormat)
+          batch.setTranslateFormat(fmt)
+        }}
         aiApiKey={aiApiKey}
         setAiApiKey={setAiApiKey}
         aiProvider={aiProvider}

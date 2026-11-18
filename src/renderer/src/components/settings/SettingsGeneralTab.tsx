@@ -1,10 +1,12 @@
 import React from 'react'
-import { RefreshCw, Bell, ExternalLink } from 'lucide-react'
+import { RefreshCw, Bell, ExternalLink, FileCode } from 'lucide-react'
 import { ThemeSelector, ThemeMode, ToggleSwitch } from '../common'
 
 export interface SettingsGeneralTabProps {
   theme: ThemeMode
   onSelectTheme: (t: ThemeMode) => void
+  defaultSubtitleFormat?: 'srt' | 'vtt' | 'txt'
+  onSelectDefaultSubtitleFormat?: (fmt: 'srt' | 'vtt' | 'txt') => void
   checkUpdates: boolean
   onToggleAutoUpdate: (c: boolean) => void
   autoDownloadUpdates: boolean
@@ -24,6 +26,8 @@ export interface SettingsGeneralTabProps {
 export const SettingsGeneralTab: React.FC<SettingsGeneralTabProps> = ({
   theme,
   onSelectTheme,
+  defaultSubtitleFormat = 'srt',
+  onSelectDefaultSubtitleFormat,
   checkUpdates,
   onToggleAutoUpdate,
   autoDownloadUpdates,
@@ -44,6 +48,47 @@ export const SettingsGeneralTab: React.FC<SettingsGeneralTabProps> = ({
       {/* Card 1: Theme Selector */}
       <div className="p-4 rounded-xl border border-app-card-border bg-app-card transition-colors">
         <ThemeSelector theme={theme} onSelectTheme={onSelectTheme} />
+      </div>
+
+      {/* Card 2: Subtitle Output Format */}
+      <div className="p-4 rounded-xl border border-app-card-border bg-app-card space-y-2.5 transition-colors">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
+          <div>
+            <h3 className="font-bold text-sm text-app-text flex items-center gap-2">
+              <FileCode className="w-4 h-4 text-app-accent" />
+              Default Subtitle Format
+            </h3>
+            <p className="text-xs text-app-text-muted mt-0.5">
+              Global output format for subtitle generation, translation, and batch processing
+            </p>
+          </div>
+
+          <div className="flex rounded-lg border border-app-card-inner-border overflow-hidden bg-app-card-inner p-0.5 shrink-0 self-start sm:self-auto">
+            {(
+              [
+                { id: 'srt', label: 'SRT (Standard)' },
+                { id: 'vtt', label: 'VTT (Web)' },
+                { id: 'txt', label: 'TXT (Plain)' }
+              ] as const
+            ).map((fmt) => (
+              <button
+                key={fmt.id}
+                type="button"
+                onClick={() => onSelectDefaultSubtitleFormat?.(fmt.id)}
+                className={`px-3 py-1.5 text-xs font-semibold rounded-md transition-all cursor-pointer ${
+                  defaultSubtitleFormat === fmt.id
+                    ? 'bg-app-primary text-app-primary-fg shadow-xs font-bold'
+                    : 'text-app-text-muted hover:text-app-text hover:bg-app-card-inner-hover'
+                }`}
+              >
+                {fmt.label}
+              </button>
+            ))}
+          </div>
+        </div>
+        <p className="text-[11px] text-app-text-muted">
+          SubRip (.srt) is universally supported by VLC, television sets, home theaters, and all media players.
+        </p>
       </div>
 
       {/* Card 2: Software Updates */}

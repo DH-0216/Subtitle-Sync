@@ -1,6 +1,7 @@
 import React, { useState, useRef } from 'react'
 import {
   RefreshCw,
+  FileDown,
   Sparkles,
   Languages,
   FolderPlus,
@@ -50,6 +51,10 @@ export interface BatchViewProps {
   setTranslateSource?: (source: 'subtitles' | 'embedded') => void
   preferredTrackLang?: string
   setPreferredTrackLang?: (lang: string) => void
+  extractTrackOption?: string
+  setExtractTrackOption?: (track: string) => void
+  extractCleanTags?: boolean
+  setExtractCleanTags?: (clean: boolean) => void
   availableWhisperModels?: WhisperModelItem[]
   aiApiKey: string
   aiProvider: string
@@ -92,6 +97,10 @@ export const BatchView: React.FC<BatchViewProps> = ({
   setTranslateSource,
   preferredTrackLang = 'en',
   setPreferredTrackLang,
+  extractTrackOption = 'en',
+  setExtractTrackOption,
+  extractCleanTags = true,
+  setExtractCleanTags,
   availableWhisperModels = [],
   aiApiKey,
   aiProvider,
@@ -178,32 +187,46 @@ export const BatchView: React.FC<BatchViewProps> = ({
       {/* 1. Operation Mode Switcher Ribbon */}
       <div className="bg-app-card border border-app-card-border rounded-xl p-3 shadow-xs transition-colors">
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 min-w-0">
-          <div className="flex items-center gap-1 p-1 bg-app-card-inner border border-app-card-inner-border rounded-lg shrink-0">
+          <div className="flex items-center gap-0.5 p-0.5 bg-app-card-inner border border-app-card-inner-border rounded-lg shrink-0">
             <button
               type="button"
               disabled={isProcessing}
               onClick={() => setBatchMode('sync')}
-              className={`h-8 flex items-center gap-1.5 px-3 rounded-md text-xs font-semibold whitespace-nowrap shrink-0 transition-colors select-none ${
+              className={`h-7 flex items-center gap-1.5 px-2.5 rounded-md text-[11px] font-semibold whitespace-nowrap shrink-0 transition-colors select-none ${
                 batchMode === 'sync'
                   ? 'bg-app-primary text-app-primary-fg shadow-xs font-bold'
                   : 'text-app-text-muted hover:text-app-text hover:bg-app-card-inner-hover'
               } ${isProcessing ? 'opacity-60 cursor-not-allowed' : 'cursor-pointer'}`}
             >
-              <RefreshCw className="w-3.5 h-3.5 shrink-0" />
+              <RefreshCw className="w-3 h-3 shrink-0" />
               <span>Synchronize</span>
             </button>
 
             <button
               type="button"
               disabled={isProcessing}
+              onClick={() => setBatchMode('extract')}
+              className={`h-7 flex items-center gap-1.5 px-2.5 rounded-md text-[11px] font-semibold whitespace-nowrap shrink-0 transition-colors select-none ${
+                batchMode === 'extract'
+                  ? 'bg-app-primary text-app-primary-fg shadow-xs font-bold'
+                  : 'text-app-text-muted hover:text-app-text hover:bg-app-card-inner-hover'
+              } ${isProcessing ? 'opacity-60 cursor-not-allowed' : 'cursor-pointer'}`}
+            >
+              <FileDown className="w-3 h-3 shrink-0" />
+              <span>Extract</span>
+            </button>
+
+            <button
+              type="button"
+              disabled={isProcessing}
               onClick={() => setBatchMode('generate')}
-              className={`h-8 flex items-center gap-1.5 px-3 rounded-md text-xs font-semibold whitespace-nowrap shrink-0 transition-colors select-none ${
+              className={`h-7 flex items-center gap-1.5 px-2.5 rounded-md text-[11px] font-semibold whitespace-nowrap shrink-0 transition-colors select-none ${
                 batchMode === 'generate'
                   ? 'bg-app-primary text-app-primary-fg shadow-xs font-bold'
                   : 'text-app-text-muted hover:text-app-text hover:bg-app-card-inner-hover'
               } ${isProcessing ? 'opacity-60 cursor-not-allowed' : 'cursor-pointer'}`}
             >
-              <Sparkles className="w-3.5 h-3.5 shrink-0" />
+              <Sparkles className="w-3 h-3 shrink-0" />
               <span>Generate (Whisper)</span>
             </button>
 
@@ -211,21 +234,22 @@ export const BatchView: React.FC<BatchViewProps> = ({
               type="button"
               disabled={isProcessing}
               onClick={() => setBatchMode('translate')}
-              className={`h-8 flex items-center gap-1.5 px-3 rounded-md text-xs font-semibold whitespace-nowrap shrink-0 transition-colors select-none ${
+              className={`h-7 flex items-center gap-1.5 px-2.5 rounded-md text-[11px] font-semibold whitespace-nowrap shrink-0 transition-colors select-none ${
                 batchMode === 'translate'
                   ? 'bg-app-primary text-app-primary-fg shadow-xs font-bold'
                   : 'text-app-text-muted hover:text-app-text hover:bg-app-card-inner-hover'
               } ${isProcessing ? 'opacity-60 cursor-not-allowed' : 'cursor-pointer'}`}
             >
-              <Languages className="w-3.5 h-3.5 shrink-0" />
+              <Languages className="w-3 h-3 shrink-0" />
               <span>Translate (AI)</span>
             </button>
           </div>
 
-          <div className="text-[11px] text-app-text-muted hidden md:flex items-center gap-1.5 min-w-0 shrink overflow-hidden">
+          <div className="text-[11px] text-app-text-muted hidden md:flex items-center gap-1.5 min-w-0 shrink overflow-hidden pr-3 sm:pr-4">
             <Layers className="w-3.5 h-3.5 text-brand-500 shrink-0" />
             <span className="truncate">
               {batchMode === 'sync' && 'Align series episodes with subtitles'}
+              {batchMode === 'extract' && 'Extract embedded subtitle tracks from video files'}
               {batchMode === 'generate' && 'Transcribe speech with Whisper AI'}
               {batchMode === 'translate' && 'Translate subtitles with AI'}
             </span>
@@ -235,35 +259,75 @@ export const BatchView: React.FC<BatchViewProps> = ({
         {/* Batch Parameters Bar */}
         <div className="mt-3 pt-3 border-t border-app-card-border flex flex-wrap items-center justify-between gap-3 text-xs">
           {batchMode === 'sync' && (
-            <div className="flex items-center gap-3">
-              <span className="font-semibold text-app-text flex items-center gap-1.5">
-                <Sliders className="w-3.5 h-3.5 text-brand-500" /> Sync Engine Mode:
-              </span>
-              <div className="flex items-center gap-1">
-                {(['Standard', 'Smart', 'Split sync'] as SyncMode[]).map((mode) => (
-                  <button
-                    key={mode}
-                    type="button"
-                    disabled={isProcessing}
-                    onClick={() => setSyncMode(mode)}
-                    className={`px-2.5 py-1 rounded border text-xs font-medium transition-colors ${
-                      syncMode === mode
-                        ? 'bg-brand-500 text-white border-brand-600 font-bold'
-                        : 'bg-app-input border-app-input-border text-app-text-muted hover:text-app-text'
-                    }`}
-                  >
-                    {mode}
-                  </button>
-                ))}
+            <div className="flex flex-wrap items-center gap-x-6 gap-y-2.5">
+              <div className="flex items-center gap-3">
+                <span className="font-semibold text-app-text flex items-center gap-1.5">
+                  <Sliders className="w-3.5 h-3.5 text-brand-500" /> Sync Engine Mode:
+                </span>
+                <div className="flex items-center gap-1">
+                  {(['Standard', 'Smart', 'Split sync'] as SyncMode[]).map((mode) => (
+                    <button
+                      key={mode}
+                      type="button"
+                      disabled={isProcessing}
+                      onClick={() => setSyncMode(mode)}
+                      className={`px-2.5 py-1 rounded border text-xs font-medium transition-colors ${
+                        syncMode === mode
+                          ? 'bg-brand-500 text-white border-brand-600 font-bold'
+                          : 'bg-app-input border-app-input-border text-app-text-muted hover:text-app-text'
+                      }`}
+                    >
+                      {mode}
+                    </button>
+                  ))}
+                </div>
+                <span className="text-app-text-muted text-[11px] hidden sm:inline">
+                  (Standard: 1-Pass fast • Smart: 4-Pass high accuracy)
+                </span>
               </div>
-              <span className="text-app-text-muted text-[11px] hidden sm:inline">
-                (Standard: 1-Pass fast • Smart: 4-Pass high accuracy)
-              </span>
+            </div>
+          )}
+
+          {batchMode === 'extract' && (
+            <div className="flex flex-wrap items-center gap-x-6 gap-y-2.5">
+              <div className="flex items-center gap-2">
+                <span className="font-semibold text-app-text text-xs shrink-0">Track:</span>
+                <select
+                  disabled={isProcessing}
+                  value={extractTrackOption}
+                  onChange={(e) => setExtractTrackOption?.(e.target.value)}
+                  className="bg-app-input border border-app-input-border text-app-text text-xs rounded-md px-2 py-1 focus:outline-hidden cursor-pointer"
+                >
+                  <option value="en">English (Primary / Fallback to Default)</option>
+                  <option value="auto">Default / Primary Track</option>
+                  <option value="all">All Text Tracks (Extract All)</option>
+                  <option value="es">Spanish</option>
+                  <option value="fr">French</option>
+                  <option value="de">German</option>
+                  <option value="ja">Japanese</option>
+                  <option value="si">Sinhala</option>
+                  <option value="ta">Tamil</option>
+                  <option value="hi">Hindi</option>
+                </select>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <label className="flex items-center gap-1.5 cursor-pointer select-none text-xs text-app-text font-medium">
+                  <input
+                    type="checkbox"
+                    disabled={isProcessing}
+                    checked={extractCleanTags}
+                    onChange={(e) => setExtractCleanTags?.(e.target.checked)}
+                    className="w-3.5 h-3.5 rounded text-blue-600 focus:ring-0 cursor-pointer"
+                  />
+                  <span>Clean ASS formatting tags</span>
+                </label>
+              </div>
             </div>
           )}
 
           {batchMode === 'generate' && (
-            <div className="flex flex-wrap items-center gap-3">
+            <div className="flex flex-wrap items-center gap-x-6 gap-y-2.5">
               <div className="flex items-center gap-2">
                 <span className="font-semibold text-app-text text-xs shrink-0">Whisper Model:</span>
                 <WhisperModelSelector
@@ -289,37 +353,11 @@ export const BatchView: React.FC<BatchViewProps> = ({
                   selectClassName="max-w-[190px] truncate"
                 />
               </div>
-
-              <div className="flex items-center gap-2">
-                <span className="font-semibold text-app-text text-xs shrink-0">Format:</span>
-                <div className="flex rounded border border-app-input-border overflow-hidden">
-                  <button
-                    type="button"
-                    disabled={isProcessing}
-                    onClick={() => setGenerateFormat('srt')}
-                    className={`px-2 py-0.5 text-xs font-semibold ${
-                      generateFormat === 'srt' ? 'bg-brand-500 text-white' : 'bg-app-input text-app-text-muted'
-                    }`}
-                  >
-                    SRT
-                  </button>
-                  <button
-                    type="button"
-                    disabled={isProcessing}
-                    onClick={() => setGenerateFormat('vtt')}
-                    className={`px-2 py-0.5 text-xs font-semibold ${
-                      generateFormat === 'vtt' ? 'bg-brand-500 text-white' : 'bg-app-input text-app-text-muted'
-                    }`}
-                  >
-                    VTT
-                  </button>
-                </div>
-              </div>
             </div>
           )}
 
           {batchMode === 'translate' && (
-            <div className="flex flex-wrap items-center gap-3">
+            <div className="flex flex-wrap items-center gap-x-6 gap-y-2.5">
               {setTranslateSource && (
                 <div className="flex items-center gap-2">
                   <span className="font-semibold text-app-text text-xs shrink-0">Source:</span>
@@ -384,25 +422,6 @@ export const BatchView: React.FC<BatchViewProps> = ({
                   className="space-y-0"
                   selectClassName="max-w-[170px] truncate"
                 />
-              </div>
-
-              <div className="flex items-center gap-2">
-                <span className="font-semibold text-app-text">Format:</span>
-                <div className="flex rounded border border-app-input-border overflow-hidden">
-                  {(['srt', 'vtt', 'txt'] as const).map((fmt) => (
-                    <button
-                      key={fmt}
-                      type="button"
-                      disabled={isProcessing}
-                      onClick={() => setTranslateFormat(fmt)}
-                      className={`px-2 py-0.5 text-xs font-semibold ${
-                        translateFormat === fmt ? 'bg-brand-500 text-white' : 'bg-app-input text-app-text-muted'
-                      }`}
-                    >
-                      {fmt.toUpperCase()}
-                    </button>
-                  ))}
-                </div>
               </div>
 
               <div className="flex items-center gap-2">
@@ -636,7 +655,9 @@ export const BatchView: React.FC<BatchViewProps> = ({
                     </span>
 
                     <div className="p-2 rounded-lg bg-app-card-inner border border-app-card-inner-border shrink-0 text-app-text">
-                      {item.jobType === 'translate' && !item.videoPath ? (
+                      {item.jobType === 'extract' ? (
+                        <FileDown className="w-4 h-4 text-emerald-500" />
+                      ) : item.jobType === 'translate' && !item.videoPath ? (
                         <FileText className="w-4 h-4 text-emerald-500" />
                       ) : item.jobType === 'translate' && item.videoPath ? (
                         <Video className="w-4 h-4 text-purple-500" />
@@ -704,6 +725,14 @@ export const BatchView: React.FC<BatchViewProps> = ({
                         </div>
                       )}
 
+                      {/* Embedded Subtitle details for Extract jobs */}
+                      {item.jobType === 'extract' && (
+                        <div className="text-[11px] text-app-text-muted mt-0.5 flex items-center gap-1.5 truncate">
+                          <span className="text-emerald-600 dark:text-emerald-400 font-medium">Extract:</span>
+                          <span>Extract embedded subtitle stream into standalone .srt</span>
+                        </div>
+                      )}
+
                       {/* Live Status Message */}
                       {item.statusMessage && (
                         <p className="text-[11px] text-app-text-muted mt-0.5 truncate">
@@ -764,10 +793,10 @@ export const BatchView: React.FC<BatchViewProps> = ({
 
                     {/* Item Controls */}
                     <div className="flex items-center gap-1">
-                      {item.status === 'completed' && item.outputPath && (
+                      {item.status === 'completed' && (item.outputPath || item.outputDir) && (
                         <button
                           type="button"
-                          onClick={() => onOpenFolder(item.outputDir || item.outputPath)}
+                          onClick={() => onOpenFolder(item.outputPath || item.outputDir)}
                           className="p-1.5 rounded-md hover:bg-app-card-inner-hover text-app-text-muted hover:text-app-text transition-colors cursor-pointer"
                           title="Show file in folder"
                         >
