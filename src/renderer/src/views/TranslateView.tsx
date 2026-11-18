@@ -32,12 +32,12 @@ export interface TranslateViewProps {
   isOnline: boolean
 
   // Step 3: Execution
-  isGenerating: boolean
-  generateProgress: number
-  generateStatusMessage: string
+  isTranslating: boolean
+  translateProgress: number
+  translateStatusMessage: string
   lastOutputDir: string | null
   onStartTranslateSubtitle: () => void
-  onCancelGenerate: () => void
+  onCancelTranslate: () => void
   onOpenFolder: (folder?: string) => void
 }
 
@@ -64,12 +64,12 @@ export const TranslateView: React.FC<TranslateViewProps> = ({
   aiModel,
   onOpenSettings,
   isOnline,
-  isGenerating,
-  generateProgress,
-  generateStatusMessage,
+  isTranslating,
+  translateProgress,
+  translateStatusMessage,
   lastOutputDir,
   onStartTranslateSubtitle,
-  onCancelGenerate,
+  onCancelTranslate,
   onOpenFolder
 }) => {
   return (
@@ -104,17 +104,17 @@ export const TranslateView: React.FC<TranslateViewProps> = ({
 
       <Step3Translate
         unlocked={Boolean(translateSubPath)}
-        isTranslating={isGenerating}
+        isTranslating={isTranslating}
         sourceSubPath={translateSubPath}
         language={translateLanguage}
         aiProvider={aiProvider}
         aiModel={aiModel}
         format={translateFormat}
-        progress={generateProgress}
-        statusMessage={generateStatusMessage}
+        progress={translateProgress}
+        statusMessage={translateStatusMessage}
         lastOutputDir={lastOutputDir}
         onStartTranslate={onStartTranslateSubtitle}
-        onCancelTranslate={onCancelGenerate}
+        onCancelTranslate={onCancelTranslate}
         onOpenFolder={onOpenFolder}
       />
     </>

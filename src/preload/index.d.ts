@@ -129,7 +129,7 @@ export interface IElectronAPI {
     downloadModel: (quality: string) => Promise<{ success: boolean; path?: string; error?: string }>
     cancelDownload: () => Promise<boolean>
     startGenerate: (params: any) => Promise<{ success: boolean; output?: string; message?: string; error?: string }>
-    cancelGenerate: () => Promise<boolean>
+    cancelGenerate: (job?: 'translate' | 'generate') => Promise<boolean>
     onDownloadProgress: (callback: (data: {
       percent: number
       downloaded: number

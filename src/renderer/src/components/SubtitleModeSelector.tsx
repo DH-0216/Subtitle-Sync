@@ -33,7 +33,7 @@ export const SubtitleModeSelector: React.FC<SubtitleModeSelectorProps> = ({
       title: "Translate Subtitle",
       desc: "Translate subtitle dialogue into other languages with AI",
       icon: Languages,
-      badge: null,
+      badge: "BETA",
     },
     {
       id: "generate" as SubtitleAction,

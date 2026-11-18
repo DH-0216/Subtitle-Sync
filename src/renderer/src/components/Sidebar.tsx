@@ -27,7 +27,7 @@ const NAV_ITEMS: readonly SidebarNavItem<SubtitleAction>[] = [
     id: "translate",
     label: "Translate Subtitle",
     icon: Languages,
-    badge: null,
+    badge: "BETA",
   },
   {
     id: "generate",

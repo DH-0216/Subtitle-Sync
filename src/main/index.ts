@@ -697,13 +697,13 @@ app.whenReady().then(() => {
     params.out = getUniqueFilePath(params.out)
 
     const logCb = (line: string) => {
-      event.sender.send('sync:event', { type: 'log', message: line })
+      event.sender.send('sync:event', { type: 'log', message: line, job: 'sync' })
     }
     const statusCb = (status: string) => {
-      event.sender.send('sync:event', { type: 'status', message: status })
+      event.sender.send('sync:event', { type: 'status', message: status, job: 'sync' })
     }
     const progressCb = (percent: number, message?: string) => {
-      event.sender.send('sync:event', { type: 'progress', percent, message })
+      event.sender.send('sync:event', { type: 'progress', percent, message, job: 'sync' })
     }
 
     if (!params.video || !fs.existsSync(params.video)) {
@@ -821,9 +821,10 @@ app.whenReady().then(() => {
   })
 
   ipcMain.handle('generator:startGenerate', async (event, params) => {
+    const job = (params?.sourceType === 'subtitle' || (!params?.video && params?.sourceSubPath)) ? 'translate' : 'generate'
     try {
       const result = await executeSubtitleGeneration(params, (data) => {
-        event.sender.send('sync:event', data)
+        event.sender.send('sync:event', { ...data, job })
       })
       return result
     } catch (e: any) {
@@ -831,8 +832,8 @@ app.whenReady().then(() => {
     }
   })
 
-  ipcMain.handle('generator:cancelGenerate', () => {
-    cancelSubtitleGeneration()
+  ipcMain.handle('generator:cancelGenerate', (_event, job?: 'translate' | 'generate') => {
+    cancelSubtitleGeneration(job)
     return true
   })
 

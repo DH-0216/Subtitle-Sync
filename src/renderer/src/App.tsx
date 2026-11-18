@@ -1,11 +1,11 @@
-import React, { useState, useEffect, useCallback } from 'react'
+import React, { useState, useEffect, useCallback, useRef } from 'react'
 import toast, { Toaster } from 'react-hot-toast'
 import { Header } from './components/Header'
 import { Footer } from './components/Footer'
 import { Sidebar } from './components/Sidebar'
 import { SubtitleAction } from './components/SubtitleModeSelector'
 import { SyncView, ExtractView, TranslateView, GenerateView } from './views'
-import { ActivityConsole } from './components/ActivityConsole'
+import { ActivityConsole, LogEntry, LogCategory } from './components/ActivityConsole'
 import { AudioTrackModal } from './components/AudioTrackModal'
 import { SettingsModal } from './components/SettingsModal'
 import { AboutModal } from './components/AboutModal'
@@ -27,14 +27,34 @@ import {
 export type { ThemeMode }
 
 export default function App() {
-  // Activity Console Logs & Status
-  const [logs, setLogs] = useState<string[]>([])
-  const addLog = useCallback((msg: string) => {
-    setLogs((prev) => [...prev, msg])
-  }, [])
-
   // Modals & Mode
   const [subtitleAction, setSubtitleAction] = useState<SubtitleAction>('sync')
+  const subtitleActionRef = useRef<SubtitleAction>('sync')
+  useEffect(() => {
+    subtitleActionRef.current = subtitleAction
+  }, [subtitleAction])
+
+  // Activity Console Logs & Status (Categorized by active workflow)
+  const logIdCounter = useRef(0)
+  const [logs, setLogs] = useState<LogEntry[]>([])
+  const addLog = useCallback((text: string, category: LogCategory = 'system') => {
+    setLogs((prev) => [...prev, { id: ++logIdCounter.current, text, category }])
+  }, [])
+
+  const addSyncLog = useCallback((msg: string) => addLog(msg, 'sync'), [addLog])
+  const addExtractLog = useCallback((msg: string) => addLog(msg, 'extract'), [addLog])
+  const addTranslateLog = useCallback((msg: string) => addLog(msg, 'translate'), [addLog])
+  const addGenerateLog = useCallback((msg: string) => addLog(msg, 'generate'), [addLog])
+  const addVideoLog = useCallback((msg: string) => addLog(msg, subtitleActionRef.current), [addLog])
+
+  const handleClearLogs = useCallback((category?: SubtitleAction | 'all') => {
+    if (!category || category === 'all') {
+      setLogs([])
+    } else {
+      setLogs((prev) => prev.filter((l) => l.category !== category))
+    }
+  }, [])
+
   const [audioModalOpen, setAudioModalOpen] = useState(false)
   const [settingsModalOpen, setSettingsModalOpen] = useState(false)
   const [settingsInitialTab, setSettingsInitialTab] = useState<'general' | 'ai'>('general')
@@ -69,12 +89,12 @@ export default function App() {
   } = useThemePreferences()
 
   // 2. In-App Updater Hook
-  const updater = useAppUpdater({ notifyJobComplete, addLog })
+  const updater = useAppUpdater({ notifyJobComplete, addLog: (m) => addLog(m, 'system') })
 
   // 3. Video & Media Hook
   const video = useVideoMedia({
     subtitleAction,
-    addLog,
+    addLog: addVideoLog,
     setStatusMessage: (msg) => sync.setStatusMessage(msg),
     onSubtitleDropped: (paths) => sync.handleAddSubtitles(paths),
     onTranslateSubtitleDropped: (path) => translate.handleSelectTranslateSubtitle(path),
@@ -91,7 +111,7 @@ export default function App() {
     videoPath: video.videoPath,
     selectedTrack: video.selectedTrack,
     onVideoSelect: (p) => video.handleSelectVideo(p),
-    addLog,
+    addLog: addSyncLog,
     notifyJobComplete
   })
 
@@ -99,7 +119,7 @@ export default function App() {
   const extract = useExtractWorkflow({
     videoPath: video.videoPath,
     subtitleTracks: video.subtitleTracks,
-    addLog,
+    addLog: addExtractLog,
     notifyJobComplete,
     onOutputReady: (f, d) => {
       sync.setLastOutputFile(f)
@@ -126,7 +146,7 @@ export default function App() {
       setSettingsInitialTab('ai')
       setSettingsModalOpen(true)
     },
-    addLog,
+    addLog: addGenerateLog,
     notifyJobComplete,
     onOutputReady: (f, d) => {
       sync.setLastOutputFile(f)
@@ -153,12 +173,9 @@ export default function App() {
       setSettingsModalOpen(true)
     },
     onRemoveVideo: () => video.handleRemoveVideo(),
-    setIsGenerating: generate.setIsGeneratingSync,
-    setGenerateProgress: generate.setGenerateProgress,
-    setGenerateStatusMessage: generate.setGenerateStatusMessage,
     setIsExtracting: extract.setIsExtracting,
     setExtractStatusMessage: extract.setExtractStatusMessage,
-    addLog,
+    addLog: addTranslateLog,
     notifyJobComplete,
     onOutputReady: (f, d) => {
       sync.setLastOutputFile(f)
@@ -268,34 +285,67 @@ export default function App() {
   }, [generate.loadWhisperModels])
 
   // Global Engine Event Listener (logs, status, progress)
-  const engineHandlersRef = React.useRef({ generate, sync, addLog })
-  engineHandlersRef.current = { generate, sync, addLog }
+  const engineHandlersRef = React.useRef({ generate, translate, sync, addLog })
+  engineHandlersRef.current = { generate, translate, sync, addLog }
 
   useEffect(() => {
     if (!window.api?.engine?.onEvent) return
     const unsub = window.api.engine.onEvent((event: any) => {
-      const { generate: gen, sync: snc, addLog: log } = engineHandlersRef.current
+      const { generate: gen, translate: trans, sync: snc, addLog: log } = engineHandlersRef.current
       if (event.type === 'log') {
-        log(event.message)
+        const cat: LogCategory =
+          event.job === 'translate' ? 'translate' :
+          event.job === 'generate' ? 'generate' :
+          event.job === 'sync' ? 'sync' :
+          subtitleActionRef.current
+        log(event.message, cat)
       } else if (event.type === 'status') {
-        if (gen.isGeneratingRef.current) {
+        if (event.job === 'translate') {
+          if (!trans.translateCancelledRef.current) {
+            trans.setTranslateStatusMessage(event.message)
+          }
+        } else if (event.job === 'generate') {
           if (!gen.generateCancelledRef.current) {
             gen.setGenerateStatusMessage(event.message)
           }
-        } else {
+        } else if (event.job === 'sync') {
           if (!snc.syncCancelledRef.current) {
+            snc.setStatusMessage(event.message)
+          }
+        } else {
+          if (trans.isTranslatingRef.current && !gen.isGeneratingRef.current) {
+            trans.setTranslateStatusMessage(event.message)
+          } else if (gen.isGeneratingRef.current && !trans.isTranslatingRef.current) {
+            gen.setGenerateStatusMessage(event.message)
+          } else {
             snc.setStatusMessage(event.message)
           }
         }
       } else if (event.type === 'progress') {
         const filePct = typeof event.percent === 'number' ? event.percent : 0
-        if (gen.isGeneratingRef.current) {
+        if (event.job === 'translate') {
+          if (!trans.translateCancelledRef.current) {
+            trans.setTranslateProgress(filePct)
+            if (event.message) trans.setTranslateStatusMessage(event.message)
+          }
+        } else if (event.job === 'generate') {
           if (!gen.generateCancelledRef.current) {
             gen.setGenerateProgress(filePct)
             if (event.message) gen.setGenerateStatusMessage(event.message)
           }
-        } else {
+        } else if (event.job === 'sync') {
           if (!snc.syncCancelledRef.current) {
+            snc.setProgress(filePct)
+            if (event.message) snc.setStatusMessage(event.message)
+          }
+        } else {
+          if (trans.isTranslatingRef.current && !gen.isGeneratingRef.current) {
+            trans.setTranslateProgress(filePct)
+            if (event.message) trans.setTranslateStatusMessage(event.message)
+          } else if (gen.isGeneratingRef.current && !trans.isTranslatingRef.current) {
+            gen.setGenerateProgress(filePct)
+            if (event.message) gen.setGenerateStatusMessage(event.message)
+          } else {
             snc.setProgress(filePct)
             if (event.message) snc.setStatusMessage(event.message)
           }
@@ -509,12 +559,12 @@ export default function App() {
                     setSettingsModalOpen(true)
                   }}
                   isOnline={isOnline}
-                  isGenerating={generate.isGenerating}
-                  generateProgress={generate.generateProgress}
-                  generateStatusMessage={generate.generateStatusMessage}
+                  isTranslating={translate.isTranslating}
+                  translateProgress={translate.translateProgress}
+                  translateStatusMessage={translate.translateStatusMessage}
                   lastOutputDir={sync.lastOutputDir}
                   onStartTranslateSubtitle={translate.handleStartTranslate}
-                  onCancelGenerate={generate.handleCancelGenerate}
+                  onCancelTranslate={translate.handleCancelTranslate}
                   onOpenFolder={handleOpenFolder}
                 />
               )}
@@ -535,7 +585,7 @@ export default function App() {
                   onDropFilesOnVideo={video.handleDropFilesOnVideo}
                   onSelectTrack={(idx) => {
                     video.setSelectedTrack(idx)
-                    addLog(`[AUDIO] Selected track #${idx} for subtitle generation`)
+                    addGenerateLog(`[AUDIO] Selected track #${idx} for subtitle generation`)
                   }}
                   generateConfig={generate.generateConfig}
                   onChangeGenerateConfig={(newCfg) =>
@@ -561,8 +611,9 @@ export default function App() {
               <div className="!mt-auto pt-2 pb-1" style={{ marginTop: 'auto' }}>
                 <ActivityConsole
                   logs={logs}
-                  onClear={() => setLogs([])}
-                  isSyncing={sync.isSyncing || generate.isGenerating || extract.isExtracting}
+                  currentAction={subtitleAction}
+                  onClear={handleClearLogs}
+                  isSyncing={sync.isSyncing || generate.isGenerating || extract.isExtracting || translate.isTranslating}
                 />
               </div>
             </main>
@@ -581,7 +632,7 @@ export default function App() {
         selectedTrack={video.selectedTrack}
         onSelectTrack={(idx) => {
           video.setSelectedTrack(idx)
-          addLog(`[AUDIO] Selected audio reference track #${idx}`)
+          addSyncLog(`[AUDIO] Selected audio reference track #${idx}`)
         }}
       />
 

@@ -326,7 +326,7 @@ export function useGenerateWorkflow({
     generateCancelledRef.current = true
     isGeneratingRef.current = false
     try {
-      await window.api.generator.cancelGenerate()
+      await window.api.generator.cancelGenerate('generate')
     } catch {}
     setIsGenerating(false)
     setGenerateProgress(0)

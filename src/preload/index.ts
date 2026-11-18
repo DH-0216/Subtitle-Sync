@@ -76,7 +76,7 @@ const api = {
     downloadModel: (quality: string) => ipcRenderer.invoke('generator:downloadModel', quality),
     cancelDownload: () => ipcRenderer.invoke('generator:cancelDownload'),
     startGenerate: (params: any) => ipcRenderer.invoke('generator:startGenerate', params),
-    cancelGenerate: () => ipcRenderer.invoke('generator:cancelGenerate'),
+    cancelGenerate: (job?: 'translate' | 'generate') => ipcRenderer.invoke('generator:cancelGenerate', job),
     onDownloadProgress: (callback: (data: any) => void) => {
       const sub = (_: any, data: any) => callback(data)
       ipcRenderer.on('generator:downloadProgress', sub)

@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react'
+import { useState, useRef, useEffect, useCallback } from 'react'
 import toast from 'react-hot-toast'
 import {
   cleanPathString,
@@ -20,9 +20,6 @@ interface UseTranslateWorkflowOptions {
   extractCleanTags: boolean
   onOpenSettingsAiTab: () => void
   onRemoveVideo: () => void
-  setIsGenerating: (g: boolean) => void
-  setGenerateProgress: (p: number) => void
-  setGenerateStatusMessage: (msg: string) => void
   setIsExtracting: (e: boolean) => void
   setExtractStatusMessage: (msg: string) => void
   addLog: (msg: string) => void
@@ -41,9 +38,6 @@ export function useTranslateWorkflow({
   extractCleanTags,
   onOpenSettingsAiTab,
   onRemoveVideo,
-  setIsGenerating,
-  setGenerateProgress,
-  setGenerateStatusMessage,
   setIsExtracting,
   setExtractStatusMessage,
   addLog,
@@ -54,6 +48,22 @@ export function useTranslateWorkflow({
   const [translateLanguage, setTranslateLanguage] = useState('si')
   const [translateFormat, setTranslateFormat] = useState<'srt' | 'vtt' | 'txt'>('srt')
   const [translateSubError, setTranslateSubError] = useState<string | null>(null)
+
+  const [isTranslating, setIsTranslating] = useState(false)
+  const [translateProgress, setTranslateProgress] = useState(0)
+  const [translateStatusMessage, setTranslateStatusMessage] = useState('')
+
+  const isTranslatingRef = useRef(false)
+  const translateCancelledRef = useRef(false)
+
+  const setIsTranslatingSync = useCallback((val: boolean) => {
+    isTranslatingRef.current = val
+    setIsTranslating(val)
+  }, [])
+
+  useEffect(() => {
+    isTranslatingRef.current = isTranslating
+  }, [isTranslating])
 
   const handleSelectTranslateSubtitle = useCallback((path: string) => {
     const clean = cleanPathString(path)
@@ -150,9 +160,10 @@ export function useTranslateWorkflow({
       return
     }
 
-    setIsGenerating(true)
-    setGenerateProgress(5)
-    setGenerateStatusMessage('Starting AI subtitle translation...')
+    translateCancelledRef.current = false
+    setIsTranslatingSync(true)
+    setTranslateProgress(5)
+    setTranslateStatusMessage('Starting AI subtitle translation...')
 
     addLog(`=== Starting AI Subtitle Translation ===`)
     addLog(`Source Subtitle: ${translateSubPath}`)
@@ -174,8 +185,8 @@ export function useTranslateWorkflow({
       })
 
       if (res?.success) {
-        setGenerateProgress(100)
-        setGenerateStatusMessage('AI subtitle translation complete!')
+        setTranslateProgress(100)
+        setTranslateStatusMessage('AI subtitle translation complete!')
         toast.success('Subtitle translated successfully!', { duration: 4000 })
         notifyJobComplete(
           'Subtitle Translation Complete',
@@ -189,19 +200,40 @@ export function useTranslateWorkflow({
           onOutputReady(res.output, folder)
         }
       } else {
-        setGenerateProgress(0)
+        setTranslateProgress(0)
+        const isCancelled = res?.message?.toLowerCase().includes('cancel')
         const errMsg = res?.message || (res as any)?.error || 'Translation failed.'
-        setGenerateStatusMessage(errMsg)
-        toast.error(`Translation failed: ${errMsg}`)
+        setTranslateStatusMessage(isCancelled ? 'Cancelled by user' : errMsg)
+        if (!isCancelled) {
+          toast.error(`Translation failed: ${errMsg}`)
+        }
       }
     } catch (err: any) {
-      setGenerateProgress(0)
-      setGenerateStatusMessage('Translation error occurred.')
-      toast.error(`Error: ${err?.message || err}`)
+      setTranslateProgress(0)
+      const isCancelled = err.message?.toLowerCase().includes('cancel')
+      if (isCancelled) {
+        setTranslateStatusMessage('Cancelled by user')
+      } else {
+        setTranslateStatusMessage('Translation error occurred.')
+        toast.error(`Error: ${err?.message || err}`)
+      }
     } finally {
-      setIsGenerating(false)
+      setIsTranslatingSync(false)
     }
-  }, [addLog, aiApiKey, aiModel, aiPrompt, aiProvider, isOnline, notifyJobComplete, onOpenSettingsAiTab, onOutputReady, setGenerateProgress, setGenerateStatusMessage, setIsGenerating, translateFormat, translateLanguage, translateSubPath, videoPath])
+  }, [addLog, aiApiKey, aiModel, aiPrompt, aiProvider, isOnline, notifyJobComplete, onOpenSettingsAiTab, onOutputReady, setIsTranslatingSync, translateFormat, translateLanguage, translateSubPath, videoPath])
+
+  const handleCancelTranslate = useCallback(async () => {
+    translateCancelledRef.current = true
+    isTranslatingRef.current = false
+    try {
+      await window.api.generator.cancelGenerate('translate')
+    } catch {}
+    setIsTranslating(false)
+    setTranslateProgress(0)
+    setTranslateStatusMessage('Cancelled by user')
+    toast('Subtitle translation cancelled', { icon: '⏹️', duration: 2500 })
+    addLog('[USER] Subtitle translation cancelled.')
+  }, [addLog])
 
   return {
     translateSubPath,
@@ -212,9 +244,18 @@ export function useTranslateWorkflow({
     setTranslateFormat,
     translateSubError,
     setTranslateSubError,
+    isTranslating,
+    setIsTranslating: setIsTranslatingSync,
+    translateProgress,
+    setTranslateProgress,
+    translateStatusMessage,
+    setTranslateStatusMessage,
+    isTranslatingRef,
+    translateCancelledRef,
     handleSelectTranslateSubtitle,
     handleBrowseTranslateSubtitle,
     handleExtractAndTranslateSubtitle,
-    handleStartTranslate
+    handleStartTranslate,
+    handleCancelTranslate
   }
 }

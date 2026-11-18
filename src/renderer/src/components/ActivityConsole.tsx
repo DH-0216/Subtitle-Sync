@@ -1,39 +1,95 @@
-import React, { useRef, useEffect, useState } from 'react'
-import { Terminal, Trash2, Copy, Check, ChevronDown, ChevronUp, Maximize2, Minimize2 } from 'lucide-react'
+import React, { useRef, useEffect, useState, useMemo } from 'react'
+import { Terminal, Trash2, Copy, Check, ChevronDown, ChevronUp, Maximize2, Minimize2, Layers } from 'lucide-react'
+import { SubtitleAction } from './SubtitleModeSelector'
+
+export type LogCategory = SubtitleAction | 'system'
+
+export interface LogEntry {
+  id: number | string
+  text: string
+  category: LogCategory
+}
 
 interface ActivityConsoleProps {
-  logs: string[]
-  onClear: () => void
+  logs: LogEntry[] | string[]
+  currentAction?: SubtitleAction
+  onClear: (category?: SubtitleAction | 'all') => void
   isSyncing?: boolean
   className?: string
 }
 
-export const ActivityConsole: React.FC<ActivityConsoleProps> = ({ logs, onClear, isSyncing, className = '' }) => {
+const ACTION_LABELS: Record<SubtitleAction, string> = {
+  sync: 'Synchronize',
+  extract: 'Extract',
+  translate: 'Translate',
+  generate: 'Generate'
+}
+
+export const ActivityConsole: React.FC<ActivityConsoleProps> = ({
+  logs,
+  currentAction = 'sync',
+  onClear,
+  isSyncing,
+  className = ''
+}) => {
   const terminalRef = useRef<HTMLDivElement>(null)
   const [isExpanded, setIsExpanded] = useState(false)
   const [isMaximized, setIsMaximized] = useState(false)
   const [copied, setCopied] = useState(false)
+  const [showAll, setShowAll] = useState(false)
 
-  // Auto-expand when synchronization starts
+  // Automatically switch to the selected option whenever the user switches sidebar tabs
+  useEffect(() => {
+    setShowAll(false)
+  }, [currentAction])
+
+  // Normalize logs
+  const normalizedLogs: LogEntry[] = useMemo(() => {
+    if (!logs || logs.length === 0) return []
+    if (typeof logs[0] === 'string') {
+      return (logs as string[]).map((text, idx) => ({
+        id: idx,
+        text,
+        category: 'system' as LogCategory
+      }))
+    }
+    return logs as LogEntry[]
+  }, [logs])
+
+  // Visible logs strictly based on currentAction (or showAll)
+  const visibleLogs = useMemo(() => {
+    if (showAll) {
+      return normalizedLogs
+    }
+    return normalizedLogs.filter(
+      (l) => l.category === currentAction || (currentAction === 'sync' && l.category === 'system')
+    )
+  }, [normalizedLogs, showAll, currentAction])
+
+  // Auto-expand when a task starts running
   useEffect(() => {
     if (isSyncing) {
       setIsExpanded(true)
     }
   }, [isSyncing])
 
-  // Auto-scroll terminal to bottom when new logs arrive
+  // Auto-scroll terminal to bottom when new visible logs arrive
   useEffect(() => {
     if (isExpanded && terminalRef.current) {
       terminalRef.current.scrollTop = terminalRef.current.scrollHeight
     }
-  }, [logs, isExpanded, isMaximized])
+  }, [visibleLogs, isExpanded, isMaximized])
 
   const handleCopy = () => {
-    if (logs.length > 0) {
-      navigator.clipboard.writeText(logs.join('\n'))
+    if (visibleLogs.length > 0) {
+      navigator.clipboard.writeText(visibleLogs.map((l) => l.text).join('\n'))
       setCopied(true)
       setTimeout(() => setCopied(false), 2000)
     }
+  }
+
+  const handleClear = () => {
+    onClear(showAll ? 'all' : currentAction)
   }
 
   const toggleExpand = () => {
@@ -43,57 +99,111 @@ export const ActivityConsole: React.FC<ActivityConsoleProps> = ({ logs, onClear,
     }
   }
 
+  const getEmptyMessage = () => {
+    if (showAll) {
+      return 'Console idle. Start a task to view real-time engine stdout/stderr and logs.'
+    }
+    switch (currentAction) {
+      case 'translate':
+        return 'Translate activity idle. Start an AI translation to view real-time batch translation activity.'
+      case 'generate':
+        return 'Generate activity idle. Start subtitle generation to view Whisper AI and FFmpeg logs.'
+      case 'sync':
+        return 'Sync activity idle. Start a synchronization to view real-time engine stdout/stderr and score ratings.'
+      case 'extract':
+        return 'Extract activity idle. Select embedded tracks to view extraction logs.'
+      default:
+        return 'Console idle. Start a task to view real-time engine stdout/stderr and logs.'
+    }
+  }
+
+  const renderLogLine = (line: string) => {
+    if (line.startsWith('[ERROR]')) return <span className="text-rose-400 font-semibold">{line}</span>
+    if (line.startsWith('[SUCCESS]')) return <span className="text-emerald-400 font-semibold">{line}</span>
+    if (line.startsWith('[ENGINE]')) return <span className="text-blue-400 font-medium">{line}</span>
+    if (line.startsWith('[MEDIA]')) return <span className="text-indigo-300 font-medium">{line}</span>
+    if (line.startsWith('[TRANSLATE]') || line.startsWith('[AI TRANSLATION]'))
+      return <span className="text-violet-300 font-medium">{line}</span>
+    if (line.startsWith('[EXTRACT]')) return <span className="text-amber-300 font-medium">{line}</span>
+    if (line.startsWith('[SYNC]')) return <span className="text-cyan-300 font-medium">{line}</span>
+    if (line.startsWith('===')) return <span className="text-blue-300 font-bold">{line}</span>
+    if (line.includes('score') || line.includes('Score')) return <span className="text-teal-400 font-semibold">{line}</span>
+    return <span className="text-slate-300">{line}</span>
+  }
+
   return (
     <div className={`bg-app-card border border-app-card-border rounded-2xl overflow-hidden shadow-xs transition-all duration-300 ${className}`}>
       {/* Header Bar */}
-      <div
-        className="bg-app-card-header text-app-text px-4 py-2.5 flex items-center justify-between border-b border-app-card-header-border transition-colors"
-      >
-        <div className="flex items-center gap-2.5">
-          <Terminal className="w-4 h-4 text-app-text" />
-          <span className="font-bold text-xs uppercase tracking-wider text-app-text">
+      <div className="bg-app-card-header text-app-text px-4 py-2.5 flex items-center justify-between border-b border-app-card-header-border transition-colors gap-2">
+        <div className="flex items-center gap-2.5 min-w-0">
+          <Terminal className="w-4 h-4 text-app-text shrink-0" />
+          <span className="font-bold text-xs uppercase tracking-wider text-app-text shrink-0">
             Console Activity
           </span>
-          {logs.length > 0 && (
-            <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded-full bg-app-card-inner-hover text-app-text border border-app-card-inner-border">
-              {logs.length} lines
-            </span>
-          )}
+
+          {/* Automatic Active Option Badge */}
+          <span className="text-[10.5px] font-bold px-2.5 py-0.5 rounded-full bg-blue-100 text-blue-900 dark:bg-blue-900/50 dark:text-blue-300 border border-blue-200 dark:border-blue-800 shrink-0">
+            {showAll ? 'All Features' : ACTION_LABELS[currentAction] || currentAction}
+          </span>
+
+          {/* Line count */}
+          <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded-full bg-app-card-inner-hover text-app-text border border-app-card-inner-border shrink-0">
+            {visibleLogs.length} {visibleLogs.length === 1 ? 'line' : 'lines'}
+          </span>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 shrink-0">
           {/* Action buttons (only when expanded or when logs exist) */}
-          {isExpanded && logs.length > 0 && (
+          {isExpanded && (
             <>
+              {/* Optional Show All / Current Toggle */}
               <button
-                onClick={handleCopy}
-                className="p-1.5 rounded-lg text-app-text-muted hover:text-app-text hover:bg-app-card-inner-hover transition-colors cursor-pointer"
-                title="Copy all logs"
+                type="button"
+                onClick={() => setShowAll((prev) => !prev)}
+                className={`flex items-center gap-1 px-2 py-1 rounded-lg text-[10.5px] font-bold border transition-all cursor-pointer ${
+                  showAll
+                    ? 'border-blue-500 bg-blue-50 text-blue-700 dark:bg-blue-950/60 dark:text-blue-300 dark:border-blue-600'
+                    : 'border-app-card-inner-border bg-app-card-inner text-app-text-muted hover:text-app-text'
+                }`}
+                title={showAll ? `Show only ${ACTION_LABELS[currentAction]} activity` : 'Show all console logs combined'}
               >
-                {copied ? (
-                  <Check className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
-                ) : (
-                  <Copy className="w-3.5 h-3.5" />
-                )}
+                <Layers className="w-3 h-3" />
+                <span>{showAll ? 'Show Current' : 'Show All'}</span>
               </button>
-              <button
-                onClick={onClear}
-                className="p-1.5 rounded-lg text-app-text-muted hover:text-rose-500 hover:bg-app-card-inner-hover transition-colors cursor-pointer"
-                title="Clear console"
-              >
-                <Trash2 className="w-3.5 h-3.5" />
-              </button>
-              <button
-                onClick={() => setIsMaximized((prev) => !prev)}
-                className="p-1.5 rounded-lg text-app-text-muted hover:text-app-text hover:bg-app-card-inner-hover transition-colors cursor-pointer"
-                title={isMaximized ? 'Restore height' : 'Expand height'}
-              >
-                {isMaximized ? (
-                  <Minimize2 className="w-3.5 h-3.5" />
-                ) : (
-                  <Maximize2 className="w-3.5 h-3.5" />
-                )}
-              </button>
+
+              {visibleLogs.length > 0 && (
+                <>
+                  <button
+                    onClick={handleCopy}
+                    className="p-1.5 rounded-lg text-app-text-muted hover:text-app-text hover:bg-app-card-inner-hover transition-colors cursor-pointer"
+                    title={`Copy ${showAll ? 'all' : ACTION_LABELS[currentAction]} logs`}
+                  >
+                    {copied ? (
+                      <Check className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
+                    ) : (
+                      <Copy className="w-3.5 h-3.5" />
+                    )}
+                  </button>
+                  <button
+                    onClick={handleClear}
+                    className="p-1.5 rounded-lg text-app-text-muted hover:text-rose-500 hover:bg-app-card-inner-hover transition-colors cursor-pointer"
+                    title={`Clear ${showAll ? 'all' : ACTION_LABELS[currentAction]} logs`}
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                  </button>
+                  <button
+                    onClick={() => setIsMaximized((prev) => !prev)}
+                    className="p-1.5 rounded-lg text-app-text-muted hover:text-app-text hover:bg-app-card-inner-hover transition-colors cursor-pointer"
+                    title={isMaximized ? 'Restore height' : 'Expand height'}
+                  >
+                    {isMaximized ? (
+                      <Minimize2 className="w-3.5 h-3.5" />
+                    ) : (
+                      <Maximize2 className="w-3.5 h-3.5" />
+                    )}
+                  </button>
+                </>
+              )}
             </>
           )}
 
@@ -120,26 +230,14 @@ export const ActivityConsole: React.FC<ActivityConsoleProps> = ({ logs, onClear,
             isMaximized ? 'h-96' : 'h-52'
           }`}
         >
-          {logs.length === 0 ? (
+          {visibleLogs.length === 0 ? (
             <div className="h-full flex items-center justify-center text-slate-500 italic select-none">
-              Console idle. Start a synchronization to view real-time engine stdout/stderr and score ratings.
+              {getEmptyMessage()}
             </div>
           ) : (
-            logs.map((line, idx) => (
-              <div key={idx} className="leading-relaxed whitespace-pre-wrap break-all font-mono">
-                {line.startsWith('[ERROR]') ? (
-                  <span className="text-rose-400 font-semibold">{line}</span>
-                ) : line.startsWith('[SUCCESS]') ? (
-                  <span className="text-emerald-400 font-semibold">{line}</span>
-                ) : line.startsWith('[ENGINE]') ? (
-                  <span className="text-blue-400 font-medium">{line}</span>
-                ) : line.startsWith('[MEDIA]') ? (
-                  <span className="text-indigo-300 font-medium">{line}</span>
-                ) : line.includes('score') || line.includes('Score') ? (
-                  <span className="text-teal-400 font-semibold">{line}</span>
-                ) : (
-                  <span className="text-slate-300">{line}</span>
-                )}
+            visibleLogs.map((log) => (
+              <div key={log.id} className="leading-relaxed whitespace-pre-wrap break-all font-mono">
+                {renderLogLine(log.text)}
               </div>
             ))
           )}

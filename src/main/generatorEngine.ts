@@ -45,7 +45,11 @@ export interface GenerateParams {
 
 let activeGeneratorProcess: any = null
 let isGenerationCancelled = false
-let activeAbortController: AbortController | null = null
+let activeGenerateAbortController: AbortController | null = null
+
+let isTranslationCancelled = false
+let activeTranslateAbortController: AbortController | null = null
+
 let pendingGeneratorReject: ((err: Error) => void) | null = null
 const activeCreatedFiles = new Set<string>()
 
@@ -66,16 +70,16 @@ export function cleanupActiveGenerationFiles(): void {
  * AI Provider Translation Dispatch Registry
  */
 const AI_TRANSLATION_HANDLERS = {
-  gemini: (cues: any[], apiKey: string, model?: string, prompt?: string, onLog?: any, onProg?: any, targetLang?: string) =>
+  gemini: (cues: any[], apiKey: string, model?: string, prompt?: string, onLog?: any, onProg?: any, targetLang?: string, opts?: any) =>
     translateCuesWithGemini(cues, apiKey, model, prompt, onLog, onProg, {
-      isCancelled: () => isGenerationCancelled,
-      abortSignal: activeAbortController?.signal,
+      isCancelled: opts?.isCancelled || (() => isTranslationCancelled),
+      abortSignal: opts?.abortSignal || activeTranslateAbortController?.signal,
       targetLang: targetLang || 'si'
     }),
-  openai: (cues: any[], apiKey: string, model?: string, prompt?: string, onLog?: any, onProg?: any, targetLang?: string) =>
+  openai: (cues: any[], apiKey: string, model?: string, prompt?: string, onLog?: any, onProg?: any, targetLang?: string, opts?: any) =>
     translateCuesWithOpenAI(cues, apiKey, model, prompt, onLog, onProg, {
-      isCancelled: () => isGenerationCancelled,
-      abortSignal: activeAbortController?.signal,
+      isCancelled: opts?.isCancelled || (() => isTranslationCancelled),
+      abortSignal: opts?.abortSignal || activeTranslateAbortController?.signal,
       targetLang: targetLang || 'si'
     })
 }
@@ -88,13 +92,14 @@ async function translateCuesViaAi(
   customPrompt: string | undefined,
   onLog: (msg: string) => void,
   onProgress?: (batchIdx: number, totalBatches: number) => void,
-  targetLang?: string
+  targetLang?: string,
+  opts?: { isCancelled?: () => boolean; abortSignal?: AbortSignal }
 ): Promise<any[]> {
   const handler = AI_TRANSLATION_HANDLERS[provider]
   if (!handler) {
     throw new Error(`Unsupported AI provider "${provider}".`)
   }
-  return handler(cues, apiKey, model, customPrompt, onLog, onProgress, targetLang)
+  return handler(cues, apiKey, model, customPrompt, onLog, onProgress, targetLang, opts)
 }
 
 /**
@@ -104,9 +109,16 @@ export async function executeSubtitleGeneration(
   params: GenerateParams,
   onEvent: (data: any) => void
 ): Promise<{ success: boolean; output?: string; message?: string }> {
-  isGenerationCancelled = false
-  activeAbortController = new AbortController()
-  activeCreatedFiles.clear()
+  const isSubtitleSource = params.sourceType === 'subtitle' || (!params.video && params.sourceSubPath)
+
+  if (isSubtitleSource) {
+    isTranslationCancelled = false
+    activeTranslateAbortController = new AbortController()
+  } else {
+    isGenerationCancelled = false
+    activeGenerateAbortController = new AbortController()
+    activeCreatedFiles.clear()
+  }
 
   const {
     video,
@@ -176,10 +188,14 @@ export async function executeSubtitleGeneration(
               message: `Translating to ${langName} (${batchIdx}/${totalBatches})...`
             })
           },
-          language
+          language,
+          {
+            isCancelled: () => isTranslationCancelled,
+            abortSignal: activeTranslateAbortController?.signal
+          }
         )
 
-        if (isGenerationCancelled) {
+        if (isTranslationCancelled) {
           throw new Error('Subtitle translation cancelled by user.')
         }
 
@@ -206,10 +222,8 @@ export async function executeSubtitleGeneration(
         try {
           fs.unlinkSync(sourceSubPath)
         } catch {}
-        activeCreatedFiles.delete(sourceSubPath)
       }
 
-      activeCreatedFiles.clear()
       onEvent({ type: 'progress', percent: 100, message: 'Subtitle translation complete!' })
       onEvent({ type: 'status', message: 'Subtitle translation complete!' })
       onEvent({ type: 'log', message: `[SUBTITLE] Translated subtitle saved: ${finalOutputPath}` })
@@ -353,7 +367,11 @@ export async function executeSubtitleGeneration(
               message: `Translating to ${langName} (${batchIdx}/${totalBatches})...`
             })
           },
-          language
+          language,
+          {
+            isCancelled: () => isGenerationCancelled,
+            abortSignal: activeGenerateAbortController?.signal
+          }
         )
 
         if (isGenerationCancelled) {
@@ -411,23 +429,35 @@ export async function executeSubtitleGeneration(
   }
 }
 
-export function cancelSubtitleGeneration(): void {
-  isGenerationCancelled = true
-  const proc = activeGeneratorProcess
-  activeGeneratorProcess = null
-  if (proc) {
-    killProcessTree(proc)
+export function cancelSubtitleGeneration(job?: 'translate' | 'generate'): void {
+  if (!job || job === 'generate') {
+    isGenerationCancelled = true
+    const proc = activeGeneratorProcess
+    activeGeneratorProcess = null
+    if (proc) {
+      killProcessTree(proc)
+    }
+    if (activeGenerateAbortController) {
+      try {
+        activeGenerateAbortController.abort()
+      } catch {}
+      activeGenerateAbortController = null
+    }
+    if (pendingGeneratorReject) {
+      const rej = pendingGeneratorReject
+      pendingGeneratorReject = null
+      rej(new Error('Subtitle generation cancelled by user.'))
+    }
+    cleanupActiveGenerationFiles()
   }
-  if (activeAbortController) {
-    try {
-      activeAbortController.abort()
-    } catch {}
-    activeAbortController = null
+
+  if (!job || job === 'translate') {
+    isTranslationCancelled = true
+    if (activeTranslateAbortController) {
+      try {
+        activeTranslateAbortController.abort()
+      } catch {}
+      activeTranslateAbortController = null
+    }
   }
-  if (pendingGeneratorReject) {
-    const rej = pendingGeneratorReject
-    pendingGeneratorReject = null
-    rej(new Error('Subtitle generation cancelled by user.'))
-  }
-  cleanupActiveGenerationFiles()
 }
