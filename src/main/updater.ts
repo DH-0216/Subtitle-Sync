@@ -1,8 +1,9 @@
 import * as https from 'https'
 import * as http from 'http'
 import * as fs from 'fs'
+import * as crypto from 'crypto'
 import { join } from 'path'
-import { app, BrowserWindow } from 'electron'
+import { app } from 'electron'
 import { spawn } from 'child_process'
 import { autoUpdater, CancellationToken } from 'electron-updater'
 import { EXTERNAL_LINKS } from '../shared/links'
@@ -34,17 +35,35 @@ registerPermanentErrorHandler()
 
 let activeCancellationToken: CancellationToken | null = null
 let downloadedInstallerPath: string | null = null
+let isRestartingForUpdate = false
 
-// Automatic install on quit if user selected "Restart Later"
+// Automatic silent install on quit if user downloaded update and selected "Restart Later"
 app.on('before-quit', () => {
+  // If user explicitly clicked "Restart to Apply", restartAndInstallApp already created the relaunch script
+  if (isPortable() || isRestartingForUpdate) return
+
   if (downloadedInstallerPath && fs.existsSync(downloadedInstallerPath)) {
     try {
       const updateBat = join(app.getPath('temp'), 'launch-setup.bat')
-      fs.writeFileSync(
-        updateBat,
-        `@echo off\r\ntimeout /t 1 /nobreak >nul\r\nstart "" "${downloadedInstallerPath}"\r\n(goto) 2>nul & del "%~f0"\r\n`,
-        'utf-8'
-      )
+      const pid = process.pid
+      const batContent = [
+        '@echo off',
+        'setlocal EnableDelayedExpansion',
+        `set "APP_PID=${pid}"`,
+        `set "INSTALLER=${downloadedInstallerPath}"`,
+        'set /a wait_count=0',
+        ':wait_process',
+        'tasklist /fi "PID eq %APP_PID%" 2>nul | findstr "%APP_PID%" >nul',
+        'if not errorlevel 1 (',
+        '    timeout /t 1 /nobreak >nul',
+        '    set /a wait_count+=1',
+        '    if !wait_count! lss 30 goto wait_process',
+        ')',
+        'start "" "%INSTALLER%" /S',
+        '(goto) 2>nul & del "%~f0"'
+      ].join('\r\n') + '\r\n'
+
+      fs.writeFileSync(updateBat, batContent, 'utf-8')
       const child = spawn('cmd.exe', ['/c', updateBat], {
         detached: true,
         stdio: 'ignore'
@@ -85,6 +104,14 @@ export interface UpdateDownloadResult {
   error?: string
 }
 
+interface ParsedLatestYml {
+  version: string
+  path?: string
+  releaseDate?: string
+  size?: number
+  sha512?: string
+}
+
 let activeRequest: http.ClientRequest | null = null
 let activeFileStream: fs.WriteStream | null = null
 let isDownloadCancelled = false
@@ -99,11 +126,154 @@ export function isPortable(): boolean {
 }
 
 /**
- * Check GitHub Releases for newer version of Subtitle Sync Studio
+ * Parse electron-builder's latest.yml format
+ */
+function parseLatestYml(yamlText: string): ParsedLatestYml | null {
+  try {
+    const versionMatch = yamlText.match(/^version:\s*['"]?([^'"\r\n#]+)['"]?/m)
+    if (!versionMatch) return null
+
+    const version = versionMatch[1].trim()
+    const pathMatch = yamlText.match(/^path:\s*['"]?([^'"\r\n#]+)['"]?/m)
+    const releaseDateMatch = yamlText.match(/^releaseDate:\s*['"]?([^'"\r\n#]+)['"]?/m)
+    const sha512Match = yamlText.match(/^sha512:\s*['"]?([^'"\r\n#]+)['"]?/m)
+    const sizeMatch = yamlText.match(/^\s*size:\s*(\d+)/m)
+
+    return {
+      version,
+      path: pathMatch ? pathMatch[1].trim() : undefined,
+      releaseDate: releaseDateMatch ? releaseDateMatch[1].trim() : undefined,
+      size: sizeMatch ? parseInt(sizeMatch[1], 10) : undefined,
+      sha512: sha512Match ? sha512Match[1].trim() : undefined
+    }
+  } catch {
+    return null
+  }
+}
+
+/**
+ * Fetch official release SHA-256 checksums map from GitHub releases
+ */
+async function fetchReleaseChecksums(): Promise<Map<string, string>> {
+  const map = new Map<string, string>()
+  try {
+    const res = await fetch(EXTERNAL_LINKS.GITHUB_LATEST_RELEASE_CHECKSUMS, {
+      headers: {
+        'User-Agent': `SubtitleSyncStudio/${APP_VERSION}`
+      }
+    })
+    if (!res.ok) {
+      console.warn(`[UPDATER] SHA256SUMS.txt responded with HTTP ${res.status}`)
+      return map
+    }
+    const text = await res.text()
+    for (const line of text.split(/\r?\n/)) {
+      const trimmed = line.trim()
+      if (!trimmed || trimmed.startsWith('#')) continue
+      const match = trimmed.match(/^([a-fA-F0-9]{64})\s+[*]?(.+)$/)
+      if (match) {
+        const hash = match[1].toLowerCase()
+        const rawFileName = match[2].trim().toLowerCase()
+        const leafFileName = rawFileName.split(/[/\\]/).pop() || rawFileName
+        map.set(rawFileName, hash)
+        map.set(leafFileName, hash)
+      }
+    }
+  } catch (err) {
+    console.warn('[UPDATER] Could not fetch SHA256SUMS.txt:', err)
+  }
+  return map
+}
+
+/**
+ * Check GitHub Releases for newer version of Subtitle Sync Studio.
+ * Uses static latest.yml download first (zero rate limits), falling back to REST API.
  */
 export async function checkForAppUpdate(): Promise<UpdateInfo> {
   const currentVersion = APP_VERSION.replace(/^v/i, '')
 
+  // 1. Primary Strategy: Check latest.yml via static release asset (immune to GitHub 60 req/hr rate limit)
+  try {
+    const ymlRes = await fetch(EXTERNAL_LINKS.GITHUB_LATEST_RELEASE_RAW_YML, {
+      headers: {
+        'User-Agent': `SubtitleSyncStudio/${APP_VERSION}`
+      }
+    })
+
+    if (ymlRes.ok) {
+      const ymlText = await ymlRes.text()
+      const parsedYml = parseLatestYml(ymlText)
+
+      if (parsedYml?.version) {
+        const cleanLatest = parsedYml.version.replace(/^v/i, '').trim()
+        const isNewer = compareVersions(cleanLatest, currentVersion) > 0
+
+        if (!isNewer) {
+          return {
+            updateAvailable: false,
+            currentVersion
+          }
+        }
+
+        const isPortableApp = isPortable()
+        const targetFileName = isPortableApp
+          ? 'SubtitleSync-Portable.exe'
+          : (parsedYml.path || 'SubtitleSync-Setup.exe')
+
+        const downloadUrl = `${EXTERNAL_LINKS.GITHUB_LATEST_RELEASE_DOWNLOAD_BASE}/${targetFileName}`
+        const releaseUrl = `${EXTERNAL_LINKS.GITHUB_RELEASES_PAGE}/tag/v${cleanLatest}`
+
+        // Non-blocking query to GitHub API for rich release notes & title if available
+        let releaseName = `v${cleanLatest}`
+        let releaseNotes = `Subtitle Sync Studio v${cleanLatest} is now available.`
+        let publishedAt = parsedYml.releaseDate
+
+        try {
+          const controller = new AbortController()
+          const timeoutId = setTimeout(() => controller.abort(), 3500)
+          const apiRes = await fetch(EXTERNAL_LINKS.GITHUB_LATEST_RELEASE_API, {
+            signal: controller.signal,
+            headers: {
+              Accept: 'application/vnd.github.v3+json',
+              'User-Agent': `SubtitleSyncStudio/${APP_VERSION}`
+            }
+          })
+          clearTimeout(timeoutId)
+          if (apiRes.ok) {
+            const apiData = await apiRes.json()
+            if (apiData.name) releaseName = apiData.name
+            if (apiData.body) releaseNotes = apiData.body
+            if (apiData.published_at) publishedAt = apiData.published_at
+          }
+        } catch {
+          // GitHub API rate limited or unreachable: harmless, latest.yml already succeeded
+        }
+
+        const isDelta = !isPortableApp
+        const rawSize = parsedYml.size || 153000000
+        const estimatedDelta = isDelta ? Math.round(rawSize * 0.14) : undefined
+
+        return {
+          updateAvailable: true,
+          currentVersion,
+          latestVersion: cleanLatest,
+          releaseName,
+          releaseNotes,
+          publishedAt,
+          downloadUrl,
+          assetName: targetFileName,
+          assetSize: rawSize,
+          deltaSize: estimatedDelta,
+          isDeltaAvailable: isDelta,
+          releaseUrl
+        }
+      }
+    }
+  } catch (ymlErr) {
+    console.warn('[UPDATER] Could not fetch latest.yml, falling back to GitHub API:', ymlErr)
+  }
+
+  // 2. Fallback Strategy: GitHub REST API query
   try {
     const res = await fetch(EXTERNAL_LINKS.GITHUB_LATEST_RELEASE_API, {
       headers: {
@@ -186,7 +356,7 @@ export async function checkForAppUpdate(): Promise<UpdateInfo> {
 }
 
 /**
- * Direct HTTP installer download (fallback when differential update is unavailable or in development mode)
+ * Direct HTTP installer download with streaming SHA-256 integrity verification
  */
 function executeDirectDownload(
   downloadUrl: string,
@@ -200,6 +370,7 @@ function executeDirectDownload(
     isDownloadCancelled = false
     const tempDir = app.getPath('temp')
     const fileName = isPortable() ? 'SubtitleSync-Portable-Update.exe' : 'SubtitleSync-Setup-Update.exe'
+    const targetAssetFileName = isPortable() ? 'SubtitleSync-Portable.exe' : 'SubtitleSync-Setup.exe'
     const targetFile = join(tempDir, fileName)
     const partFile = `${targetFile}.part`
 
@@ -248,6 +419,7 @@ function executeDirectDownload(
 
           totalBytes = parseInt(res.headers['content-length'] || '0', 10)
           activeFileStream = fs.createWriteStream(partFile)
+          const sha256Hash = crypto.createHash('sha256')
 
           res.on('data', (chunk) => {
             if (isDownloadCancelled) {
@@ -260,6 +432,7 @@ function executeDirectDownload(
               return
             }
 
+            sha256Hash.update(chunk)
             downloadedBytes += chunk.length
             const now = Date.now()
             const timeDiff = (now - lastTime) / 1000
@@ -285,7 +458,7 @@ function executeDirectDownload(
           res.pipe(activeFileStream)
 
           activeFileStream.on('finish', () => {
-            activeFileStream?.close(() => {
+            activeFileStream?.close(async () => {
               if (isDownloadCancelled) {
                 try {
                   if (fs.existsSync(partFile)) fs.unlinkSync(partFile)
@@ -295,6 +468,39 @@ function executeDirectDownload(
               }
 
               try {
+                // Verify SHA-256 integrity before saving or launching
+                const calculatedHash = sha256Hash.digest('hex').toLowerCase()
+                console.log(`[UPDATER] Calculated SHA-256 for ${targetAssetFileName}: ${calculatedHash}`)
+
+                const checksums = await fetchReleaseChecksums()
+                const expectedHash =
+                  checksums.get(targetAssetFileName.toLowerCase()) ||
+                  checksums.get(fileName.toLowerCase())
+
+                if (expectedHash) {
+                  if (calculatedHash !== expectedHash.toLowerCase()) {
+                    console.error(
+                      `[UPDATER] SHA-256 mismatch! Expected: ${expectedHash}, Got: ${calculatedHash}`
+                    )
+                    if (fs.existsSync(partFile)) {
+                      try {
+                        fs.unlinkSync(partFile)
+                      } catch {}
+                    }
+                    reject(
+                      new Error(
+                        'Integrity verification failed: The downloaded update does not match the official release checksum (corrupt download). Please try downloading again.'
+                      )
+                    )
+                    return
+                  }
+                  console.log(`[UPDATER] SHA-256 integrity verified successfully for ${targetAssetFileName}.`)
+                } else {
+                  console.warn(
+                    `[UPDATER] No official SHA-256 entry found for ${targetAssetFileName} in SHA256SUMS.txt. Proceeding.`
+                  )
+                }
+
                 if (fs.existsSync(targetFile)) {
                   fs.unlinkSync(targetFile)
                 }
@@ -405,7 +611,10 @@ export function downloadAndInstallUpdate(
  * Restart the app to apply the downloaded update (never called automatically or unexpectedly)
  */
 export function restartAndInstallApp(): void {
-  // 1. Portable Edition Handler: Replace old portable .exe cleanly without installer wizard
+  isRestartingForUpdate = true
+  const pid = process.pid
+
+  // 1. Portable Edition Handler: Active process wait loop prevents Windows file locking race conditions
   if (isPortable()) {
     const portableDir = process.env.PORTABLE_EXECUTABLE_DIR
     const portableFile = process.env.PORTABLE_EXECUTABLE_FILE || 'SubtitleSync-Portable.exe'
@@ -415,11 +624,36 @@ export function restartAndInstallApp(): void {
       const updateBat = join(app.getPath('temp'), 'update-portable.bat')
 
       try {
-        fs.writeFileSync(
-          updateBat,
-          `@echo off\r\ntimeout /t 1 /nobreak >nul\r\ncopy /y "${downloadedInstallerPath}" "${targetPortablePath}" >nul\r\ndel "${downloadedInstallerPath}" >nul\r\nstart "" "${targetPortablePath}"\r\n(goto) 2>nul & del "%~f0"\r\n`,
-          'utf-8'
-        )
+        const batContent = [
+          '@echo off',
+          'setlocal EnableDelayedExpansion',
+          `set "APP_PID=${pid}"`,
+          `set "UPDATE_FILE=${downloadedInstallerPath}"`,
+          `set "TARGET_FILE=${targetPortablePath}"`,
+          'set /a wait_count=0',
+          ':wait_process',
+          'tasklist /fi "PID eq %APP_PID%" 2>nul | findstr "%APP_PID%" >nul',
+          'if not errorlevel 1 (',
+          '    timeout /t 1 /nobreak >nul',
+          '    set /a wait_count+=1',
+          '    if !wait_count! lss 30 goto wait_process',
+          ')',
+          'set /a copy_count=0',
+          ':copy_retry',
+          'copy /y "%UPDATE_FILE%" "%TARGET_FILE%" >nul 2>nul',
+          'if errorlevel 1 (',
+          '    timeout /t 1 /nobreak >nul',
+          '    set /a copy_count+=1',
+          '    if !copy_count! lss 15 goto copy_retry',
+          ')',
+          'if exist "%TARGET_FILE%" (',
+          '    del "%UPDATE_FILE%" >nul 2>nul',
+          '    start "" "%TARGET_FILE%"',
+          ')',
+          '(goto) 2>nul & del "%~f0"'
+        ].join('\r\n') + '\r\n'
+
+        fs.writeFileSync(updateBat, batContent, 'utf-8')
 
         const child = spawn('cmd.exe', ['/c', updateBat], {
           detached: true,
@@ -457,15 +691,38 @@ export function restartAndInstallApp(): void {
     return
   }
 
-  // 2. Direct downloaded installer handler (if fallback or direct download occurred)
+  // 2. Direct downloaded installer handler (fallback or direct download)
+  // Executes silently with /S and automatically relaunches the application
   if (downloadedInstallerPath && fs.existsSync(downloadedInstallerPath)) {
     try {
       const updateBat = join(app.getPath('temp'), 'launch-setup.bat')
-      fs.writeFileSync(
-        updateBat,
-        `@echo off\r\ntimeout /t 1 /nobreak >nul\r\nstart "" "${downloadedInstallerPath}"\r\n(goto) 2>nul & del "%~f0"\r\n`,
-        'utf-8'
-      )
+      const currentExe = process.execPath
+
+      const batContent = [
+        '@echo off',
+        'setlocal EnableDelayedExpansion',
+        `set "APP_PID=${pid}"`,
+        `set "INSTALLER=${downloadedInstallerPath}"`,
+        `set "APP_EXE=${currentExe}"`,
+        'set /a wait_count=0',
+        ':wait_process',
+        'tasklist /fi "PID eq %APP_PID%" 2>nul | findstr "%APP_PID%" >nul',
+        'if not errorlevel 1 (',
+        '    timeout /t 1 /nobreak >nul',
+        '    set /a wait_count+=1',
+        '    if !wait_count! lss 30 goto wait_process',
+        ')',
+        ':: Run installer silently with /S and wait for completion',
+        'start /wait "" "%INSTALLER%" /S',
+        ':: Clean up downloaded installer',
+        'del "%INSTALLER%" >nul 2>nul',
+        'timeout /t 1 /nobreak >nul',
+        ':: Relaunch updated application',
+        'start "" "%APP_EXE%"',
+        '(goto) 2>nul & del "%~f0"'
+      ].join('\r\n') + '\r\n'
+
+      fs.writeFileSync(updateBat, batContent, 'utf-8')
 
       const child = spawn('cmd.exe', ['/c', updateBat], {
         detached: true,
@@ -480,7 +737,7 @@ export function restartAndInstallApp(): void {
     } catch (e) {
       console.warn('[UPDATER] Failed to spawn setup installer batch, trying direct spawn:', e)
       try {
-        const child = spawn(downloadedInstallerPath, [], {
+        const child = spawn(downloadedInstallerPath, ['/S'], {
           detached: true,
           stdio: 'ignore'
         })
@@ -497,7 +754,8 @@ export function restartAndInstallApp(): void {
   if (app.isPackaged) {
     try {
       app.removeAllListeners('window-all-closed')
-      autoUpdater.quitAndInstall(false, true)
+      // Pass isSilent = true for silent background install, isForceRunAfter = true for automatic relaunch
+      autoUpdater.quitAndInstall(true, true)
       setTimeout(() => {
         app.exit(0)
       }, 5000)

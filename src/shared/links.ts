@@ -11,6 +11,9 @@ export const EXTERNAL_LINKS = {
   GITHUB_REPO: 'https://github.com/DH-0216/Subtitle-Sync',
   GITHUB_RELEASES_PAGE: 'https://github.com/DH-0216/Subtitle-Sync/releases',
   GITHUB_LATEST_RELEASE_API: 'https://api.github.com/repos/DH-0216/Subtitle-Sync/releases/latest',
+  GITHUB_LATEST_RELEASE_RAW_YML: 'https://github.com/DH-0216/Subtitle-Sync/releases/latest/download/latest.yml',
+  GITHUB_LATEST_RELEASE_DOWNLOAD_BASE: 'https://github.com/DH-0216/Subtitle-Sync/releases/latest/download',
+  GITHUB_LATEST_RELEASE_CHECKSUMS: 'https://github.com/DH-0216/Subtitle-Sync/releases/latest/download/SHA256SUMS.txt',
 
   // Developer & API Key Portals
   GEMINI_API_KEY_PORTAL: 'https://aistudio.google.com/app/apikey',
