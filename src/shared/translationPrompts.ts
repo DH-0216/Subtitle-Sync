@@ -44,6 +44,100 @@ RULES:
 8. Maintain the exact format "[index] Translated line".
 9. Return exactly the same number of numbered lines without dropping any lines.
 10. Do not include introductory, markdown formatting or explanatory text.`
+  },
+  {
+    code: 'en',
+    name: 'English',
+    nativeName: 'English (Conversational)',
+    label: 'English (Cinema & Conversational Dialogue)',
+    description: 'Translates subtitles into natural spoken English with proper cinema pacing, tone, and slang.',
+    subtitleNote: 'Polished conversational English subtitles with sound-effect filtering and clean timing.',
+    badges: [
+      'Natural Cinema Dialogue',
+      'Slang & Idiom Polishing',
+      'SDH Sound Cleaner [ ]',
+      'Punctuation & Flow'
+    ],
+    defaultPrompt: `You are an expert subtitle translator specializing in natural, authentic English for movies and cinema.
+Translate the following subtitle lines into natural, idiomatic conversational English as spoken in contemporary cinema.
+RULES:
+1. Use natural, conversational English fitting dialogue pacing and rhythm. Avoid stiff, overly formal phrasing.
+2. Translate colloquial idioms, cultural expressions, and slang with appropriate natural English equivalents.
+3. Remove non-dialogue sound descriptions and SDH tags in brackets [ ] or parentheses ( ) unless they convey critical plot dialogue.
+4. If an entire line contains only sound effects or music tags, output a dash "-" for that line.
+5. 1:1 Complete Line Mapping: Every single numbered line [index] in the input MUST have an exact corresponding [index] in output. Never merge or skip lines.
+6. Maintain the exact format "[index] Translated line".
+7. Return exactly the same number of numbered lines.
+8. Do not include introductory text, explanations, or markdown code blocks.`
+  },
+  {
+    code: 'ta',
+    name: 'Tamil',
+    nativeName: 'பேச்சுத் தமிழ்',
+    label: 'Tamil (Spoken Tamil dialogue - AI Optimized)',
+    description: 'Natural spoken Tamil (பேச்சு வழக்கு) tailored for cinema, movie dialogues, and idiomatic context.',
+    subtitleNote: 'Authentic spoken Tamil cinema dialogue preserving character emotions and timings.',
+    badges: [
+      'Spoken Tamil (பேச்சு வழக்கு)',
+      'Cinema Dialogue Pacing',
+      'Idiom Adaptation',
+      'SDH Sound Cleaner [ ]'
+    ],
+    defaultPrompt: `You are an expert subtitle translator specializing in authentic, natural spoken colloquial Tamil (பேச்சுத் தமிழ்) for cinema and movies.
+Translate the following subtitle lines into natural spoken Tamil as used in everyday conversational speech.
+RULES:
+1. Use natural spoken colloquial Tamil (பேச்சு வழக்கு), NOT bookish, archaic written Tamil.
+2. Contextual Idioms: Translate colloquial nuance, humor, and emotions naturally.
+3. Remove non-dialogue audio tags and sound effects in brackets [ ] or parentheses ( ).
+4. 1:1 Complete Line Mapping: Maintain exact line indexing [index] without merging or skipping lines.
+5. Maintain the exact format "[index] Translated line".
+6. Return exactly the same number of lines without introductory or markdown text.`
+  },
+  {
+    code: 'hi',
+    name: 'Hindi',
+    nativeName: 'बोलचाल की हिंदी',
+    label: 'Hindi (Spoken Conversational Hindi)',
+    description: 'Authentic conversational Hindi (बोलचाल की हिंदी) for cinema dialogue, avoiding bookish translation.',
+    subtitleNote: 'Natural Hindi film-style dialogue preserving emotional nuance and timing.',
+    badges: [
+      'Conversational Hindi (बोलचाल)',
+      'Bollywood Cinema Tone',
+      'Idiom Translation',
+      'SDH Sound Cleaner [ ]'
+    ],
+    defaultPrompt: `You are an expert subtitle translator specializing in natural, authentic conversational Hindi (बोलचाल की हिंदी) for movies and cinema.
+Translate the following subtitle lines into natural, spoken Hindi as people talk in real life and contemporary films.
+RULES:
+1. Use colloquial spoken Hindi (आम बोलचाल की हिंदी), NOT pure Sanskritized bookish Hindi.
+2. Translate colloquial idioms, humor, and emotions naturally into contemporary Hindi expressions.
+3. Remove non-dialogue audio tags and sound effects in brackets [ ] or parentheses ( ).
+4. 1:1 Complete Line Mapping: Maintain exact line indexing [index] without merging or skipping lines.
+5. Maintain the exact format "[index] Translated line".
+6. Return exactly the same number of lines without introductory or markdown text.`
+  },
+  {
+    code: 'es',
+    name: 'Spanish',
+    nativeName: 'Español Conversacional',
+    label: 'Spanish (Natural Cinema Dialogue)',
+    description: 'Natural conversational Spanish for cinema and series, adapting idioms and colloquial nuances.',
+    subtitleNote: 'Natural conversational Spanish dialogue with clean line timing.',
+    badges: [
+      'Colloquial Spanish',
+      'Idiom Adaptation',
+      'SDH Sound Cleaner [ ]',
+      'Cinema Pacing'
+    ],
+    defaultPrompt: `You are an expert subtitle translator specializing in natural, authentic conversational Spanish for cinema and television.
+Translate the following subtitle lines into natural, spoken Spanish as used in contemporary films.
+RULES:
+1. Use natural, conversational spoken Spanish. Avoid literal and robotic translations.
+2. Adapt idioms, humor, and cultural context naturally.
+3. Remove non-dialogue audio tags and sound effects in brackets [ ] or parentheses ( ).
+4. 1:1 Complete Line Mapping: Maintain exact line indexing [index] without merging or skipping lines.
+5. Maintain the exact format "[index] Translated line".
+6. Return exactly the same number of lines without introductory or markdown text.`
   }
 ]
 
