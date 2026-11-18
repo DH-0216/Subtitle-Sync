@@ -2,6 +2,7 @@ import { useState, useRef, useEffect, useCallback } from 'react'
 import toast from 'react-hot-toast'
 import {
   cleanPathString,
+  sanitizeFilePaths,
   isVideoFile,
   isSubtitleFile,
   getFileName,
@@ -26,6 +27,8 @@ export interface BatchItem {
   jobType: BatchOperationType
   videoPath?: string
   subPath?: string
+  translateSource?: 'subtitles' | 'embedded'
+  embeddedTrackLanguage?: string
   status: BatchItemStatus
   progress: number
   statusMessage?: string
@@ -72,6 +75,8 @@ export function useBatchWorkflow({
 
   const [translateLanguage, setTranslateLanguage] = useState('si')
   const [translateFormat, setTranslateFormat] = useState<'srt' | 'vtt' | 'txt'>('srt')
+  const [translateSource, setTranslateSource] = useState<'subtitles' | 'embedded'>('subtitles')
+  const [preferredTrackLang, setPreferredTrackLang] = useState('en')
 
   // Last output folder for quick reveal
   const [lastBatchOutputDir, setLastBatchOutputDir] = useState<string | null>(null)
@@ -95,34 +100,77 @@ export function useBatchWorkflow({
   const handleAddFiles = useCallback(async () => {
     try {
       if (batchMode === 'translate') {
-        const paths = await window.api?.dialog?.openSubtitles()
-        if (!paths || paths.length === 0) return
-        const sorted = naturalSortPaths(paths)
-        const newItems: BatchItem[] = sorted.map((p) => ({
-          id: nextId(),
-          name: getFileName(p),
-          jobType: 'translate',
-          subPath: p,
-          status: 'pending',
-          progress: 0
-        }))
-        setItems((prev) => [...prev, ...newItems])
-        toast.success(`Added ${newItems.length} subtitle(s) to queue!`)
-        addLog(`[BATCH] Added ${newItems.length} subtitle(s) for AI translation.`)
+        if (translateSource === 'embedded') {
+          let rawPaths: string[] = []
+          if (window.api?.dialog?.openVideos) {
+            rawPaths = await window.api.dialog.openVideos()
+          } else if (window.api?.dialog?.openVideo) {
+            const single = await window.api.dialog.openVideo()
+            if (single) rawPaths = [single]
+          } else {
+            toast.error('File dialog is not available. Please restart the application.')
+            return
+          }
+          if (!rawPaths || rawPaths.length === 0) return
+          const cleanPaths = sanitizeFilePaths(rawPaths).filter(isVideoFile)
+          if (cleanPaths.length === 0) {
+            toast.error('No supported movie files (.mkv, .mp4, etc.) found in selection.')
+            return
+          }
+          const sorted = naturalSortPaths(cleanPaths)
+          const newItems: BatchItem[] = sorted.map((p) => ({
+            id: nextId(),
+            name: getFileName(p),
+            jobType: 'translate',
+            translateSource: 'embedded',
+            videoPath: p,
+            status: 'pending',
+            progress: 0
+          }))
+          setItems((prev) => [...prev, ...newItems])
+          toast.success(`Added ${newItems.length} movie(s) to extract & translate embedded subtitles!`)
+          addLog(`[BATCH] Added ${newItems.length} movie(s) for embedded subtitle translation.`)
+        } else {
+          const rawPaths = await window.api?.dialog?.openSubtitles()
+          if (!rawPaths || rawPaths.length === 0) return
+          const cleanPaths = sanitizeFilePaths(rawPaths).filter(isSubtitleFile)
+          if (cleanPaths.length === 0) {
+            toast.error('No supported subtitle files (.srt, .vtt, etc.) found in selection.')
+            return
+          }
+          const sorted = naturalSortPaths(cleanPaths)
+          const newItems: BatchItem[] = sorted.map((p) => ({
+            id: nextId(),
+            name: getFileName(p),
+            jobType: 'translate',
+            translateSource: 'subtitles',
+            subPath: p,
+            status: 'pending',
+            progress: 0
+          }))
+          setItems((prev) => [...prev, ...newItems])
+          toast.success(`Added ${newItems.length} subtitle(s) to queue!`)
+          addLog(`[BATCH] Added ${newItems.length} subtitle(s) for AI translation.`)
+        }
       } else {
-        let paths: string[] = []
+        let rawPaths: string[] = []
         if (window.api?.dialog?.openVideos) {
-          paths = await window.api.dialog.openVideos()
+          rawPaths = await window.api.dialog.openVideos()
         } else if (window.api?.dialog?.openVideo) {
           const single = await window.api.dialog.openVideo()
-          if (single) paths = [single]
+          if (single) rawPaths = [single]
         } else {
           toast.error('File dialog is not available. Please restart the application.')
           return
         }
 
-        if (!paths || paths.length === 0) return
-        const sorted = naturalSortPaths(paths)
+        if (!rawPaths || rawPaths.length === 0) return
+        const cleanPaths = sanitizeFilePaths(rawPaths).filter(isVideoFile)
+        if (cleanPaths.length === 0) {
+          toast.error('No supported video files (.mkv, .mp4, etc.) found in selection.')
+          return
+        }
+        const sorted = naturalSortPaths(cleanPaths)
         const newItems: BatchItem[] = sorted.map((p) => ({
           id: nextId(),
           name: getFileName(p),
@@ -138,21 +186,22 @@ export function useBatchWorkflow({
     } catch (err: any) {
       toast.error('Failed to add files: ' + (err?.message || err))
     }
-  }, [addLog, batchMode])
+  }, [addLog, batchMode, translateSource])
 
   // 2. Add an entire folder / series
   const handleAddFolder = useCallback(async () => {
     try {
-      let folder: string | null = null
+      let rawFolder: string | null = null
       if (window.api?.dialog?.openFolder) {
-        folder = await window.api.dialog.openFolder('Select Movie or TV Series Folder')
+        rawFolder = await window.api.dialog.openFolder('Select Movie or TV Series Folder')
       } else if (window.api?.dialog?.selectFolder) {
-        folder = await window.api.dialog.selectFolder()
+        rawFolder = await window.api.dialog.selectFolder()
       } else {
         toast.error('Folder dialog is not available. Please restart the application.')
         return
       }
 
+      const folder = cleanPathString(rawFolder)
       if (!folder) return
 
       if (!window.api?.batch?.scanFolder) {
@@ -164,7 +213,9 @@ export function useBatchWorkflow({
       }
 
       addLog(`[BATCH SCAN] Scanning folder: "${folder}"...`)
-      const { videos, subtitles } = await window.api.batch.scanFolder(folder)
+      const scanRes = await window.api.batch.scanFolder(folder)
+      const videos = sanitizeFilePaths(scanRes?.videos || []).filter(isVideoFile)
+      const subtitles = sanitizeFilePaths(scanRes?.subtitles || []).filter(isSubtitleFile)
 
       if (batchMode === 'sync') {
         if (videos.length === 0) {
@@ -206,32 +257,69 @@ export function useBatchWorkflow({
         addLog(`[BATCH] Added ${newItems.length} video(s) from folder "${getFileName(folder)}".`)
       } else {
         // translate mode
-        if (subtitles.length === 0) {
-          toast.error('No supported subtitle files found in selected folder.')
-          return
+        if (translateSource === 'embedded') {
+          if (videos.length === 0) {
+            toast.error('No supported video files found in selected folder.')
+            return
+          }
+          const sorted = naturalSortPaths(videos)
+          const newItems: BatchItem[] = sorted.map((p) => ({
+            id: nextId(),
+            name: getFileName(p),
+            jobType: 'translate',
+            translateSource: 'embedded',
+            videoPath: p,
+            status: 'pending',
+            progress: 0
+          }))
+          setItems((prev) => [...prev, ...newItems])
+          toast.success(`Added ${newItems.length} movie(s) from "${getFileName(folder)}" for embedded subtitle translation!`)
+          addLog(`[BATCH] Added ${newItems.length} movie(s) for embedded subtitle translation from "${folder}".`)
+        } else {
+          if (subtitles.length === 0) {
+            if (videos.length > 0) {
+              setTranslateSource('embedded')
+              const sorted = naturalSortPaths(videos)
+              const newItems: BatchItem[] = sorted.map((p) => ({
+                id: nextId(),
+                name: getFileName(p),
+                jobType: 'translate',
+                translateSource: 'embedded',
+                videoPath: p,
+                status: 'pending',
+                progress: 0
+              }))
+              setItems((prev) => [...prev, ...newItems])
+              toast.success(`Detected ${newItems.length} movies with embedded tracks! Switched to Embedded mode.`, { icon: '🎬' })
+              return
+            }
+            toast.error('No supported subtitle files found in selected folder.')
+            return
+          }
+          const sorted = naturalSortPaths(subtitles)
+          const newItems: BatchItem[] = sorted.map((p) => ({
+            id: nextId(),
+            name: getFileName(p),
+            jobType: 'translate',
+            translateSource: 'subtitles',
+            subPath: p,
+            status: 'pending',
+            progress: 0
+          }))
+          setItems((prev) => [...prev, ...newItems])
+          toast.success(`Added ${newItems.length} subtitle(s) for AI translation!`)
+          addLog(`[BATCH] Added ${newItems.length} subtitle(s) from folder "${getFileName(folder)}".`)
         }
-        const sorted = naturalSortPaths(subtitles)
-        const newItems: BatchItem[] = sorted.map((p) => ({
-          id: nextId(),
-          name: getFileName(p),
-          jobType: 'translate',
-          subPath: p,
-          status: 'pending',
-          progress: 0
-        }))
-        setItems((prev) => [...prev, ...newItems])
-        toast.success(`Added ${newItems.length} subtitle(s) for AI translation!`)
-        addLog(`[BATCH] Added ${newItems.length} subtitle(s) from folder "${getFileName(folder)}".`)
       }
     } catch (err: any) {
       toast.error('Failed to scan folder: ' + (err?.message || err))
     }
-  }, [addLog, batchMode])
+  }, [addLog, batchMode, translateSource])
 
   // 3. Drag and Drop onto batch queue
   const handleDropFiles = useCallback(async (rawPaths: string[]) => {
     if (!rawPaths || rawPaths.length === 0) return
-    const cleanPaths = rawPaths.map(cleanPathString).filter(Boolean)
+    const cleanPaths = sanitizeFilePaths(rawPaths)
     if (cleanPaths.length === 0) return
 
     let discoveredVideos: string[] = []
@@ -248,8 +336,8 @@ export function useBatchWorkflow({
           try {
             const scanRes = await window.api.batch.scanFolder(p)
             if (scanRes.videos?.length || scanRes.subtitles?.length) {
-              discoveredVideos.push(...scanRes.videos)
-              discoveredSubs.push(...scanRes.subtitles)
+              discoveredVideos.push(...sanitizeFilePaths(scanRes.videos).filter(isVideoFile))
+              discoveredSubs.push(...sanitizeFilePaths(scanRes.subtitles).filter(isSubtitleFile))
             }
           } catch {
             // ignore non-directory
@@ -282,7 +370,21 @@ export function useBatchWorkflow({
         return
       }
 
-      const matches = matchVideosWithSubtitles(discoveredVideos, discoveredSubs)
+      if (discoveredVideos.length === 0) {
+        toast.error('No supported video files found in dropped items for synchronization.')
+        return
+      }
+
+      // Avoid adding duplicate video files that are already in the queue
+      const existingVideos = new Set(items.map((it) => it.videoPath).filter(Boolean))
+      const freshVideos = discoveredVideos.filter((v) => !existingVideos.has(v))
+
+      if (freshVideos.length === 0) {
+        toast('Dropped video file(s) are already in the queue.', { icon: 'ℹ️' })
+        return
+      }
+
+      const matches = matchVideosWithSubtitles(freshVideos, discoveredSubs)
       const newItems: BatchItem[] = matches.map((m) => ({
         id: nextId(),
         name: getFileName(m.videoPath),
@@ -295,13 +397,26 @@ export function useBatchWorkflow({
         episodeLabel: m.episodeLabel
       }))
       setItems((prev) => [...prev, ...newItems])
-      toast.success(`Added ${newItems.length} video item(s) to queue!`)
+      const pairedCount = matches.filter((m) => m.subPath).length
+      toast.success(
+        `Added ${newItems.length} video item(s) to queue${
+          pairedCount > 0 ? ` (${pairedCount} paired with subtitles)` : ''
+        }!`
+      )
     } else if (batchMode === 'generate') {
       if (discoveredVideos.length === 0) {
         toast.error('No video files dropped. Whisper generation requires video files.')
         return
       }
-      const sorted = naturalSortPaths(discoveredVideos)
+      const existingVideos = new Set(items.map((it) => it.videoPath).filter(Boolean))
+      const freshVideos = discoveredVideos.filter((v) => !existingVideos.has(v))
+
+      if (freshVideos.length === 0) {
+        toast('Dropped video file(s) are already in the queue.', { icon: 'ℹ️' })
+        return
+      }
+
+      const sorted = naturalSortPaths(freshVideos)
       const newItems: BatchItem[] = sorted.map((p) => ({
         id: nextId(),
         name: getFileName(p),
@@ -314,28 +429,70 @@ export function useBatchWorkflow({
       toast.success(`Added ${newItems.length} video(s) for subtitle generation!`)
     } else {
       // translate
-      if (discoveredSubs.length === 0) {
-        toast.error('No subtitle files dropped. AI translation requires subtitle files (.srt, .vtt).')
+      if (discoveredSubs.length === 0 && discoveredVideos.length === 0) {
+        toast.error('No supported subtitle (.srt/.vtt) or video (.mkv/.mp4) files dropped.')
         return
       }
-      const sorted = naturalSortPaths(discoveredSubs)
-      const newItems: BatchItem[] = sorted.map((p) => ({
-        id: nextId(),
-        name: getFileName(p),
-        jobType: 'translate',
-        subPath: p,
-        status: 'pending',
-        progress: 0
-      }))
+
+      const existingSubs = new Set(items.map((it) => it.subPath).filter(Boolean))
+      const existingVideos = new Set(items.map((it) => it.videoPath).filter(Boolean))
+      const freshSubs = discoveredSubs.filter((s) => !existingSubs.has(s))
+      const freshVideos = discoveredVideos.filter((v) => !existingVideos.has(v))
+
+      if (freshSubs.length === 0 && freshVideos.length === 0) {
+        toast('Dropped file(s) are already in the queue.', { icon: 'ℹ️' })
+        return
+      }
+
+      const newItems: BatchItem[] = []
+      if (freshSubs.length > 0) {
+        const sortedSubs = naturalSortPaths(freshSubs)
+        newItems.push(
+          ...sortedSubs.map((p) => ({
+            id: nextId(),
+            name: getFileName(p),
+            jobType: 'translate' as const,
+            translateSource: 'subtitles' as const,
+            subPath: p,
+            status: 'pending' as const,
+            progress: 0
+          }))
+        )
+      }
+      if (freshVideos.length > 0) {
+        const sortedVideos = naturalSortPaths(freshVideos)
+        newItems.push(
+          ...sortedVideos.map((p) => ({
+            id: nextId(),
+            name: getFileName(p),
+            jobType: 'translate' as const,
+            translateSource: 'embedded' as const,
+            videoPath: p,
+            status: 'pending' as const,
+            progress: 0
+          }))
+        )
+      }
       setItems((prev) => [...prev, ...newItems])
-      toast.success(`Added ${newItems.length} subtitle(s) for AI translation!`)
+      if (freshVideos.length > 0 && freshSubs.length > 0) {
+        toast.success(`Added ${newItems.length} item(s) (${freshVideos.length} movie tracks, ${freshSubs.length} subtitles)!`)
+      } else if (freshVideos.length > 0) {
+        toast.success(`Added ${freshVideos.length} movie(s) for embedded subtitle translation!`)
+      } else {
+        toast.success(`Added ${freshSubs.length} subtitle(s) for AI translation!`)
+      }
     }
   }, [batchMode])
 
   // 4. Manually browse/assign a subtitle to a sync item
   const handleAssignSubtitle = useCallback(async (itemId: string) => {
     try {
-      const subs = await window.api.dialog.openSubtitles()
+      if (!window.api?.dialog?.openSubtitles) {
+        toast.error('Subtitle dialog is not available. Please restart the application.')
+        return
+      }
+      const rawSubs = await window.api.dialog.openSubtitles()
+      const subs = sanitizeFilePaths(rawSubs || []).filter(isSubtitleFile)
       if (subs && subs.length > 0) {
         setItems((prev) =>
           prev.map((it) => (it.id === itemId ? { ...it, subPath: subs[0], confidence: 'high' } : it))
@@ -467,12 +624,13 @@ export function useBatchWorkflow({
 
         // --- JOB A: Synchronize ---
         if (currentItem.jobType === 'sync') {
-          const sub = currentItem.subPath!
+          const sub = cleanPathString(currentItem.subPath!)
+          const video = cleanPathString(currentItem.videoPath!)
           const ext = sub.substring(sub.lastIndexOf('.'))
           const outPath = sub.replace(new RegExp(`\\${ext}$`, 'i'), `.synced${ext}`)
 
           result = await window.api.engine.startSync({
-            video: currentItem.videoPath!,
+            video,
             sub,
             out: outPath,
             mode: syncMode
@@ -519,8 +677,9 @@ export function useBatchWorkflow({
 
         // --- JOB B: Whisper Generate ---
         else if (currentItem.jobType === 'generate') {
+          const video = cleanPathString(currentItem.videoPath!)
           result = await window.api.generator.startGenerate({
-            video: currentItem.videoPath,
+            video,
             sourceType: 'video',
             modelQuality: whisperModelQuality,
             format: generateFormat,
@@ -563,11 +722,73 @@ export function useBatchWorkflow({
 
         // --- JOB C: AI Translate ---
         else if (currentItem.jobType === 'translate') {
+          let sourceSubToTranslate = cleanPathString(currentItem.subPath)
+          let isTempExtraction = false
+
+          // If translating embedded subtitle track from video
+          if (!sourceSubToTranslate && currentItem.videoPath) {
+            const cleanVideoPath = cleanPathString(currentItem.videoPath)
+            setItems((prev) =>
+              prev.map((it) =>
+                it.id === currentItem.id
+                  ? { ...it, statusMessage: 'Detecting embedded subtitle tracks...' }
+                  : it
+              )
+            )
+
+            const probeRes = await window.api.engine.probe(cleanVideoPath)
+            const textTracks = (probeRes?.subtitleTracks || []).filter((t: any) => t.isText)
+            if (!textTracks || textTracks.length === 0) {
+              throw new Error(`No embedded text subtitle tracks found in "${currentItem.name}".`)
+            }
+
+            // Find matching track by preferred language or fallback to default/first
+            let chosenTrack = textTracks.find(
+              (t: any) =>
+                preferredTrackLang &&
+                preferredTrackLang !== 'auto' &&
+                (t.language?.toLowerCase() === preferredTrackLang.toLowerCase() ||
+                 t.title?.toLowerCase().includes(preferredTrackLang.toLowerCase()))
+            )
+            if (!chosenTrack) {
+              chosenTrack = textTracks.find((t: any) => t.isDefault) || textTracks[0]
+            }
+
+            const trackLabel = `Track #${chosenTrack.index + 1} (${chosenTrack.language?.toUpperCase() || 'SUB'})`
+            setItems((prev) =>
+              prev.map((it) =>
+                it.id === currentItem.id
+                  ? { ...it, statusMessage: `Extracting ${trackLabel}...` }
+                  : it
+              )
+            )
+            addLog(`[BATCH TRANSLATE] Extracting embedded ${trackLabel} from "${currentItem.name}"`)
+
+            const extractRes = await window.api.extractor.extractSingle({
+              videoPath: cleanVideoPath,
+              track: chosenTrack,
+              isTemporary: true,
+              cleanTags: true
+            })
+
+            if (!extractRes?.success || !extractRes?.outputPath) {
+              throw new Error(extractRes?.error || 'Failed to extract embedded subtitle track from video.')
+            }
+
+            sourceSubToTranslate = cleanPathString(extractRes.outputPath)
+            isTempExtraction = true
+          }
+
+          if (!sourceSubToTranslate) {
+            throw new Error('No subtitle file or embedded track available for translation.')
+          }
+
           result = await window.api.generator.startGenerate({
-            video: '',
+            video: cleanPathString(currentItem.videoPath) || '',
             trackIndex: 0,
             sourceType: 'subtitle',
-            sourceSubPath: currentItem.subPath,
+            sourceSubPath: sourceSubToTranslate,
+            deleteSourceAfter: isTempExtraction,
             language: translateLanguage,
             format: translateFormat,
             aiApiKey,
@@ -668,6 +889,7 @@ export function useBatchWorkflow({
     syncMode,
     translateFormat,
     translateLanguage,
+    preferredTrackLang,
     whisperModelQuality
   ])
 
@@ -712,6 +934,10 @@ export function useBatchWorkflow({
     setTranslateLanguage,
     translateFormat,
     setTranslateFormat,
+    translateSource,
+    setTranslateSource,
+    preferredTrackLang,
+    setPreferredTrackLang,
     lastBatchOutputDir,
     handleAddFiles,
     handleAddFolder,

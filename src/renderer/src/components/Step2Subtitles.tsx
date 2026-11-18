@@ -2,7 +2,9 @@ import React, { useState } from 'react'
 import { FileText, Plus, Trash2, CheckCircle2, X } from 'lucide-react'
 import { MetadataBadge } from './MetadataBadge'
 import { StepCard } from './common/StepCard'
+import { Badge } from './common/Badge'
 import { FileDropzone } from './common/FileDropzone'
+import { cleanPathString } from '@shared/fileSanitizer'
 
 export interface SubtitleItem {
   id: string
@@ -53,17 +55,20 @@ export const Step2Subtitles: React.FC<Step2SubtitlesProps> = ({
       const paths: string[] = []
       for (let i = 0; i < e.dataTransfer.files.length; i++) {
         const f = e.dataTransfer.files[i]
-        const fullPath = window.api.getPathForFile ? window.api.getPathForFile(f) : ((f as any).path || f.name)
-        paths.push(fullPath || f.name)
+        const raw = window.api.getPathForFile ? window.api.getPathForFile(f) : ((f as any).path || f.name)
+        const clean = cleanPathString(raw)
+        if (clean) paths.push(clean)
       }
       onDropFiles(paths)
     }
   }
 
   const badge = subtitles.length > 0 ? (
-    <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-app-card-inner-hover text-app-text border border-app-card-inner-border whitespace-nowrap shrink-0">
-      {subtitles.length} {subtitles.length === 1 ? 'file' : 'files'}
-    </span>
+    <Badge
+      text={`${subtitles.length} ${subtitles.length === 1 ? 'file' : 'files'}`}
+      variant="subtle"
+      size="xs"
+    />
   ) : undefined
 
   const headerRight = subtitles.length > 0 ? (

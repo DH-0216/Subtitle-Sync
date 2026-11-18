@@ -1,7 +1,7 @@
 import React, { useState } from 'react'
 import { FileText, X, CheckCircle2, Loader2, Zap, Film } from 'lucide-react'
 import { SubtitleTrack } from './Step1Video'
-import { isVideoFile, getFileName } from '@shared/fileSanitizer'
+import { isVideoFile, getFileName, cleanPathString } from '@shared/fileSanitizer'
 import { StepCard } from './common/StepCard'
 import { FileDropzone } from './common/FileDropzone'
 
@@ -57,7 +57,8 @@ export const Step1Translate: React.FC<Step1TranslateProps> = ({
 
     if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
       const file = e.dataTransfer.files[0]
-      const fullPath = window.api?.getPathForFile ? window.api.getPathForFile(file) : ((file as any).path || file.name)
+      const raw = window.api?.getPathForFile ? window.api.getPathForFile(file) : ((file as any).path || file.name)
+      const fullPath = cleanPathString(raw)
       if (fullPath) {
         if (isVideoFile(fullPath)) {
           onRemoveSubtitle()
@@ -77,7 +78,8 @@ export const Step1Translate: React.FC<Step1TranslateProps> = ({
 
     if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
       const file = e.dataTransfer.files[0]
-      const fullPath = window.api?.getPathForFile ? window.api.getPathForFile(file) : ((file as any).path || file.name)
+      const raw = window.api?.getPathForFile ? window.api.getPathForFile(file) : ((file as any).path || file.name)
+      const fullPath = cleanPathString(raw)
       if (fullPath) {
         if (isVideoFile(fullPath)) {
           onRemoveSubtitle()

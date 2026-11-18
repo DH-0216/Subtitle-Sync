@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import React, { useState, useRef } from 'react'
 import {
   RefreshCw,
   Sparkles,
@@ -21,9 +21,10 @@ import {
 } from 'lucide-react'
 import { ProgressBar } from '../components/common/ProgressBar'
 import { StepCard } from '../components/common/StepCard'
+import { WhisperModelSelector, LanguageSelector } from '../components/common'
 import { SyncMode } from '../components/Step3Sync'
 import { BatchOperationType, BatchItem } from '../hooks/useBatchWorkflow'
-import { translationLanguages } from '../components/Step2Translate'
+import { cleanPathString } from '@shared/fileSanitizer'
 import { WhisperModelItem } from '../components/Step2Generate'
 
 export interface BatchViewProps {
@@ -45,6 +46,10 @@ export interface BatchViewProps {
   setTranslateLanguage: (lang: string) => void
   translateFormat: 'srt' | 'vtt' | 'txt'
   setTranslateFormat: (fmt: 'srt' | 'vtt' | 'txt') => void
+  translateSource?: 'subtitles' | 'embedded'
+  setTranslateSource?: (source: 'subtitles' | 'embedded') => void
+  preferredTrackLang?: string
+  setPreferredTrackLang?: (lang: string) => void
   availableWhisperModels?: WhisperModelItem[]
   aiApiKey: string
   aiProvider: string
@@ -83,6 +88,10 @@ export const BatchView: React.FC<BatchViewProps> = ({
   setTranslateLanguage,
   translateFormat,
   setTranslateFormat,
+  translateSource = 'subtitles',
+  setTranslateSource,
+  preferredTrackLang = 'en',
+  setPreferredTrackLang,
   availableWhisperModels = [],
   aiApiKey,
   aiProvider,
@@ -101,6 +110,7 @@ export const BatchView: React.FC<BatchViewProps> = ({
   onStopBatch,
   onOpenFolder
 }) => {
+  const dragCounter = useRef(0)
   const [isDragging, setIsDragging] = useState(false)
 
   const completedCount = items.filter((it) => it.status === 'completed').length
@@ -108,28 +118,47 @@ export const BatchView: React.FC<BatchViewProps> = ({
   const pendingCount = items.filter((it) => it.status === 'pending').length
   const isKeyConfigured = Boolean(aiApiKey && aiApiKey.trim().length > 0)
 
-  // Drag and drop handlers
+  // Drag and drop handlers with counter to prevent child-element flicker
+  const handleDragEnter = (e: React.DragEvent) => {
+    e.preventDefault()
+    e.stopPropagation()
+    dragCounter.current++
+    if (e.dataTransfer) {
+      e.dataTransfer.dropEffect = 'copy'
+    }
+    setIsDragging(true)
+  }
+
   const handleDragOver = (e: React.DragEvent) => {
     e.preventDefault()
     e.stopPropagation()
-    setIsDragging(true)
+    if (e.dataTransfer) {
+      e.dataTransfer.dropEffect = 'copy'
+    }
   }
 
   const handleDragLeave = (e: React.DragEvent) => {
     e.preventDefault()
     e.stopPropagation()
-    setIsDragging(false)
+    dragCounter.current--
+    if (dragCounter.current <= 0) {
+      dragCounter.current = 0
+      setIsDragging(false)
+    }
   }
 
   const handleDrop = (e: React.DragEvent) => {
     e.preventDefault()
     e.stopPropagation()
+    dragCounter.current = 0
     setIsDragging(false)
+
     if (e.dataTransfer?.files && e.dataTransfer.files.length > 0) {
       const paths: string[] = []
       for (let i = 0; i < e.dataTransfer.files.length; i++) {
         const file = e.dataTransfer.files[i]
-        const clean = window.api?.getPathForFile ? window.api.getPathForFile(file) : (file as any).path
+        const raw = window.api?.getPathForFile ? window.api.getPathForFile(file) : (file as any).path
+        const clean = cleanPathString(raw)
         if (clean) paths.push(clean)
       }
       if (paths.length > 0) {
@@ -140,7 +169,8 @@ export const BatchView: React.FC<BatchViewProps> = ({
 
   return (
     <div
-      className="space-y-4 relative"
+      className="space-y-4 relative min-h-[420px]"
+      onDragEnter={handleDragEnter}
       onDragOver={handleDragOver}
       onDragLeave={handleDragLeave}
       onDrop={handleDrop}
@@ -192,12 +222,12 @@ export const BatchView: React.FC<BatchViewProps> = ({
             </button>
           </div>
 
-          <div className="text-[11.5px] text-app-text-muted flex items-center gap-1.5 min-w-0 truncate">
+          <div className="text-[11px] text-app-text-muted hidden md:flex items-center gap-1.5 min-w-0 shrink overflow-hidden">
             <Layers className="w-3.5 h-3.5 text-brand-500 shrink-0" />
             <span className="truncate">
-              {batchMode === 'sync' && 'Align series episodes or movies with subtitles'}
-              {batchMode === 'generate' && 'Transcribe videos sequentially with Whisper AI'}
-              {batchMode === 'translate' && 'Translate multiple subtitles in queue with AI'}
+              {batchMode === 'sync' && 'Align series episodes with subtitles'}
+              {batchMode === 'generate' && 'Transcribe speech with Whisper AI'}
+              {batchMode === 'translate' && 'Translate subtitles with AI'}
             </span>
           </div>
         </div>
@@ -233,42 +263,35 @@ export const BatchView: React.FC<BatchViewProps> = ({
           )}
 
           {batchMode === 'generate' && (
-            <div className="flex flex-wrap items-center gap-4">
+            <div className="flex flex-wrap items-center gap-3">
               <div className="flex items-center gap-2">
-                <span className="font-semibold text-app-text">Whisper Model:</span>
-                <select
-                  disabled={isProcessing}
+                <span className="font-semibold text-app-text text-xs shrink-0">Whisper Model:</span>
+                <WhisperModelSelector
                   value={whisperModelQuality}
-                  onChange={(e) => setWhisperModelQuality(e.target.value)}
-                  className="bg-app-input border border-app-input-border text-app-text text-xs rounded-md px-2 py-1 focus:outline-hidden"
-                >
-                  <option value="tiny">Tiny (Fastest, ~75MB)</option>
-                  <option value="base">Base (Recommended, ~142MB)</option>
-                  <option value="small">Small (Better accuracy, ~466MB)</option>
-                  <option value="medium">Medium (High accuracy, ~1.5GB)</option>
-                  <option value="large">Large-v3 (Maximum precision, ~3.1GB)</option>
-                </select>
-              </div>
-
-              <div className="flex items-center gap-2">
-                <span className="font-semibold text-app-text">Language:</span>
-                <select
+                  onChange={setWhisperModelQuality}
+                  availableModels={availableWhisperModels}
                   disabled={isProcessing}
-                  value={generateLanguage}
-                  onChange={(e) => setGenerateLanguage(e.target.value)}
-                  className="bg-app-input border border-app-input-border text-app-text text-xs rounded-md px-2 py-1 focus:outline-hidden"
-                >
-                  <option value="original">Original Audio (Auto-detect)</option>
-                  <option value="en">English (Direct transcription)</option>
-                  <option value="si">Sinhala (Whisper + AI Translation)</option>
-                  <option value="ta">Tamil (Whisper + AI Translation)</option>
-                  <option value="hi">Hindi (Whisper + AI Translation)</option>
-                  <option value="es">Spanish (Whisper + AI Translation)</option>
-                </select>
+                  size="sm"
+                  className="space-y-0"
+                  selectClassName="max-w-[210px] truncate"
+                />
               </div>
 
               <div className="flex items-center gap-2">
-                <span className="font-semibold text-app-text">Format:</span>
+                <span className="font-semibold text-app-text text-xs shrink-0">Language:</span>
+                <LanguageSelector
+                  mode="generate"
+                  value={generateLanguage}
+                  onChange={setGenerateLanguage}
+                  disabled={isProcessing}
+                  size="sm"
+                  className="space-y-0"
+                  selectClassName="max-w-[190px] truncate"
+                />
+              </div>
+
+              <div className="flex items-center gap-2">
+                <span className="font-semibold text-app-text text-xs shrink-0">Format:</span>
                 <div className="flex rounded border border-app-input-border overflow-hidden">
                   <button
                     type="button"
@@ -296,21 +319,71 @@ export const BatchView: React.FC<BatchViewProps> = ({
           )}
 
           {batchMode === 'translate' && (
-            <div className="flex flex-wrap items-center gap-4">
+            <div className="flex flex-wrap items-center gap-3">
+              {setTranslateSource && (
+                <div className="flex items-center gap-2">
+                  <span className="font-semibold text-app-text text-xs shrink-0">Source:</span>
+                  <div className="flex rounded border border-app-input-border overflow-hidden">
+                    <button
+                      type="button"
+                      disabled={isProcessing}
+                      onClick={() => setTranslateSource('subtitles')}
+                      className={`px-2.5 py-1 text-xs font-semibold cursor-pointer ${
+                        translateSource === 'subtitles'
+                          ? 'bg-brand-500 text-white'
+                          : 'bg-app-input text-app-text-muted hover:text-app-text'
+                      }`}
+                      title="Translate standalone .srt / .vtt subtitle files"
+                    >
+                      Subtitle Files
+                    </button>
+                    <button
+                      type="button"
+                      disabled={isProcessing}
+                      onClick={() => setTranslateSource('embedded')}
+                      className={`px-2.5 py-1 text-xs font-semibold cursor-pointer ${
+                        translateSource === 'embedded'
+                          ? 'bg-brand-500 text-white'
+                          : 'bg-app-input text-app-text-muted hover:text-app-text'
+                      }`}
+                      title="Extract embedded subtitle tracks from movies (.mkv / .mp4) and translate directly"
+                    >
+                      Embedded in Movies
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {translateSource === 'embedded' && setPreferredTrackLang && (
+                <div className="flex items-center gap-2">
+                  <span className="font-semibold text-app-text text-xs shrink-0">Track:</span>
+                  <select
+                    disabled={isProcessing}
+                    value={preferredTrackLang}
+                    onChange={(e) => setPreferredTrackLang(e.target.value)}
+                    className="bg-app-input border border-app-input-border text-app-text text-xs rounded-md px-2 py-1 focus:outline-hidden"
+                  >
+                    <option value="en">English (Primary)</option>
+                    <option value="auto">Auto / Default Track</option>
+                    <option value="es">Spanish</option>
+                    <option value="fr">French</option>
+                    <option value="de">German</option>
+                    <option value="ja">Japanese</option>
+                  </select>
+                </div>
+              )}
+
               <div className="flex items-center gap-2">
-                <span className="font-semibold text-app-text">Target Language:</span>
-                <select
-                  disabled={isProcessing}
+                <span className="font-semibold text-app-text text-xs shrink-0">Target Language:</span>
+                <LanguageSelector
+                  mode="translate"
                   value={translateLanguage}
-                  onChange={(e) => setTranslateLanguage(e.target.value)}
-                  className="bg-app-input border border-app-input-border text-app-text text-xs rounded-md px-2 py-1 focus:outline-hidden"
-                >
-                  {translationLanguages.map((l) => (
-                    <option key={l.code} value={l.code}>
-                      {l.name}
-                    </option>
-                  ))}
-                </select>
+                  onChange={setTranslateLanguage}
+                  disabled={isProcessing}
+                  size="sm"
+                  className="space-y-0"
+                  selectClassName="max-w-[170px] truncate"
+                />
               </div>
 
               <div className="flex items-center gap-2">
@@ -483,13 +556,17 @@ export const BatchView: React.FC<BatchViewProps> = ({
         </div>
       </div>
 
-      {/* 3. Drag & Drop Overlay / Dropzone Target */}
+      {/* 3. Drag & Drop Full View Overlay - Non-intrusive backdrop with pointer-events-none */}
       {isDragging && (
-        <div className="p-8 border-2 border-dashed border-brand-500 bg-brand-500/10 rounded-xl flex flex-col items-center justify-center text-center animate-pulse">
-          <Layers className="w-10 h-10 text-brand-500 mb-2" />
-          <h4 className="font-bold text-sm text-app-text">Drop Files or Folder Here</h4>
-          <p className="text-xs text-app-text-muted mt-1">
-            Files will be automatically categorized and added to the {batchMode} batch queue.
+        <div className="absolute inset-0 z-50 rounded-2xl border-2 border-dashed border-brand-500 bg-app-card/95 backdrop-blur-xs flex flex-col items-center justify-center text-center p-8 shadow-2xl pointer-events-none select-none transition-all">
+          <div className="w-16 h-16 rounded-2xl bg-brand-500/15 border border-brand-500/30 flex items-center justify-center mb-3 text-brand-500 shadow-xs">
+            <Layers className="w-8 h-8 animate-bounce" />
+          </div>
+          <h4 className="font-bold text-base text-app-text">
+            Drop Files or Folder to Add to Queue
+          </h4>
+          <p className="text-xs text-app-text-muted mt-1 max-w-sm">
+            Files will be automatically categorized and added to the {batchMode.toUpperCase()} batch queue.
           </p>
         </div>
       )}
@@ -559,8 +636,10 @@ export const BatchView: React.FC<BatchViewProps> = ({
                     </span>
 
                     <div className="p-2 rounded-lg bg-app-card-inner border border-app-card-inner-border shrink-0 text-app-text">
-                      {item.jobType === 'translate' ? (
+                      {item.jobType === 'translate' && !item.videoPath ? (
                         <FileText className="w-4 h-4 text-emerald-500" />
+                      ) : item.jobType === 'translate' && item.videoPath ? (
+                        <Video className="w-4 h-4 text-purple-500" />
                       ) : (
                         <Video className="w-4 h-4 text-brand-500" />
                       )}
@@ -584,6 +663,12 @@ export const BatchView: React.FC<BatchViewProps> = ({
                         <span className="text-[10px] font-bold px-1.5 py-0.2 rounded-md bg-app-card-inner border border-app-card-inner-border text-app-text-muted uppercase">
                           {item.jobType}
                         </span>
+
+                        {item.jobType === 'translate' && (item.translateSource === 'embedded' || item.videoPath) && (
+                          <span className="text-[10px] font-bold px-1.5 py-0.2 rounded-md bg-purple-500/10 text-purple-600 dark:text-purple-400 border border-purple-500/20">
+                            Embedded Sub
+                          </span>
+                        )}
                       </div>
 
                       {/* Subtitle pairing details for Sync jobs */}
@@ -608,6 +693,14 @@ export const BatchView: React.FC<BatchViewProps> = ({
                               <span>Missing subtitle — click to pair</span>
                             </button>
                           )}
+                        </div>
+                      )}
+
+                      {/* Embedded Subtitle details for Translate jobs */}
+                      {item.jobType === 'translate' && (item.translateSource === 'embedded' || item.videoPath) && (
+                        <div className="text-[11px] text-app-text-muted mt-0.5 flex items-center gap-1.5 truncate">
+                          <span className="text-purple-600 dark:text-purple-400 font-medium">Source:</span>
+                          <span>Extract embedded track from movie & translate</span>
                         </div>
                       )}
 

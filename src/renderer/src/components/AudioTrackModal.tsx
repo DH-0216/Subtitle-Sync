@@ -1,6 +1,7 @@
 import React from 'react'
-import { X, Music, Check } from 'lucide-react'
+import { Music, Check } from 'lucide-react'
 import { AudioTrack } from './Step1Video'
+import { ModalHeader } from './common'
 
 interface AudioTrackModalProps {
   isOpen: boolean
@@ -37,20 +38,11 @@ export const AudioTrackModal: React.FC<AudioTrackModalProps> = ({
       }}
     >
       <div className="bg-app-card border border-app-card-border rounded-2xl w-full max-w-md overflow-hidden shadow-2xl transition-colors">
-        <div className="px-5 py-4 border-b border-app-header-border bg-app-header flex items-center justify-between">
-          <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-lg bg-app-accent-bg border border-app-accent-border flex items-center justify-center text-app-accent">
-              <Music className="w-4 h-4" />
-            </div>
-            <h3 className="font-semibold text-app-text text-sm">Select Reference Audio Track</h3>
-          </div>
-          <button
-            onClick={onClose}
-            className="p-1 rounded-lg text-app-text-muted hover:text-app-text hover:bg-app-card-inner-hover transition-colors cursor-pointer"
-          >
-            <X className="w-4 h-4" />
-          </button>
-        </div>
+        <ModalHeader
+          title="Select Reference Audio Track"
+          icon={<Music className="w-4 h-4" />}
+          onClose={onClose}
+        />
 
         <div className="p-4 max-h-80 overflow-y-auto space-y-2">
           {tracks.map((track) => {

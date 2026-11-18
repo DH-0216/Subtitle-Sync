@@ -9,6 +9,7 @@ import {
 import { MetadataBadge } from './MetadataBadge'
 import { StepCard } from './common/StepCard'
 import { FileDropzone } from './common/FileDropzone'
+import { cleanPathString } from '@shared/fileSanitizer'
 
 export interface AudioTrack {
   index: number
@@ -83,10 +84,11 @@ export const Step1Video: React.FC<Step1VideoProps> = ({
       const paths: string[] = []
       for (let i = 0; i < e.dataTransfer.files.length; i++) {
         const file = e.dataTransfer.files[i]
-        const fullPath = window.api.getPathForFile
+        const raw = window.api.getPathForFile
           ? window.api.getPathForFile(file)
           : (file as any).path || file.name
-        if (fullPath) paths.push(fullPath)
+        const clean = cleanPathString(raw)
+        if (clean) paths.push(clean)
       }
       if (onDropFiles) {
         onDropFiles(paths)

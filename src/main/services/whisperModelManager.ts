@@ -5,6 +5,7 @@ import * as https from 'https'
 import * as http from 'http'
 import { findBinary } from '../media'
 import { getWhisperModelDownloadUrl, EXTERNAL_LINKS } from '@shared/links'
+import { DEFAULT_WHISPER_MODELS } from '@shared/whisperModels'
 
 export interface WhisperModelInfo {
   id: string
@@ -112,22 +113,12 @@ export function buildModelMeta(id: string, sizeBytes: number): {
   return { label, name, description, category, speedHint, isRecommended }
 }
 
-const FALLBACK_MODELS_CATALOG: Array<{ id: string; filename: string; sizeBytes: number }> = [
-  { id: 'base', filename: 'ggml-base.bin', sizeBytes: 147964211 },
-  { id: 'large-v3-turbo', filename: 'ggml-large-v3-turbo.bin', sizeBytes: 1625977916 },
-  { id: 'small', filename: 'ggml-small.bin', sizeBytes: 487847979 },
-  { id: 'tiny', filename: 'ggml-tiny.bin', sizeBytes: 77793139 },
-  { id: 'medium', filename: 'ggml-medium.bin', sizeBytes: 1533155455 },
-  { id: 'large-v3', filename: 'ggml-large-v3.bin', sizeBytes: 3095033481 },
-  { id: 'large-v3-turbo-q5_0', filename: 'ggml-large-v3-turbo-q5_0.bin', sizeBytes: 574000000 },
-  { id: 'base-q5_1', filename: 'ggml-base-q5_1.bin', sizeBytes: 60000000 },
-  { id: 'small-q5_1', filename: 'ggml-small-q5_1.bin', sizeBytes: 191000000 },
-  { id: 'medium-q5_0', filename: 'ggml-medium-q5_0.bin', sizeBytes: 539000000 },
-  { id: 'base.en', filename: 'ggml-base.en.bin', sizeBytes: 147964211 },
-  { id: 'small.en', filename: 'ggml-small.en.bin', sizeBytes: 487847979 },
-  { id: 'tiny.en', filename: 'ggml-tiny.en.bin', sizeBytes: 77793139 },
-  { id: 'medium.en', filename: 'ggml-medium.en.bin', sizeBytes: 1533155455 }
-]
+const FALLBACK_MODELS_CATALOG: Array<{ id: string; filename: string; sizeBytes: number }> =
+  DEFAULT_WHISPER_MODELS.map((m) => ({
+    id: m.id,
+    filename: `ggml-${m.id}.bin`,
+    sizeBytes: m.sizeBytes || 0
+  }))
 
 let cachedRemoteModels: Array<{ id: string; filename: string; sizeBytes: number }> | null = null
 let cachedModelsFetchTime = 0

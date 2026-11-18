@@ -1,18 +1,15 @@
 import React, { useState, useEffect } from 'react'
 import {
-  Cpu,
   CheckCircle2,
   AlertCircle,
   Music,
   Sliders,
   ChevronDown,
-  Languages,
-  RefreshCw,
   FileCode
 } from 'lucide-react'
 import { AudioTrack, SubtitleTrack } from './Step1Video'
 import { TipMessage } from './TipMessage'
-import { StepCard } from './common/StepCard'
+import { StepCard, LanguageSelector, WhisperModelSelector } from './common'
 
 export interface WhisperModelItem {
   id: string
@@ -86,22 +83,6 @@ export const Step2Generate: React.FC<Step2GenerateProps> = ({
   const currentTrackIndex = selectedTrack !== null ? selectedTrack : (audioTracks[0]?.index ?? 0)
   const currentTrack = audioTracks.find((t) => t.index === currentTrackIndex) || audioTracks[0]
   const currentTrackLang = currentTrack?.language ? currentTrack.language.toUpperCase() : 'Audio'
-
-  const subtitleLanguages = [
-    { code: 'original', name: `Movie's Spoken Language (${currentTrackLang})` },
-    { code: 'en', name: 'English (Translate Speech to English via Whisper)' },
-    { code: 'si', name: 'Sinhala (AI Spoken Sinhala Translation)' },
-    { code: 'ta', name: 'Tamil (AI Spoken Tamil Translation)' },
-    { code: 'hi', name: 'Hindi (AI Spoken Hindi Translation)' },
-    { code: 'es', name: 'Spanish (AI Natural Spanish Translation)' }
-  ]
-
-  // Model categories for dynamic grouping
-  const recommendedModels = availableModels.filter((m) => m.category === 'recommended')
-  const standardModels = availableModels.filter((m) => m.category === 'standard' || m.category === 'high_accuracy')
-  const englishOnlyModels = availableModels.filter((m) => m.category === 'english_only')
-  const quantizedModels = availableModels.filter((m) => m.category === 'quantized')
-  const customModels = availableModels.filter((m) => m.category === 'custom')
 
   const selectedModel = availableModels.find((m) => m.id === config.modelQuality)
 
@@ -184,21 +165,14 @@ export const Step2Generate: React.FC<Step2GenerateProps> = ({
 
         {/* Subtitle Target Language for Video */}
         <div className="space-y-1.5">
-          <label className="text-xs font-bold text-app-text flex items-center gap-1.5">
-            <Languages className="w-3.5 h-3.5 text-blue-700 dark:text-blue-400" />
-            <span>Target Subtitle Language</span>
-          </label>
-          <select
+          <LanguageSelector
+            mode="generate"
             value={config.language}
-            onChange={(e) => onChangeConfig({ language: e.target.value })}
-            className="w-full text-xs font-medium px-3 py-2.5 rounded-xl border border-app-input-border bg-app-input text-app-input-text focus:outline-hidden focus:ring-2 focus:ring-blue-700/30 transition-all cursor-pointer"
-          >
-            {subtitleLanguages.map((l) => (
-              <option key={l.code} value={l.code}>
-                {l.name}
-              </option>
-            ))}
-          </select>
+            onChange={(language) => onChangeConfig({ language })}
+            currentAudioTrackLang={currentTrackLang}
+            showLabel={true}
+            size="md"
+          />
           <p className="text-[11px] text-app-text-muted">
             Generated 100% offline using local Whisper AI model on your computer.
           </p>
@@ -250,79 +224,16 @@ export const Step2Generate: React.FC<Step2GenerateProps> = ({
           <div className="mt-3.5 space-y-4 p-4 rounded-xl border border-app-card-inner-border bg-app-card-inner">
             {/* Model Quality Selection */}
             <div className="space-y-1.5">
-              <div className="flex items-center justify-between">
-                <label className="text-xs font-bold text-app-text flex items-center gap-1.5">
-                  <Cpu className="w-3.5 h-3.5 text-blue-700 dark:text-blue-400" />
-                  <span>Whisper AI Model</span>
-                </label>
-                {onRefreshModels && (
-                  <button
-                    type="button"
-                    onClick={onRefreshModels}
-                    disabled={isLoadingModels}
-                    className="text-[11px] text-blue-700 dark:text-blue-400 hover:underline flex items-center gap-1 font-semibold cursor-pointer disabled:opacity-50"
-                  >
-                    <RefreshCw className={`w-3 h-3 ${isLoadingModels ? 'animate-spin' : ''}`} />
-                    <span>Check Models</span>
-                  </button>
-                )}
-              </div>
-
-              <select
+              <WhisperModelSelector
                 value={config.modelQuality}
-                onChange={(e) => onChangeConfig({ modelQuality: e.target.value })}
-                className="w-full text-xs font-medium px-3 py-2.5 rounded-xl border border-app-input-border bg-app-input text-app-input-text focus:outline-hidden focus:ring-2 focus:ring-blue-700/30 cursor-pointer"
-              >
-                {recommendedModels.length > 0 && (
-                  <optgroup label="⭐ Recommended Models">
-                    {recommendedModels.map((m) => (
-                      <option key={m.id} value={m.id}>
-                        {m.name} ({m.sizeFormatted}) — {m.isDownloaded ? '✓ Downloaded' : '☁ Needs Download'} {m.speedHint ? `• ${m.speedHint}` : ''}
-                      </option>
-                    ))}
-                  </optgroup>
-                )}
-
-                {standardModels.length > 0 && (
-                  <optgroup label="📦 Standard Multi-lingual Models">
-                    {standardModels.map((m) => (
-                      <option key={m.id} value={m.id}>
-                        {m.name} ({m.sizeFormatted}) — {m.isDownloaded ? '✓ Downloaded' : '☁ Needs Download'}
-                      </option>
-                    ))}
-                  </optgroup>
-                )}
-
-                {englishOnlyModels.length > 0 && (
-                  <optgroup label="🇬🇧 English-Only Optimized (.en)">
-                    {englishOnlyModels.map((m) => (
-                      <option key={m.id} value={m.id}>
-                        {m.name} ({m.sizeFormatted}) — {m.isDownloaded ? '✓ Downloaded' : '☁ Needs Download'}
-                      </option>
-                    ))}
-                  </optgroup>
-                )}
-
-                {quantizedModels.length > 0 && (
-                  <optgroup label="⚡ Quantized Fast (Q5/Q8)">
-                    {quantizedModels.map((m) => (
-                      <option key={m.id} value={m.id}>
-                        {m.name} ({m.sizeFormatted}) — {m.isDownloaded ? '✓ Downloaded' : '☁ Needs Download'}
-                      </option>
-                    ))}
-                  </optgroup>
-                )}
-
-                {customModels.length > 0 && (
-                  <optgroup label="📁 Custom Local Models">
-                    {customModels.map((m) => (
-                      <option key={m.id} value={m.id}>
-                        {m.name} ({m.sizeFormatted}) — Local
-                      </option>
-                    ))}
-                  </optgroup>
-                )}
-              </select>
+                onChange={(modelQuality) => onChangeConfig({ modelQuality })}
+                availableModels={availableModels}
+                isLoading={isLoadingModels}
+                onRefresh={onRefreshModels}
+                showLabel={true}
+                disabled={isGenerating}
+                size="md"
+              />
 
               {/* Selected Model Status Card */}
               {selectedModel && (

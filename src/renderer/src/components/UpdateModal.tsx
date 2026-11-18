@@ -11,6 +11,7 @@ import {
   ShieldCheck,
   RefreshCw
 } from 'lucide-react'
+import { ModalHeader, Badge } from './common'
 import { UserFriendlyReleaseNotes } from './UserFriendlyReleaseNotes'
 import { compareVersions } from '@shared/version'
 import { formatBytes } from '@shared/fileSanitizer'
@@ -92,36 +93,25 @@ export const UpdateModal: React.FC<UpdateModalProps> = ({
     <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 animate-in fade-in duration-200">
       <div className="bg-app-card border border-app-card-border rounded-2xl w-full max-w-lg shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
         {/* Header */}
-        <div className="p-5 border-b border-app-header-border flex items-center justify-between bg-app-header">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-app-accent-bg text-app-accent flex items-center justify-center shrink-0 border border-app-accent-border">
-              <Sparkles className="w-5 h-5" />
-            </div>
-            <div>
-              <h3 className="font-bold text-sm text-app-text flex items-center gap-2">
-                <span>New Update Available</span>
-                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-700">
-                  v{updateInfo.latestVersion}
-                </span>
-              </h3>
-              <p className="text-xs text-app-text-muted mt-0.5">
-                {isUpdateReady
-                  ? 'Update downloaded and ready to apply'
-                  : 'A new version of Subtitle Sync Studio is ready to download'}
-              </p>
-            </div>
-          </div>
-
-          <button
-            type="button"
-            onClick={isUpdateReady && onRestartLater ? onRestartLater : onClose}
-            disabled={isDownloading}
-            className="p-1.5 rounded-lg text-app-text-muted hover:text-app-text hover:bg-app-card-inner-hover transition-colors disabled:opacity-40 cursor-pointer"
-            title="Close"
-          >
-            <X className="w-4 h-4" />
-          </button>
-        </div>
+        <ModalHeader
+          title="New Update Available"
+          subtitle={
+            isUpdateReady
+              ? 'Update downloaded and ready to apply'
+              : 'A new version of Subtitle Sync Studio is ready to download'
+          }
+          icon={<Sparkles className="w-5 h-5" />}
+          rightContent={
+            <Badge text={`v${updateInfo.latestVersion}`} variant="emerald" size="xs" />
+          }
+          onClose={
+            isDownloading
+              ? () => {}
+              : isUpdateReady && onRestartLater
+              ? onRestartLater
+              : onClose
+          }
+        />
 
         {/* Modal Body */}
         <div className="p-5 space-y-4 overflow-y-auto flex-1">

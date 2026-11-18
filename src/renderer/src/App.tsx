@@ -650,6 +650,10 @@ export default function App() {
                   setTranslateLanguage={batch.setTranslateLanguage}
                   translateFormat={batch.translateFormat}
                   setTranslateFormat={batch.setTranslateFormat}
+                  translateSource={batch.translateSource}
+                  setTranslateSource={batch.setTranslateSource}
+                  preferredTrackLang={batch.preferredTrackLang}
+                  setPreferredTrackLang={batch.setPreferredTrackLang}
                   availableWhisperModels={generate.whisperModels}
                   aiApiKey={aiApiKey}
                   aiProvider={aiProvider}

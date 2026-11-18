@@ -10,6 +10,7 @@ import {
 } from 'lucide-react'
 import { SubtitleTrack } from './Step1Video'
 import { StepCard } from './common/StepCard'
+import { Badge } from './common/Badge'
 
 interface Step2ExtractProps {
   videoPath: string | null;
@@ -81,9 +82,11 @@ export const Step2Extract: React.FC<Step2ExtractProps> = ({
   );
 
   const badge = subtitleTracks.length > 0 ? (
-    <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-app-card-inner-hover text-app-text border border-app-card-inner-border whitespace-nowrap shrink-0">
-      {subtitleTracks.length} {subtitleTracks.length === 1 ? 'stream' : 'streams'} detected
-    </span>
+    <Badge
+      text={`${subtitleTracks.length} ${subtitleTracks.length === 1 ? 'stream' : 'streams'} detected`}
+      variant="subtle"
+      size="xs"
+    />
   ) : undefined
 
   const headerRight = textTracks.length > 0 ? (
