@@ -72,7 +72,7 @@ export const SettingsAiTab: React.FC<SettingsAiTabProps> = ({
   return (
     <>
       {/* AI API Provider & Key Card */}
-      <div className="p-4 rounded-xl border border-app-card-border bg-app-card space-y-3.5 transition-colors">
+      <div className="p-4 rounded-xl border border-app-card-inner-border bg-app-card-inner space-y-3.5 transition-colors">
         <div className="flex items-start justify-between gap-3">
           <div>
             <h3 className="font-bold text-sm text-app-text">
@@ -267,9 +267,9 @@ export const SettingsAiTab: React.FC<SettingsAiTabProps> = ({
       </div>
 
       {/* Custom Translation Prompt & Rules Card */}
-      <div className="p-4 rounded-xl border border-app-card-border bg-app-card space-y-3.5 transition-colors">
+      <div className="p-4 rounded-xl border border-app-card-inner-border bg-app-card-inner space-y-3.5 transition-colors">
         {/* Language Selector Header */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 pb-3 border-b border-app-card-border">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 pb-3 border-b border-app-card-inner-border">
           <div className="flex items-center gap-2.5">
             <div className="w-8 h-8 rounded-lg bg-blue-500/10 text-blue-500 dark:text-blue-400 flex items-center justify-center shrink-0">
               <Languages className="w-4 h-4" />

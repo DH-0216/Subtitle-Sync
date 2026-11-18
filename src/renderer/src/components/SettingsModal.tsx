@@ -41,7 +41,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = (props) => {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs transition-opacity animate-in fade-in duration-200">
       <div
-        className="w-full max-w-4xl bg-app-modal-bg border border-app-modal-border rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh] transition-all"
+        className="w-full max-w-4xl bg-app-modal border border-app-modal-border rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh] transition-all"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Unified Modal Header */}
@@ -54,7 +54,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = (props) => {
         {/* Modal Body: Left Sidebar Tabs + Right Scrollable Content */}
         <div className="flex-1 flex overflow-hidden min-h-[460px]">
           {/* Navigation Sidebar */}
-          <aside className="w-52 border-r border-app-card-border p-3 flex flex-col gap-1.5 shrink-0 bg-app-sidebar/40">
+          <aside className="w-52 border-r border-app-modal-sidebar-border p-3 flex flex-col gap-1.5 shrink-0 bg-app-modal-sidebar">
             <SidebarNav<"general" | "ai">
               items={navItems}
               activeId={state.activeTab}

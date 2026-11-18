@@ -347,20 +347,13 @@ export function useSettingsModalState(props: SettingsModalProps) {
 
   const handleSelectTheme = (newTheme: ThemeMode) => {
     setTheme(newTheme);
-    window.api?.settings?.save({
-      theme: newTheme,
-      check_updates_startup: checkUpdates,
-      aiApiKey,
-      aiProvider,
-      aiPrompt
-    });
   };
 
   const handleToggleAutoUpdate = (enabled: boolean) => {
     setCheckUpdates(enabled);
     window.api?.settings?.save({
       theme,
-      check_updates_startup: enabled,
+      checkUpdates: enabled,
       autoDownloadUpdates,
       notificationsEnabled,
       aiApiKey,
@@ -375,7 +368,7 @@ export function useSettingsModalState(props: SettingsModalProps) {
     }
     window.api?.settings?.save({
       theme,
-      check_updates_startup: checkUpdates,
+      checkUpdates,
       autoDownloadUpdates: enabled,
       notificationsEnabled,
       aiApiKey,
@@ -395,7 +388,7 @@ export function useSettingsModalState(props: SettingsModalProps) {
     }
     window.api?.settings?.save({
       theme,
-      check_updates_startup: checkUpdates,
+      checkUpdates,
       autoDownloadUpdates,
       notificationsEnabled: enabled,
       aiApiKey,
