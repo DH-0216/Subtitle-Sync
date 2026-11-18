@@ -1,5 +1,6 @@
 import React, { useEffect } from 'react'
 import { X, Cpu, Download, Loader2, AlertCircle, HardDrive, WifiOff } from 'lucide-react'
+import { formatBytes } from '@shared/fileSanitizer'
 
 export interface WhisperModelModalItem {
   id: string
@@ -23,15 +24,6 @@ interface ModelDownloadModalProps {
   errorMessage?: string | null
   onStartDownload: () => void
   onCancelDownload: () => void
-}
-
-function formatBytes(bytes?: number): string {
-  if (!bytes || bytes <= 0) return '0 MB'
-  const mb = bytes / (1024 * 1024)
-  if (mb >= 1024) {
-    return `${(mb / 1024).toFixed(2)} GB`
-  }
-  return `${mb.toFixed(1)} MB`
 }
 
 export const ModelDownloadModal: React.FC<ModelDownloadModalProps> = ({

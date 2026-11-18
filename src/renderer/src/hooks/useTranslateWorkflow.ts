@@ -6,7 +6,7 @@ import {
   getFileName
 } from '@shared/fileSanitizer'
 import { AiProviderId } from '@shared/aiModels'
-import { DEFAULT_AI_PROMPT, getPromptForLanguage } from '@shared/translationPrompts'
+import { DEFAULT_AI_PROMPT, resolveEffectiveAiPrompt } from '@shared/translationPrompts'
 import { SubtitleTrack } from '../components/Step1Video'
 
 interface UseTranslateWorkflowOptions {
@@ -157,16 +157,6 @@ export function useTranslateWorkflow({
     addLog(`Target Language: ${translateLanguage.toUpperCase()}`)
     addLog(`AI Provider: ${aiProvider.toUpperCase()} (${aiModel || 'default'})`)
 
-    const resolveEffectiveAiPrompt = (targetLang: string) => {
-      if (targetLang === 'si') {
-        return aiPrompt || getPromptForLanguage('si')
-      }
-      if (aiPrompt && !aiPrompt.includes('Sinhala') && !aiPrompt.includes('සිංහල')) {
-        return aiPrompt
-      }
-      return getPromptForLanguage(targetLang)
-    }
-
     try {
       const res = await window.api.generator.startGenerate({
         video: videoPath || '',
@@ -178,7 +168,7 @@ export function useTranslateWorkflow({
         aiApiKey,
         aiProvider,
         aiModel,
-        customPrompt: resolveEffectiveAiPrompt(translateLanguage)
+        customPrompt: resolveEffectiveAiPrompt(translateLanguage, aiPrompt)
       })
 
       if (res?.success) {

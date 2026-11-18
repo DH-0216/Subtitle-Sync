@@ -182,7 +182,7 @@
   --app-modal-sidebar-bg: var(--app-sidebar-bg);
   --app-modal-sidebar-border: var(--app-sidebar-border);
 
-  --app-input-bg: rgba(0, 0, 0, 0.25);
+  --app-input-bg: rgba(11, 15, 25, 0.70);
   --app-input-border: rgba(255, 255, 255, 0.16);
   --app-input-text: #FFFFFF;
 
@@ -300,4 +300,64 @@
 
 [data-theme='glass'] .bg-app-primary:hover {
   background: #1D4ED8 !important;
+}
+
+/* ==========================================================================
+   DROPDOWN MENUS (GLASS THEME & DARK THEME)
+   ========================================================================== */
+
+/* Glass Theme: Dark Glass Dropdown Controls */
+[data-theme='glass'] select,
+[data-theme='glass'] select.bg-app-input {
+  color-scheme: dark;
+  background-color: rgba(11, 15, 25, 0.75) !important;
+  border-color: rgba(255, 255, 255, 0.18) !important;
+  color: #FFFFFF !important;
+  backdrop-filter: blur(20px) saturate(170%);
+  -webkit-backdrop-filter: blur(20px) saturate(170%);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.28), inset 0 1px 0 rgba(255, 255, 255, 0.12);
+}
+
+[data-theme='glass'] select:hover {
+  background-color: rgba(15, 23, 42, 0.85) !important;
+  border-color: rgba(255, 255, 255, 0.28) !important;
+}
+
+[data-theme='glass'] select:focus {
+  background-color: rgba(15, 23, 42, 0.95) !important;
+  border-color: rgba(96, 165, 250, 0.55) !important;
+  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.30), inset 0 1px 0 rgba(255, 255, 255, 0.15) !important;
+}
+
+/* Glass Theme: Dark Glass Dropdown Popup Menu List (<option> & <optgroup>) */
+[data-theme='glass'] select option,
+[data-theme='glass'] select optgroup {
+  background-color: #0b0f19 !important;
+  color: #F1F5F9 !important;
+}
+
+[data-theme='glass'] select option:checked {
+  background-color: #1e293b !important;
+  color: #60a5fa !important;
+  font-weight: 600;
+}
+
+[data-theme='glass'] select option:hover,
+[data-theme='glass'] select option:focus {
+  background-color: #1e293b !important;
+  color: #93c5fd !important;
+}
+
+/* Dark Theme Dropdown Options */
+[data-theme='dark'] select,
+.dark select {
+  color-scheme: dark;
+}
+
+[data-theme='dark'] select option,
+[data-theme='dark'] select optgroup,
+.dark select option,
+.dark select optgroup {
+  background-color: #0b0f19 !important;
+  color: #F1F5F9 !important;
 }

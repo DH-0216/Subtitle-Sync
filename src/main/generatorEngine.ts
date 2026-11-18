@@ -313,7 +313,16 @@ export async function executeSubtitleGeneration(
       onEvent({ type: 'progress', percent: 75, message: 'Translating into Spoken Sinhala...' })
 
       const srtContent = fs.readFileSync(generatedSrt, 'utf-8')
-      let rawCues = cleanSdhFromCues(removeHallucinationLoops(parseSrt(srtContent)))
+      const parsedCues = removeHallucinationLoops(parseSrt(srtContent))
+      const initialCuesCount = parsedCues.length
+      const rawCues = cleanSdhFromCues(parsedCues)
+      const sdhCleanedCount = initialCuesCount - rawCues.length
+      if (sdhCleanedCount > 0) {
+        onEvent({
+          type: 'log',
+          message: `[SDH CLEANER] Purged ${sdhCleanedCount} background sound effect cues. Retained ${rawCues.length} clean dialogue cues.`
+        })
+      }
 
       try {
         const translatedCues = await translateCuesViaAi(

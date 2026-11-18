@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback } from 'react'
+import { useState, useRef, useCallback, useEffect } from 'react'
 import toast from 'react-hot-toast'
 import { SubtitleTrack } from '../components/Step1Video'
 
@@ -8,6 +8,7 @@ interface UseExtractWorkflowOptions {
   addLog: (msg: string) => void
   notifyJobComplete: (title: string, body: string) => void
   onOutputReady?: (filePath: string, dirPath: string) => void
+  onOutputClear?: () => void
 }
 
 export function useExtractWorkflow({
@@ -15,7 +16,8 @@ export function useExtractWorkflow({
   subtitleTracks,
   addLog,
   notifyJobComplete,
-  onOutputReady
+  onOutputReady,
+  onOutputClear
 }: UseExtractWorkflowOptions) {
   const [selectedExtractTrackIndices, setSelectedExtractTrackIndices] = useState<number[]>([])
   const [extractOutputDir, setExtractOutputDir] = useState<string | null>(null)
@@ -25,6 +27,22 @@ export function useExtractWorkflow({
   const [extractCleanTags, setExtractCleanTags] = useState(true)
 
   const extractCancelledRef = useRef(false)
+
+  // Listen to live extraction events & progress from FFmpeg
+  useEffect(() => {
+    if (!window.api?.extractor?.onEvent) return
+    const unsub = window.api.extractor.onEvent((event: any) => {
+      if (extractCancelledRef.current) return
+      if (event.type === 'progress') {
+        const p = typeof event.percent === 'number' ? event.percent : 0
+        setExtractProgress(p)
+        if (event.message) setExtractStatusMessage(event.message)
+      } else if (event.type === 'log') {
+        addLog(event.message)
+      }
+    })
+    return () => unsub()
+  }, [addLog])
 
   const handleStartExtract = useCallback(async () => {
     if (!videoPath) {
@@ -141,9 +159,10 @@ export function useExtractWorkflow({
     setIsExtracting(false)
     setExtractProgress(0)
     setExtractStatusMessage('Extraction cancelled by user')
+    if (onOutputClear) onOutputClear()
     toast('Extraction cancelled', { icon: '⏹️', duration: 2500 })
     addLog('[USER] Subtitle extraction cancelled.')
-  }, [addLog])
+  }, [addLog, onOutputClear])
 
   const handleSelectOutputDir = useCallback(async () => {
     if (!window.api?.dialog?.selectFolder) return

@@ -13,6 +13,7 @@ import {
 } from 'lucide-react'
 import { UserFriendlyReleaseNotes } from './UserFriendlyReleaseNotes'
 import { compareVersions } from '@shared/version'
+import { formatBytes } from '@shared/fileSanitizer'
 
 export interface AppUpdateData {
   updateAvailable: boolean
@@ -44,15 +45,6 @@ interface UpdateModalProps {
   errorMessage?: string | null
   onDownloadAndInstall: (downloadUrl: string) => void
   onCancelDownload: () => void
-}
-
-function formatBytes(bytes?: number): string {
-  if (!bytes || bytes <= 0) return '0 MB'
-  const mb = bytes / (1024 * 1024)
-  if (mb >= 1024) {
-    return `${(mb / 1024).toFixed(2)} GB`
-  }
-  return `${mb.toFixed(1)} MB`
 }
 
 export const UpdateModal: React.FC<UpdateModalProps> = ({

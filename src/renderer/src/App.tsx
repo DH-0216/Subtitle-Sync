@@ -69,13 +69,7 @@ export default function App() {
   // 2. In-App Updater Hook
   const updater = useAppUpdater({ notifyJobComplete, addLog })
 
-  // 3. Shared Output Helper
-  const handleOutputReady = useCallback((filePath: string, dirPath: string) => {
-    sync.setLastOutputFile(filePath)
-    sync.setLastOutputDir(dirPath)
-  }, [])
-
-  // 4. Video & Media Hook
+  // 3. Video & Media Hook
   const video = useVideoMedia({
     subtitleAction,
     addLog,
@@ -90,7 +84,7 @@ export default function App() {
     }
   })
 
-  // 5. Sync Workflow Hook
+  // 4. Sync Workflow Hook
   const sync = useSyncWorkflow({
     videoPath: video.videoPath,
     selectedTrack: video.selectedTrack,
@@ -108,6 +102,10 @@ export default function App() {
     onOutputReady: (f, d) => {
       sync.setLastOutputFile(f)
       sync.setLastOutputDir(d)
+    },
+    onOutputClear: () => {
+      sync.setLastOutputFile(null)
+      sync.setLastOutputDir(null)
     }
   })
 
@@ -130,6 +128,10 @@ export default function App() {
     onOutputReady: (f, d) => {
       sync.setLastOutputFile(f)
       sync.setLastOutputDir(d)
+    },
+    onOutputClear: () => {
+      sync.setLastOutputFile(null)
+      sync.setLastOutputDir(null)
     }
   })
 
@@ -147,7 +149,7 @@ export default function App() {
       setSettingsModalOpen(true)
     },
     onRemoveVideo: () => video.handleRemoveVideo(),
-    setIsGenerating: generate.setIsGenerating,
+    setIsGenerating: generate.setIsGeneratingSync,
     setGenerateProgress: generate.setGenerateProgress,
     setGenerateStatusMessage: generate.setGenerateStatusMessage,
     setIsExtracting: extract.setIsExtracting,
@@ -259,38 +261,42 @@ export default function App() {
   }, [generate.loadWhisperModels])
 
   // Global Engine Event Listener (logs, status, progress)
+  const engineHandlersRef = React.useRef({ generate, sync, addLog })
+  engineHandlersRef.current = { generate, sync, addLog }
+
   useEffect(() => {
     if (!window.api?.engine?.onEvent) return
     const unsub = window.api.engine.onEvent((event: any) => {
+      const { generate: gen, sync: snc, addLog: log } = engineHandlersRef.current
       if (event.type === 'log') {
-        addLog(event.message)
+        log(event.message)
       } else if (event.type === 'status') {
-        if (generate.isGeneratingRef.current) {
-          if (!generate.generateCancelledRef.current) {
-            generate.setGenerateStatusMessage(event.message)
+        if (gen.isGeneratingRef.current) {
+          if (!gen.generateCancelledRef.current) {
+            gen.setGenerateStatusMessage(event.message)
           }
         } else {
-          if (!sync.syncCancelledRef.current) {
-            sync.setStatusMessage(event.message)
+          if (!snc.syncCancelledRef.current) {
+            snc.setStatusMessage(event.message)
           }
         }
       } else if (event.type === 'progress') {
         const filePct = typeof event.percent === 'number' ? event.percent : 0
-        if (generate.isGeneratingRef.current) {
-          if (!generate.generateCancelledRef.current) {
-            generate.setGenerateProgress(filePct)
-            if (event.message) generate.setGenerateStatusMessage(event.message)
+        if (gen.isGeneratingRef.current) {
+          if (!gen.generateCancelledRef.current) {
+            gen.setGenerateProgress(filePct)
+            if (event.message) gen.setGenerateStatusMessage(event.message)
           }
         } else {
-          if (!sync.syncCancelledRef.current) {
-            sync.setProgress(filePct)
-            if (event.message) sync.setStatusMessage(event.message)
+          if (!snc.syncCancelledRef.current) {
+            snc.setProgress(filePct)
+            if (event.message) snc.setStatusMessage(event.message)
           }
         }
       }
     })
     return () => unsub()
-  }, [addLog, generate, sync])
+  }, [])
 
   // Open containing folder
   const handleOpenFolder = useCallback(async () => {

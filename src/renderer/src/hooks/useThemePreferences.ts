@@ -63,17 +63,21 @@ export function useThemePreferences() {
       theme: newTheme,
       defaultMode,
       checkUpdates,
-      autoDownloadUpdates: autoDownloadUpdates ?? false,
-      notificationsEnabled
+      ...(autoDownloadUpdates !== undefined ? { autoDownloadUpdates } : {}),
+      notificationsEnabled,
+      aiApiKey,
+      aiProvider,
+      aiModel,
+      aiPrompt
     })
-  }, [checkUpdates, defaultMode, notificationsEnabled])
+  }, [aiApiKey, aiModel, aiPrompt, aiProvider, checkUpdates, defaultMode, notificationsEnabled])
 
   const handleSaveSettings = useCallback((autoDownloadUpdates?: boolean) => {
     window.api?.settings?.save({
       theme,
       defaultMode,
       checkUpdates,
-      autoDownloadUpdates: autoDownloadUpdates ?? false,
+      ...(autoDownloadUpdates !== undefined ? { autoDownloadUpdates } : {}),
       notificationsEnabled,
       aiApiKey,
       aiProvider,

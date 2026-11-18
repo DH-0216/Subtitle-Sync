@@ -120,7 +120,14 @@ function saveSettings(settings: any) {
       fs.mkdirSync(settingsDir, { recursive: true })
     }
 
-    const toSave = { ...settings }
+    let existingOnDisk: any = {}
+    if (fs.existsSync(settingsFile)) {
+      try {
+        existingOnDisk = JSON.parse(fs.readFileSync(settingsFile, 'utf-8'))
+      } catch {}
+    }
+
+    const toSave = { ...existingOnDisk, ...settings }
 
     // Encrypt sensitive API key using OS DPAPI before writing to disk
     if (toSave.aiApiKey) {

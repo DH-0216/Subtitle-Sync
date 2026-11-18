@@ -159,3 +159,17 @@ export function getLanguageConfig(code: string): TranslationLanguageConfig {
   const found = TRANSLATION_LANGUAGES.find((lang) => lang.code === code)
   return found || TRANSLATION_LANGUAGES[0]
 }
+
+/**
+ * Centrally resolves the effective translation prompt for any target language,
+ * properly honoring language-specific overrides while preserving user customization.
+ */
+export function resolveEffectiveAiPrompt(targetLang: string, aiPrompt?: string): string {
+  if (targetLang === 'si') {
+    return aiPrompt || getPromptForLanguage('si')
+  }
+  if (aiPrompt && !aiPrompt.includes('Sinhala') && !aiPrompt.includes('සිංහල')) {
+    return aiPrompt
+  }
+  return getPromptForLanguage(targetLang)
+}

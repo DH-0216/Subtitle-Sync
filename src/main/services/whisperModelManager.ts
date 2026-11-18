@@ -31,8 +31,8 @@ export function getModelsDir(): string {
   return dir
 }
 
-export function formatModelSize(bytes: number): string {
-  if (!bytes || bytes <= 0) return 'Unknown'
+export function formatModelSize(bytes?: number): string {
+  if (!bytes || bytes <= 0) return 'Unknown size'
   if (bytes >= 1024 * 1024 * 1024) {
     return `${(bytes / (1024 * 1024 * 1024)).toFixed(1)} GB`
   }

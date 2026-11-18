@@ -170,12 +170,18 @@ export function useSettingsModalState(props: SettingsModalProps) {
 
     window.api?.settings?.save({
       theme,
-      check_updates_startup: checkUpdates,
+      checkUpdates,
+      autoDownloadUpdates,
+      notificationsEnabled,
       aiApiKey: draftApiKey,
       aiProvider: draftProvider,
       aiModel: draftModel,
       aiPrompt: finalSiPrompt
     });
+
+    if (onSave) {
+      onSave();
+    }
 
     setSavedSuccess(true);
     setTimeout(() => setSavedSuccess(false), 2000);
@@ -358,6 +364,7 @@ export function useSettingsModalState(props: SettingsModalProps) {
       notificationsEnabled,
       aiApiKey,
       aiProvider,
+      aiModel,
       aiPrompt
     });
   };
@@ -373,6 +380,7 @@ export function useSettingsModalState(props: SettingsModalProps) {
       notificationsEnabled,
       aiApiKey,
       aiProvider,
+      aiModel,
       aiPrompt
     });
     toast.success(
@@ -393,6 +401,7 @@ export function useSettingsModalState(props: SettingsModalProps) {
       notificationsEnabled: enabled,
       aiApiKey,
       aiProvider,
+      aiModel,
       aiPrompt
     });
     toast.success(

@@ -245,3 +245,15 @@ export interface FileValidationItem {
   errorMessage?: string
   directorySubtitles?: string[]
 }
+
+/**
+ * Shared byte size formatter across modals and file displays.
+ */
+export function formatBytes(bytes?: number): string {
+  if (!bytes || bytes <= 0) return '0 MB'
+  const mb = bytes / (1024 * 1024)
+  if (mb >= 1024) {
+    return `${(mb / 1024).toFixed(2)} GB`
+  }
+  return `${mb.toFixed(1)} MB`
+}

@@ -8,7 +8,7 @@ import {
 } from '@shared/fileSanitizer'
 import { formatUserFriendlyError } from '@shared/errorUtils'
 import { AiProviderId } from '@shared/aiModels'
-import { getPromptForLanguage } from '@shared/translationPrompts'
+import { resolveEffectiveAiPrompt } from '@shared/translationPrompts'
 import { GenerateConfig } from '../components/Step2Generate'
 import { AudioTrack } from '../components/Step1Video'
 
@@ -25,6 +25,7 @@ interface UseGenerateWorkflowOptions {
   addLog: (msg: string) => void
   notifyJobComplete: (title: string, body: string) => void
   onOutputReady?: (filePath: string, dirPath: string) => void
+  onOutputClear?: () => void
 }
 
 export function useGenerateWorkflow({
@@ -39,7 +40,8 @@ export function useGenerateWorkflow({
   onOpenSettingsAiTab,
   addLog,
   notifyJobComplete,
-  onOutputReady
+  onOutputReady,
+  onOutputClear
 }: UseGenerateWorkflowOptions) {
   const [generateConfig, setGenerateConfig] = useState<GenerateConfig>({
     sourceType: 'video',
@@ -69,6 +71,11 @@ export function useGenerateWorkflow({
 
   const generateCancelledRef = useRef(false)
   const isGeneratingRef = useRef(false)
+
+  const setIsGeneratingSync = useCallback((val: boolean) => {
+    isGeneratingRef.current = val
+    setIsGenerating(val)
+  }, [])
 
   useEffect(() => {
     isGeneratingRef.current = isGenerating
@@ -217,6 +224,7 @@ export function useGenerateWorkflow({
     }
 
     generateCancelledRef.current = false
+    isGeneratingRef.current = true
     setIsGenerating(true)
     setGenerateProgress(5)
     setGenerateStatusMessage(isSubtitleSource ? 'Starting AI dialogue translation...' : 'Starting subtitle generation...')
@@ -244,11 +252,7 @@ export function useGenerateWorkflow({
         aiApiKey,
         aiProvider,
         aiModel,
-        customPrompt: (effectiveConfig.language === 'si' && aiPrompt)
-          ? aiPrompt
-          : ((aiPrompt && !aiPrompt.includes('Sinhala') && !aiPrompt.includes('සිංහල'))
-            ? aiPrompt
-            : getPromptForLanguage(effectiveConfig.language))
+        customPrompt: resolveEffectiveAiPrompt(effectiveConfig.language, aiPrompt)
       })
 
       if (res?.success) {
@@ -311,21 +315,24 @@ export function useGenerateWorkflow({
         toast.error(friendlyMsg, { duration: 5000 })
       }
     } finally {
+      isGeneratingRef.current = false
       setIsGenerating(false)
     }
   }, [addLog, aiApiKey, aiModel, aiPrompt, aiProvider, audioTracks, generateConfig, notifyJobComplete, onOpenSettingsAiTab, onOutputReady, selectedTrack, videoDetails?.durationSec, videoPath])
 
   const handleCancelGenerate = useCallback(async () => {
     generateCancelledRef.current = true
+    isGeneratingRef.current = false
     try {
       await window.api.generator.cancelGenerate()
     } catch {}
     setIsGenerating(false)
     setGenerateProgress(0)
     setGenerateStatusMessage('Cancelled by user')
+    if (onOutputClear) onOutputClear()
     toast('Subtitle generation cancelled', { icon: '⏹️', duration: 2500 })
     addLog('[USER] Subtitle generation cancelled.')
-  }, [addLog])
+  }, [addLog, onOutputClear])
 
   const handleStartDownloadModel = useCallback(async () => {
     if (!navigator.onLine) {
@@ -384,7 +391,8 @@ export function useGenerateWorkflow({
     generateConfig,
     setGenerateConfig,
     isGenerating,
-    setIsGenerating,
+    setIsGenerating: setIsGeneratingSync,
+    setIsGeneratingSync,
     generateProgress,
     setGenerateProgress,
     generateStatusMessage,
