@@ -74,6 +74,14 @@ export async function resolveGeminiModel(apiKey: string, onLog: (msg: string) =>
   return candidates[0] || AI_MODELS_CONFIG.GEMINI_EMERGENCY_SEEDS[0]
 }
 
+function cleanTranslationText(text: string, targetLang?: string): string {
+  if (!text) return ''
+  if (targetLang === 'si') {
+    return sanitizeSinhalaScript(text.trim())
+  }
+  return text.replace(/[ \t]{2,}/g, ' ').trim()
+}
+
 export async function translateCuesWithGemini(
   cues: SrtCue[],
   apiKey: string,
@@ -84,9 +92,11 @@ export async function translateCuesWithGemini(
   options?: {
     isCancelled?: () => boolean
     abortSignal?: AbortSignal
+    targetLang?: string
   }
 ): Promise<SrtCue[]> {
-  onLog('[AI TRANSLATION] Initiating Gemini Spoken Sinhala translation...')
+  const target = options?.targetLang || 'si'
+  onLog(`[AI TRANSLATION] Initiating Gemini ${target.toUpperCase()} translation...`)
   let currentModel = (modelChoice && modelChoice !== 'auto')
     ? modelChoice
     : await resolveGeminiModel(apiKey, onLog)
@@ -204,7 +214,7 @@ export async function translateCuesWithGemini(
               if (Array.isArray(parsedItems) && parsedItems.length > 0) {
                 for (const item of parsedItems) {
                   if (typeof item.index === 'number' && typeof item.text === 'string') {
-                    parsedMap[item.index] = sanitizeSinhalaScript(item.text.trim())
+                    parsedMap[item.index] = cleanTranslationText(item.text, options?.targetLang)
                   }
                 }
               } else {
@@ -213,7 +223,7 @@ export async function translateCuesWithGemini(
                   const m = l.match(/^\[?(\d+)\]?[:\s-]+(.*)$/)
                   if (m) {
                     const idx = parseInt(m[1], 10)
-                    parsedMap[idx] = sanitizeSinhalaScript(m[2].trim())
+                    parsedMap[idx] = cleanTranslationText(m[2], options?.targetLang)
                   }
                 }
               }
@@ -285,7 +295,7 @@ export async function translateCuesWithGemini(
     }
 
     for (const c of batch) {
-      const trans = lineMap[c.index] ? sanitizeSinhalaScript(lineMap[c.index]) : ''
+      const trans = lineMap[c.index] ? cleanTranslationText(lineMap[c.index], options?.targetLang) : ''
       translatedCues.push({
         ...c,
         text: trans || c.text

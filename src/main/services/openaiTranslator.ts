@@ -19,6 +19,14 @@ export async function getOpenAiCandidateModels(apiKey: string, preferredModel?: 
   return buildDynamicOpenAiChain([], preferredModel)
 }
 
+function cleanTranslationText(text: string, targetLang?: string): string {
+  if (!text) return ''
+  if (targetLang === 'si') {
+    return sanitizeSinhalaScript(text.trim())
+  }
+  return text.replace(/[ \t]{2,}/g, ' ').trim()
+}
+
 export async function translateCuesWithOpenAI(
   cues: SrtCue[],
   apiKey: string,
@@ -29,6 +37,7 @@ export async function translateCuesWithOpenAI(
   options?: {
     isCancelled?: () => boolean
     abortSignal?: AbortSignal
+    targetLang?: string
   }
 ): Promise<SrtCue[]> {
   const candidateModels = await getOpenAiCandidateModels(apiKey, modelChoice)
@@ -107,7 +116,7 @@ export async function translateCuesWithOpenAI(
               const m = l.match(/^\[(\d+)\]\s*(.*)$/)
               if (m) {
                 const idx = parseInt(m[1], 10)
-                parsedMap[idx] = sanitizeSinhalaScript(m[2].trim())
+                parsedMap[idx] = cleanTranslationText(m[2], options?.targetLang)
               }
             }
 
@@ -159,7 +168,7 @@ export async function translateCuesWithOpenAI(
     }
 
     for (const c of batch) {
-      const trans = lineMap[c.index] ? sanitizeSinhalaScript(lineMap[c.index]) : ''
+      const trans = lineMap[c.index] ? cleanTranslationText(lineMap[c.index], options?.targetLang) : ''
       translatedCues.push({
         ...c,
         text: trans || c.text

@@ -151,7 +151,7 @@ export async function runWhisperTranscription(options: {
     } else if (language === 'original') {
       const resolvedLang = mapTrackLangToWhisper(trackLanguage)
       whisperArgs.push('-l', resolvedLang)
-    } else if (language === 'si') {
+    } else if (['si', 'ta', 'hi', 'es'].includes(language)) {
       whisperArgs.push('-tr')
     } else {
       whisperArgs.push('-l', 'auto')
@@ -180,7 +180,8 @@ export async function runWhisperTranscription(options: {
     })
     onProcessStart(proc)
 
-    const whisperRange = language === 'si' ? 65 : 85
+    const isAiTranslationRequired = ['si', 'ta', 'hi', 'es'].includes(language)
+    const whisperRange = isAiTranslationRequired ? 65 : 85
     let lastReportedPercent = 10
     let lastSpokenText = ''
     let repeatLogCount = 0

@@ -61,6 +61,8 @@ export default function App() {
     setAiModel,
     aiPrompt,
     setAiPrompt,
+    aiPromptsByLang,
+    setAiPromptsByLang,
     notifyJobComplete,
     handleSetTheme,
     handleSaveSettings
@@ -119,6 +121,7 @@ export default function App() {
     aiProvider,
     aiModel,
     aiPrompt,
+    aiPromptsByLang,
     onOpenSettingsAiTab: () => {
       setSettingsInitialTab('ai')
       setSettingsModalOpen(true)
@@ -143,6 +146,7 @@ export default function App() {
     aiProvider,
     aiModel,
     aiPrompt,
+    aiPromptsByLang,
     extractCleanTags: extract.extractCleanTags,
     onOpenSettingsAiTab: () => {
       setSettingsInitialTab('ai')
@@ -223,6 +227,9 @@ export default function App() {
           } else {
             setAiPrompt(s.aiPrompt)
           }
+        }
+        if (s.aiPromptsByLang && typeof s.aiPromptsByLang === 'object') {
+          setAiPromptsByLang(s.aiPromptsByLang)
         }
       }
     })
@@ -586,6 +593,8 @@ export default function App() {
         setAiModel={setAiModel}
         aiPrompt={aiPrompt}
         setAiPrompt={setAiPrompt}
+        aiPromptsByLang={aiPromptsByLang}
+        setAiPromptsByLang={setAiPromptsByLang}
         onSave={() => handleSaveSettings(updater.autoDownloadUpdates)}
         onOpenUpdateModal={(info) => {
           updater.setAppUpdateInfo(info)

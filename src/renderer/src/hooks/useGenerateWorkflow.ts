@@ -21,6 +21,7 @@ interface UseGenerateWorkflowOptions {
   aiProvider: AiProviderId
   aiModel: string
   aiPrompt: string
+  aiPromptsByLang?: Record<string, string>
   onOpenSettingsAiTab: () => void
   addLog: (msg: string) => void
   notifyJobComplete: (title: string, body: string) => void
@@ -37,6 +38,7 @@ export function useGenerateWorkflow({
   aiProvider,
   aiModel,
   aiPrompt,
+  aiPromptsByLang,
   onOpenSettingsAiTab,
   addLog,
   notifyJobComplete,
@@ -184,7 +186,7 @@ export function useGenerateWorkflow({
       }
     }
 
-    if (isSubtitleSource || effectiveConfig.language === 'si') {
+    if (isSubtitleSource || ['si', 'ta', 'hi', 'es'].includes(effectiveConfig.language)) {
       if (!aiApiKey.trim()) {
         toast.error('Please enter your AI API Key in Settings to translate subtitles!', {
           duration: 5000,
@@ -252,7 +254,7 @@ export function useGenerateWorkflow({
         aiApiKey,
         aiProvider,
         aiModel,
-        customPrompt: resolveEffectiveAiPrompt(effectiveConfig.language, aiPrompt)
+        customPrompt: resolveEffectiveAiPrompt(effectiveConfig.language, aiPrompt, aiPromptsByLang)
       })
 
       if (res?.success) {

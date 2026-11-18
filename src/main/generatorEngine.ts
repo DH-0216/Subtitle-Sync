@@ -4,7 +4,7 @@ import * as fs from 'fs'
 import { findBinary, killProcessTree } from './media'
 import { parseSrt, writeSrt, removeHallucinationLoops, getUniqueFilePath, cleanSdhFromCues } from './srtTools'
 import { AiProviderId } from '@shared/aiModels'
-import { DEFAULT_AI_PROMPT } from '@shared/translationPrompts'
+import { DEFAULT_AI_PROMPT, getLanguageConfig } from '@shared/translationPrompts'
 import {
   getWhisperModelPath,
   getWhisperBinary
@@ -66,15 +66,17 @@ export function cleanupActiveGenerationFiles(): void {
  * AI Provider Translation Dispatch Registry
  */
 const AI_TRANSLATION_HANDLERS = {
-  gemini: (cues: any[], apiKey: string, model?: string, prompt?: string, onLog?: any, onProg?: any) =>
+  gemini: (cues: any[], apiKey: string, model?: string, prompt?: string, onLog?: any, onProg?: any, targetLang?: string) =>
     translateCuesWithGemini(cues, apiKey, model, prompt, onLog, onProg, {
       isCancelled: () => isGenerationCancelled,
-      abortSignal: activeAbortController?.signal
+      abortSignal: activeAbortController?.signal,
+      targetLang: targetLang || 'si'
     }),
-  openai: (cues: any[], apiKey: string, model?: string, prompt?: string, onLog?: any, onProg?: any) =>
+  openai: (cues: any[], apiKey: string, model?: string, prompt?: string, onLog?: any, onProg?: any, targetLang?: string) =>
     translateCuesWithOpenAI(cues, apiKey, model, prompt, onLog, onProg, {
       isCancelled: () => isGenerationCancelled,
-      abortSignal: activeAbortController?.signal
+      abortSignal: activeAbortController?.signal,
+      targetLang: targetLang || 'si'
     })
 }
 
@@ -85,13 +87,14 @@ async function translateCuesViaAi(
   model: string | undefined,
   customPrompt: string | undefined,
   onLog: (msg: string) => void,
-  onProgress?: (batchIdx: number, totalBatches: number) => void
+  onProgress?: (batchIdx: number, totalBatches: number) => void,
+  targetLang?: string
 ): Promise<any[]> {
   const handler = AI_TRANSLATION_HANDLERS[provider]
   if (!handler) {
     throw new Error(`Unsupported AI provider "${provider}".`)
   }
-  return handler(cues, apiKey, model, customPrompt, onLog, onProgress)
+  return handler(cues, apiKey, model, customPrompt, onLog, onProgress, targetLang)
 }
 
 /**
@@ -146,13 +149,17 @@ export async function executeSubtitleGeneration(
       const targetBase = video ? video.replace(/\.[^/.]+$/, '') : sourceSubPath.replace(/\.[^/.]+$/, '')
       let finalSrtPath = sourceSubPath
 
-      if (language === 'si') {
+      const supportedAiLanguages = ['si', 'en', 'ta', 'hi', 'es']
+      if (supportedAiLanguages.includes(language)) {
+        const langConfig = getLanguageConfig(language)
+        const langName = langConfig?.name || language.toUpperCase()
+
         if (!aiApiKey) {
-          throw new Error('AI API Key required for Spoken Sinhala translation. Please configure your API Key in Settings.')
+          throw new Error(`AI API Key required for ${langName} translation. Please configure your API Key in Settings.`)
         }
 
-        onEvent({ type: 'status', message: 'Translating subtitles into Spoken Sinhala via AI...' })
-        onEvent({ type: 'progress', percent: 20, message: 'Translating dialogue into Spoken Sinhala...' })
+        onEvent({ type: 'status', message: `Translating subtitles into ${langName} via AI...` })
+        onEvent({ type: 'progress', percent: 20, message: `Translating dialogue into ${langName}...` })
 
         const translatedCues = await translateCuesViaAi(
           processedCues,
@@ -166,9 +173,10 @@ export async function executeSubtitleGeneration(
             onEvent({
               type: 'progress',
               percent: translatePct,
-              message: `Translating to Spoken Sinhala (${batchIdx}/${totalBatches})...`
+              message: `Translating to ${langName} (${batchIdx}/${totalBatches})...`
             })
-          }
+          },
+          language
         )
 
         if (isGenerationCancelled) {
@@ -176,9 +184,10 @@ export async function executeSubtitleGeneration(
         }
 
         processedCues = cleanSdhFromCues(removeHallucinationLoops(translatedCues))
-        finalSrtPath = targetBase + '.sinhala.translated.srt'
+        const langSlug = langConfig?.name?.toLowerCase() || language
+        finalSrtPath = `${targetBase}.${langSlug}.translated.srt`
       } else {
-        throw new Error(`Target language '${language}' is not supported for AI translation. Only Sinhala is currently supported.`)
+        throw new Error(`Target language '${language}' is not supported for AI translation. Supported languages: Sinhala, English, Tamil, Hindi, Spanish.`)
       }
 
       finalSrtPath = getUniqueFilePath(finalSrtPath)
@@ -302,15 +311,19 @@ export async function executeSubtitleGeneration(
     }
     activeCreatedFiles.delete(tempWav)
 
-    // Step 3: Handle AI Translation for Spoken Sinhala
+    // Step 3: Handle AI Translation for non-English target languages
     let finalSrtPath = generatedSrt
-    if (language === 'si') {
+    const videoAiLanguages = ['si', 'ta', 'hi', 'es']
+    if (videoAiLanguages.includes(language)) {
+      const langConfig = getLanguageConfig(language)
+      const langName = langConfig?.name || language.toUpperCase()
+
       if (!aiApiKey) {
-        throw new Error('AI API Key required for Spoken Sinhala translation. Please set it in Settings.')
+        throw new Error(`AI API Key required for ${langName} translation. Please set it in Settings.`)
       }
 
-      onEvent({ type: 'status', message: 'Translating subtitles into Spoken Sinhala...' })
-      onEvent({ type: 'progress', percent: 75, message: 'Translating into Spoken Sinhala...' })
+      onEvent({ type: 'status', message: `Translating subtitles into ${langName}...` })
+      onEvent({ type: 'progress', percent: 75, message: `Translating into ${langName}...` })
 
       const srtContent = fs.readFileSync(generatedSrt, 'utf-8')
       const parsedCues = removeHallucinationLoops(parseSrt(srtContent))
@@ -337,19 +350,21 @@ export async function executeSubtitleGeneration(
             onEvent({
               type: 'progress',
               percent: translatePct,
-              message: `Translating to Spoken Sinhala (${batchIdx}/${totalBatches})...`
+              message: `Translating to ${langName} (${batchIdx}/${totalBatches})...`
             })
-          }
+          },
+          language
         )
 
         if (isGenerationCancelled) {
           throw new Error('Subtitle generation cancelled by user.')
         }
 
-        const finalSinhalaCues = cleanSdhFromCues(removeHallucinationLoops(translatedCues))
-        const finalSinhalaSrt = writeSrt(finalSinhalaCues)
-        finalSrtPath = getUniqueFilePath(video.replace(/\.[^/.]+$/, `.sinhala.generated.srt`))
-        fs.writeFileSync(finalSrtPath, finalSinhalaSrt, 'utf-8')
+        const finalCues = cleanSdhFromCues(removeHallucinationLoops(translatedCues))
+        const finalSrt = writeSrt(finalCues)
+        const langSlug = langConfig?.name?.toLowerCase() || language
+        finalSrtPath = getUniqueFilePath(video.replace(/\.[^/.]+$/, `.${langSlug}.generated.srt`))
+        fs.writeFileSync(finalSrtPath, finalSrt, 'utf-8')
         onEvent({ type: 'log', message: `[AI TRANSLATION] Translated subtitle saved: ${finalSrtPath}` })
 
         if (fs.existsSync(generatedSrt)) {

@@ -41,6 +41,7 @@ export function useThemePreferences() {
   const [aiProvider, setAiProvider] = useState<AiProviderId>('gemini')
   const [aiModel, setAiModel] = useState('auto')
   const [aiPrompt, setAiPrompt] = useState(DEFAULT_AI_PROMPT)
+  const [aiPromptsByLang, setAiPromptsByLang] = useState<Record<string, string>>({})
 
   useEffect(() => {
     applyThemeToDocument(activeThemeDef, theme)
@@ -68,9 +69,10 @@ export function useThemePreferences() {
       aiApiKey,
       aiProvider,
       aiModel,
-      aiPrompt
+      aiPrompt,
+      aiPromptsByLang
     })
-  }, [aiApiKey, aiModel, aiPrompt, aiProvider, checkUpdates, defaultMode, notificationsEnabled])
+  }, [aiApiKey, aiModel, aiPrompt, aiPromptsByLang, aiProvider, checkUpdates, defaultMode, notificationsEnabled])
 
   const handleSaveSettings = useCallback((autoDownloadUpdates?: boolean) => {
     window.api?.settings?.save({
@@ -82,9 +84,10 @@ export function useThemePreferences() {
       aiApiKey,
       aiProvider,
       aiModel,
-      aiPrompt
+      aiPrompt,
+      aiPromptsByLang
     })
-  }, [aiApiKey, aiModel, aiPrompt, aiProvider, checkUpdates, defaultMode, notificationsEnabled, theme])
+  }, [aiApiKey, aiModel, aiPrompt, aiPromptsByLang, aiProvider, checkUpdates, defaultMode, notificationsEnabled, theme])
 
   return {
     theme,
@@ -106,6 +109,8 @@ export function useThemePreferences() {
     setAiModel,
     aiPrompt,
     setAiPrompt,
+    aiPromptsByLang,
+    setAiPromptsByLang,
     notifyJobComplete,
     handleSetTheme,
     handleSaveSettings

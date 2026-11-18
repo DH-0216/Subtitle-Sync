@@ -90,7 +90,10 @@ export const Step2Generate: React.FC<Step2GenerateProps> = ({
   const subtitleLanguages = [
     { code: 'original', name: `Movie's Spoken Language (${currentTrackLang})` },
     { code: 'en', name: 'English (Translate Speech to English via Whisper)' },
-    { code: 'si', name: 'Sinhala (AI Spoken Sinhala Translation)' }
+    { code: 'si', name: 'Sinhala (AI Spoken Sinhala Translation)' },
+    { code: 'ta', name: 'Tamil (AI Spoken Tamil Translation)' },
+    { code: 'hi', name: 'Hindi (AI Spoken Hindi Translation)' },
+    { code: 'es', name: 'Spanish (AI Natural Spanish Translation)' }
   ]
 
   // Model categories for dynamic grouping

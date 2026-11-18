@@ -16,6 +16,7 @@ interface UseTranslateWorkflowOptions {
   aiProvider: AiProviderId
   aiModel: string
   aiPrompt: string
+  aiPromptsByLang?: Record<string, string>
   extractCleanTags: boolean
   onOpenSettingsAiTab: () => void
   onRemoveVideo: () => void
@@ -36,6 +37,7 @@ export function useTranslateWorkflow({
   aiProvider,
   aiModel,
   aiPrompt,
+  aiPromptsByLang,
   extractCleanTags,
   onOpenSettingsAiTab,
   onRemoveVideo,
@@ -168,7 +170,7 @@ export function useTranslateWorkflow({
         aiApiKey,
         aiProvider,
         aiModel,
-        customPrompt: resolveEffectiveAiPrompt(translateLanguage, aiPrompt)
+        customPrompt: resolveEffectiveAiPrompt(translateLanguage, aiPrompt, aiPromptsByLang)
       })
 
       if (res?.success) {

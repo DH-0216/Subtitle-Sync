@@ -27,6 +27,8 @@ export interface SettingsModalProps {
   setAiModel?: (m: string) => void;
   aiPrompt: string;
   setAiPrompt: (p: string) => void;
+  aiPromptsByLang?: Record<string, string>;
+  setAiPromptsByLang?: (p: Record<string, string>) => void;
   onSave?: () => void;
   onOpenUpdateModal?: (info: any) => void;
 }
@@ -52,6 +54,8 @@ export function useSettingsModalState(props: SettingsModalProps) {
     setAiModel,
     aiPrompt,
     setAiPrompt,
+    aiPromptsByLang = {},
+    setAiPromptsByLang,
     onSave,
     onOpenUpdateModal
   } = props;
@@ -149,12 +153,13 @@ export function useSettingsModalState(props: SettingsModalProps) {
       setDraftProvider(aiProvider);
       setDraftModel(aiModel || "auto");
       setDraftPromptsByLang({
-        si: aiPrompt || getLanguageConfig("si").defaultPrompt
+        si: aiPrompt || getLanguageConfig("si").defaultPrompt,
+        ...aiPromptsByLang
       });
       setSavedSuccess(false);
       setVerifyStatus(null);
     }
-  }, [isOpen, initialTab, aiApiKey, aiProvider, aiModel, aiPrompt]);
+  }, [isOpen, initialTab, aiApiKey, aiProvider, aiModel, aiPrompt, aiPromptsByLang]);
 
   const handleSaveAiSettings = () => {
     const finalSiPrompt = draftPromptsByLang["si"] || aiPrompt;
@@ -167,6 +172,7 @@ export function useSettingsModalState(props: SettingsModalProps) {
     setAiProvider(draftProvider);
     if (setAiModel) setAiModel(draftModel);
     setAiPrompt(finalSiPrompt);
+    if (setAiPromptsByLang) setAiPromptsByLang(draftPromptsByLang);
 
     window.api?.settings?.save({
       theme,
@@ -176,7 +182,8 @@ export function useSettingsModalState(props: SettingsModalProps) {
       aiApiKey: draftApiKey,
       aiProvider: draftProvider,
       aiModel: draftModel,
-      aiPrompt: finalSiPrompt
+      aiPrompt: finalSiPrompt,
+      aiPromptsByLang: draftPromptsByLang
     });
 
     if (onSave) {
