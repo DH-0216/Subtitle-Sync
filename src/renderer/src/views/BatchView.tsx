@@ -1,0 +1,716 @@
+import React, { useState } from 'react'
+import {
+  RefreshCw,
+  Sparkles,
+  Languages,
+  FolderPlus,
+  FilePlus,
+  Play,
+  Square,
+  Trash2,
+  FolderOpen,
+  CheckCircle2,
+  AlertCircle,
+  Clock,
+  RotateCcw,
+  Video,
+  FileText,
+  Layers,
+  Sliders,
+  Settings
+} from 'lucide-react'
+import { ProgressBar } from '../components/common/ProgressBar'
+import { StepCard } from '../components/common/StepCard'
+import { SyncMode } from '../components/Step3Sync'
+import { BatchOperationType, BatchItem } from '../hooks/useBatchWorkflow'
+import { translationLanguages } from '../components/Step2Translate'
+import { WhisperModelItem } from '../components/Step2Generate'
+
+export interface BatchViewProps {
+  batchMode: BatchOperationType
+  setBatchMode: (mode: BatchOperationType) => void
+  items: BatchItem[]
+  isProcessing: boolean
+  overallProgress: number
+  activeItemId: string | null
+  syncMode: SyncMode
+  setSyncMode: (mode: SyncMode) => void
+  whisperModelQuality: string
+  setWhisperModelQuality: (quality: string) => void
+  generateLanguage: string
+  setGenerateLanguage: (lang: string) => void
+  generateFormat: 'srt' | 'vtt'
+  setGenerateFormat: (fmt: 'srt' | 'vtt') => void
+  translateLanguage: string
+  setTranslateLanguage: (lang: string) => void
+  translateFormat: 'srt' | 'vtt' | 'txt'
+  setTranslateFormat: (fmt: 'srt' | 'vtt' | 'txt') => void
+  availableWhisperModels?: WhisperModelItem[]
+  aiApiKey: string
+  aiProvider: string
+  aiModel: string
+  onOpenSettingsAiTab: () => void
+  lastBatchOutputDir: string | null
+  onAddFiles: () => void
+  onAddFolder: () => void
+  onDropFiles: (paths: string[]) => void
+  onAssignSubtitle: (itemId: string) => void
+  onRemoveItem: (id: string) => void
+  onClearCompleted: () => void
+  onClearAll: () => void
+  onRetryItem: (id: string) => void
+  onStartBatch: () => void
+  onStopBatch: () => void
+  onOpenFolder: (folder?: string) => void
+}
+
+export const BatchView: React.FC<BatchViewProps> = ({
+  batchMode,
+  setBatchMode,
+  items,
+  isProcessing,
+  overallProgress,
+  activeItemId,
+  syncMode,
+  setSyncMode,
+  whisperModelQuality,
+  setWhisperModelQuality,
+  generateLanguage,
+  setGenerateLanguage,
+  generateFormat,
+  setGenerateFormat,
+  translateLanguage,
+  setTranslateLanguage,
+  translateFormat,
+  setTranslateFormat,
+  availableWhisperModels = [],
+  aiApiKey,
+  aiProvider,
+  aiModel,
+  onOpenSettingsAiTab,
+  lastBatchOutputDir,
+  onAddFiles,
+  onAddFolder,
+  onDropFiles,
+  onAssignSubtitle,
+  onRemoveItem,
+  onClearCompleted,
+  onClearAll,
+  onRetryItem,
+  onStartBatch,
+  onStopBatch,
+  onOpenFolder
+}) => {
+  const [isDragging, setIsDragging] = useState(false)
+
+  const completedCount = items.filter((it) => it.status === 'completed').length
+  const failedCount = items.filter((it) => it.status === 'failed').length
+  const pendingCount = items.filter((it) => it.status === 'pending').length
+  const isKeyConfigured = Boolean(aiApiKey && aiApiKey.trim().length > 0)
+
+  // Drag and drop handlers
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault()
+    e.stopPropagation()
+    setIsDragging(true)
+  }
+
+  const handleDragLeave = (e: React.DragEvent) => {
+    e.preventDefault()
+    e.stopPropagation()
+    setIsDragging(false)
+  }
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault()
+    e.stopPropagation()
+    setIsDragging(false)
+    if (e.dataTransfer?.files && e.dataTransfer.files.length > 0) {
+      const paths: string[] = []
+      for (let i = 0; i < e.dataTransfer.files.length; i++) {
+        const file = e.dataTransfer.files[i]
+        const clean = window.api?.getPathForFile ? window.api.getPathForFile(file) : (file as any).path
+        if (clean) paths.push(clean)
+      }
+      if (paths.length > 0) {
+        onDropFiles(paths)
+      }
+    }
+  }
+
+  return (
+    <div
+      className="space-y-4 relative"
+      onDragOver={handleDragOver}
+      onDragLeave={handleDragLeave}
+      onDrop={handleDrop}
+    >
+      {/* 1. Operation Mode Switcher Ribbon */}
+      <div className="bg-app-card border border-app-card-border rounded-xl p-3 shadow-xs transition-colors">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 min-w-0">
+          <div className="flex items-center gap-1 p-1 bg-app-card-inner border border-app-card-inner-border rounded-lg shrink-0">
+            <button
+              type="button"
+              disabled={isProcessing}
+              onClick={() => setBatchMode('sync')}
+              className={`h-8 flex items-center gap-1.5 px-3 rounded-md text-xs font-semibold whitespace-nowrap shrink-0 transition-colors select-none ${
+                batchMode === 'sync'
+                  ? 'bg-app-primary text-app-primary-fg shadow-xs font-bold'
+                  : 'text-app-text-muted hover:text-app-text hover:bg-app-card-inner-hover'
+              } ${isProcessing ? 'opacity-60 cursor-not-allowed' : 'cursor-pointer'}`}
+            >
+              <RefreshCw className="w-3.5 h-3.5 shrink-0" />
+              <span>Synchronize</span>
+            </button>
+
+            <button
+              type="button"
+              disabled={isProcessing}
+              onClick={() => setBatchMode('generate')}
+              className={`h-8 flex items-center gap-1.5 px-3 rounded-md text-xs font-semibold whitespace-nowrap shrink-0 transition-colors select-none ${
+                batchMode === 'generate'
+                  ? 'bg-app-primary text-app-primary-fg shadow-xs font-bold'
+                  : 'text-app-text-muted hover:text-app-text hover:bg-app-card-inner-hover'
+              } ${isProcessing ? 'opacity-60 cursor-not-allowed' : 'cursor-pointer'}`}
+            >
+              <Sparkles className="w-3.5 h-3.5 shrink-0" />
+              <span>Generate (Whisper)</span>
+            </button>
+
+            <button
+              type="button"
+              disabled={isProcessing}
+              onClick={() => setBatchMode('translate')}
+              className={`h-8 flex items-center gap-1.5 px-3 rounded-md text-xs font-semibold whitespace-nowrap shrink-0 transition-colors select-none ${
+                batchMode === 'translate'
+                  ? 'bg-app-primary text-app-primary-fg shadow-xs font-bold'
+                  : 'text-app-text-muted hover:text-app-text hover:bg-app-card-inner-hover'
+              } ${isProcessing ? 'opacity-60 cursor-not-allowed' : 'cursor-pointer'}`}
+            >
+              <Languages className="w-3.5 h-3.5 shrink-0" />
+              <span>Translate (AI)</span>
+            </button>
+          </div>
+
+          <div className="text-[11.5px] text-app-text-muted flex items-center gap-1.5 min-w-0 truncate">
+            <Layers className="w-3.5 h-3.5 text-brand-500 shrink-0" />
+            <span className="truncate">
+              {batchMode === 'sync' && 'Align series episodes or movies with subtitles'}
+              {batchMode === 'generate' && 'Transcribe videos sequentially with Whisper AI'}
+              {batchMode === 'translate' && 'Translate multiple subtitles in queue with AI'}
+            </span>
+          </div>
+        </div>
+
+        {/* Batch Parameters Bar */}
+        <div className="mt-3 pt-3 border-t border-app-card-border flex flex-wrap items-center justify-between gap-3 text-xs">
+          {batchMode === 'sync' && (
+            <div className="flex items-center gap-3">
+              <span className="font-semibold text-app-text flex items-center gap-1.5">
+                <Sliders className="w-3.5 h-3.5 text-brand-500" /> Sync Engine Mode:
+              </span>
+              <div className="flex items-center gap-1">
+                {(['Standard', 'Smart', 'Split sync'] as SyncMode[]).map((mode) => (
+                  <button
+                    key={mode}
+                    type="button"
+                    disabled={isProcessing}
+                    onClick={() => setSyncMode(mode)}
+                    className={`px-2.5 py-1 rounded border text-xs font-medium transition-colors ${
+                      syncMode === mode
+                        ? 'bg-brand-500 text-white border-brand-600 font-bold'
+                        : 'bg-app-input border-app-input-border text-app-text-muted hover:text-app-text'
+                    }`}
+                  >
+                    {mode}
+                  </button>
+                ))}
+              </div>
+              <span className="text-app-text-muted text-[11px] hidden sm:inline">
+                (Standard: 1-Pass fast • Smart: 4-Pass high accuracy)
+              </span>
+            </div>
+          )}
+
+          {batchMode === 'generate' && (
+            <div className="flex flex-wrap items-center gap-4">
+              <div className="flex items-center gap-2">
+                <span className="font-semibold text-app-text">Whisper Model:</span>
+                <select
+                  disabled={isProcessing}
+                  value={whisperModelQuality}
+                  onChange={(e) => setWhisperModelQuality(e.target.value)}
+                  className="bg-app-input border border-app-input-border text-app-text text-xs rounded-md px-2 py-1 focus:outline-hidden"
+                >
+                  <option value="tiny">Tiny (Fastest, ~75MB)</option>
+                  <option value="base">Base (Recommended, ~142MB)</option>
+                  <option value="small">Small (Better accuracy, ~466MB)</option>
+                  <option value="medium">Medium (High accuracy, ~1.5GB)</option>
+                  <option value="large">Large-v3 (Maximum precision, ~3.1GB)</option>
+                </select>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <span className="font-semibold text-app-text">Language:</span>
+                <select
+                  disabled={isProcessing}
+                  value={generateLanguage}
+                  onChange={(e) => setGenerateLanguage(e.target.value)}
+                  className="bg-app-input border border-app-input-border text-app-text text-xs rounded-md px-2 py-1 focus:outline-hidden"
+                >
+                  <option value="original">Original Audio (Auto-detect)</option>
+                  <option value="en">English (Direct transcription)</option>
+                  <option value="si">Sinhala (Whisper + AI Translation)</option>
+                  <option value="ta">Tamil (Whisper + AI Translation)</option>
+                  <option value="hi">Hindi (Whisper + AI Translation)</option>
+                  <option value="es">Spanish (Whisper + AI Translation)</option>
+                </select>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <span className="font-semibold text-app-text">Format:</span>
+                <div className="flex rounded border border-app-input-border overflow-hidden">
+                  <button
+                    type="button"
+                    disabled={isProcessing}
+                    onClick={() => setGenerateFormat('srt')}
+                    className={`px-2 py-0.5 text-xs font-semibold ${
+                      generateFormat === 'srt' ? 'bg-brand-500 text-white' : 'bg-app-input text-app-text-muted'
+                    }`}
+                  >
+                    SRT
+                  </button>
+                  <button
+                    type="button"
+                    disabled={isProcessing}
+                    onClick={() => setGenerateFormat('vtt')}
+                    className={`px-2 py-0.5 text-xs font-semibold ${
+                      generateFormat === 'vtt' ? 'bg-brand-500 text-white' : 'bg-app-input text-app-text-muted'
+                    }`}
+                  >
+                    VTT
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {batchMode === 'translate' && (
+            <div className="flex flex-wrap items-center gap-4">
+              <div className="flex items-center gap-2">
+                <span className="font-semibold text-app-text">Target Language:</span>
+                <select
+                  disabled={isProcessing}
+                  value={translateLanguage}
+                  onChange={(e) => setTranslateLanguage(e.target.value)}
+                  className="bg-app-input border border-app-input-border text-app-text text-xs rounded-md px-2 py-1 focus:outline-hidden"
+                >
+                  {translationLanguages.map((l) => (
+                    <option key={l.code} value={l.code}>
+                      {l.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <span className="font-semibold text-app-text">Format:</span>
+                <div className="flex rounded border border-app-input-border overflow-hidden">
+                  {(['srt', 'vtt', 'txt'] as const).map((fmt) => (
+                    <button
+                      key={fmt}
+                      type="button"
+                      disabled={isProcessing}
+                      onClick={() => setTranslateFormat(fmt)}
+                      className={`px-2 py-0.5 text-xs font-semibold ${
+                        translateFormat === fmt ? 'bg-brand-500 text-white' : 'bg-app-input text-app-text-muted'
+                      }`}
+                    >
+                      {fmt.toUpperCase()}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2">
+                {isKeyConfigured ? (
+                  <span className="text-[11px] font-bold text-emerald-600 dark:text-emerald-400 flex items-center gap-1">
+                    <CheckCircle2 className="w-3 h-3" /> AI Active: {aiProvider.toUpperCase()} ({aiModel || 'default'})
+                  </span>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={onOpenSettingsAiTab}
+                    className="text-[11px] font-bold text-amber-600 dark:text-amber-400 hover:underline flex items-center gap-1 cursor-pointer"
+                  >
+                    <Settings className="w-3 h-3" /> Set AI API Key in Settings
+                  </button>
+                )}
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* 2. Queue Overview Card & Control Bar */}
+      <div className="bg-app-card border border-app-card-border rounded-xl p-4 shadow-xs space-y-4 transition-colors">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+          {/* Left: Summary Metrics */}
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className="text-xs font-bold px-2.5 py-1 rounded-full bg-app-card-inner border border-app-card-inner-border text-app-text">
+              Total: {items.length}
+            </span>
+            <span className="text-xs font-bold px-2.5 py-1 rounded-full bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/20">
+              Pending: {pendingCount}
+            </span>
+            <span className="text-xs font-bold px-2.5 py-1 rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
+              Completed: {completedCount}
+            </span>
+            {failedCount > 0 && (
+              <span className="text-xs font-bold px-2.5 py-1 rounded-full bg-rose-500/10 text-rose-600 dark:text-rose-400 border border-rose-500/20">
+                Failed: {failedCount}
+              </span>
+            )}
+          </div>
+
+          {/* Right: Actions */}
+          <div className="flex items-center gap-2 flex-wrap">
+            <button
+              type="button"
+              disabled={isProcessing}
+              onClick={onAddFiles}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-app-btn-border bg-app-btn hover:bg-app-btn-hover text-app-btn-text text-xs font-semibold shadow-2xs transition-colors cursor-pointer disabled:opacity-50"
+            >
+              <FilePlus className="w-3.5 h-3.5" />
+              <span>Add Files</span>
+            </button>
+
+            <button
+              type="button"
+              disabled={isProcessing}
+              onClick={onAddFolder}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-app-btn-border bg-app-btn hover:bg-app-btn-hover text-app-btn-text text-xs font-semibold shadow-2xs transition-colors cursor-pointer disabled:opacity-50"
+            >
+              <FolderPlus className="w-3.5 h-3.5" />
+              <span>Add Folder / TV Series</span>
+            </button>
+
+            {items.some((it) => it.status === 'completed') && (
+              <button
+                type="button"
+                disabled={isProcessing}
+                onClick={onClearCompleted}
+                className="px-2.5 py-1.5 rounded-lg text-xs font-medium text-app-text-muted hover:text-app-text hover:bg-app-card-inner-hover transition-colors cursor-pointer"
+                title="Remove completed items from queue"
+              >
+                Clear Done
+              </button>
+            )}
+
+            {items.length > 0 && (
+              <button
+                type="button"
+                disabled={isProcessing}
+                onClick={onClearAll}
+                className="px-2.5 py-1.5 rounded-lg text-xs font-medium text-rose-600 dark:text-rose-400 hover:bg-rose-500/10 transition-colors cursor-pointer"
+                title="Clear all items from queue"
+              >
+                Clear All
+              </button>
+            )}
+          </div>
+        </div>
+
+        {/* Master Progress Bar (Visible when processing or completed > 0) */}
+        {(isProcessing || completedCount > 0) && (
+          <div className="space-y-1.5">
+            <div className="flex justify-between text-xs text-app-text-muted font-medium">
+              <span>Overall Batch Progress</span>
+              <span className="font-bold text-app-text">
+                {completedCount + failedCount} of {items.length} items ({overallProgress}%)
+              </span>
+            </div>
+            <ProgressBar percent={overallProgress} />
+          </div>
+        )}
+
+        {/* Primary Start / Stop Execution Controls */}
+        <div className="flex items-center justify-between gap-3 pt-1">
+          <div className="flex items-center gap-3">
+            {!isProcessing ? (
+              <button
+                type="button"
+                disabled={items.length === 0 || pendingCount === 0}
+                onClick={onStartBatch}
+                className={`flex items-center gap-2 px-5 py-2.5 rounded-lg font-bold text-sm shadow-xs transition-all ${
+                  items.length > 0 && pendingCount > 0
+                    ? 'bg-emerald-600 hover:bg-emerald-700 text-white cursor-pointer active:scale-98'
+                    : 'bg-app-card-inner border border-app-card-inner-border text-app-text-muted opacity-50 cursor-not-allowed'
+                }`}
+              >
+                <Play className="w-4 h-4 fill-current" />
+                <span>Start Batch Processing</span>
+              </button>
+            ) : (
+              <button
+                type="button"
+                onClick={onStopBatch}
+                className="flex items-center gap-2 px-5 py-2.5 rounded-lg font-bold text-sm bg-rose-600 hover:bg-rose-700 text-white shadow-xs transition-all cursor-pointer active:scale-98"
+              >
+                <Square className="w-4 h-4 fill-current" />
+                <span>Stop Batch Processing</span>
+              </button>
+            )}
+
+            {lastBatchOutputDir && (
+              <button
+                type="button"
+                onClick={() => onOpenFolder(lastBatchOutputDir)}
+                className="flex items-center gap-1.5 px-3 py-2 rounded-lg border border-app-btn-border bg-app-btn hover:bg-app-btn-hover text-app-btn-text text-xs font-semibold shadow-2xs transition-colors cursor-pointer"
+              >
+                <FolderOpen className="w-3.5 h-3.5" />
+                <span>Open Output Folder</span>
+              </button>
+            )}
+          </div>
+
+          {isProcessing && (
+            <div className="flex items-center gap-2 text-xs font-semibold text-brand-600 dark:text-brand-400">
+              <span className="w-2 h-2 rounded-full bg-brand-500 animate-pulse" />
+              <span>Processing Queue Sequentially (One by One)...</span>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* 3. Drag & Drop Overlay / Dropzone Target */}
+      {isDragging && (
+        <div className="p-8 border-2 border-dashed border-brand-500 bg-brand-500/10 rounded-xl flex flex-col items-center justify-center text-center animate-pulse">
+          <Layers className="w-10 h-10 text-brand-500 mb-2" />
+          <h4 className="font-bold text-sm text-app-text">Drop Files or Folder Here</h4>
+          <p className="text-xs text-app-text-muted mt-1">
+            Files will be automatically categorized and added to the {batchMode} batch queue.
+          </p>
+        </div>
+      )}
+
+      {/* 4. Queue Items List */}
+      <div className="bg-app-card border border-app-card-border rounded-xl overflow-hidden shadow-xs transition-colors">
+        <div className="px-4 py-3 border-b border-app-card-border bg-app-card-header flex items-center justify-between">
+          <h3 className="font-bold text-xs uppercase tracking-wider text-app-text-muted flex items-center gap-2">
+            <span>Job Queue</span>
+            <span className="text-[11px] font-normal lowercase text-app-text-muted">
+              ({items.length} item{items.length !== 1 ? 's' : ''})
+            </span>
+          </h3>
+
+          <div className="text-xs text-app-text-muted">
+            Drag files or folders directly into this view at any time
+          </div>
+        </div>
+
+        {items.length === 0 ? (
+          <div className="p-12 flex flex-col items-center justify-center text-center space-y-3">
+            <div className="w-14 h-14 rounded-2xl bg-app-card-inner border border-app-card-inner-border flex items-center justify-center text-app-text-muted">
+              <Layers className="w-7 h-7" />
+            </div>
+            <div>
+              <h4 className="font-bold text-sm text-app-text">Your Batch Queue is Empty</h4>
+              <p className="text-xs text-app-text-muted mt-1 max-w-md">
+                Select your whole TV series season, multiple movies, or subtitle files to batch process them sequentially.
+              </p>
+            </div>
+            <div className="flex items-center gap-2 pt-2">
+              <button
+                type="button"
+                onClick={onAddFolder}
+                className="flex items-center gap-1.5 px-4 py-2 rounded-lg bg-app-primary text-app-primary-fg text-xs font-bold shadow-xs hover:bg-app-primary-hover transition-colors cursor-pointer"
+              >
+                <FolderPlus className="w-4 h-4" />
+                <span>Select Series Folder</span>
+              </button>
+              <button
+                type="button"
+                onClick={onAddFiles}
+                className="flex items-center gap-1.5 px-4 py-2 rounded-lg border border-app-btn-border bg-app-btn text-app-btn-text text-xs font-semibold hover:bg-app-btn-hover transition-colors cursor-pointer"
+              >
+                <FilePlus className="w-4 h-4" />
+                <span>Select Multiple Files</span>
+              </button>
+            </div>
+          </div>
+        ) : (
+          <div className="divide-y divide-app-card-border">
+            {items.map((item, idx) => {
+              const isCurrent = activeItemId === item.id
+              return (
+                <div
+                  key={item.id}
+                  className={`p-3.5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 transition-colors ${
+                    isCurrent
+                      ? 'bg-brand-50/60 dark:bg-brand-950/20 border-l-4 border-l-brand-500'
+                      : 'hover:bg-app-card-inner-hover/50'
+                  }`}
+                >
+                  {/* Left: Index & Name */}
+                  <div className="flex items-start sm:items-center gap-3 min-w-0 flex-1">
+                    <span className="text-xs font-bold text-app-text-muted w-6 shrink-0">
+                      #{idx + 1}
+                    </span>
+
+                    <div className="p-2 rounded-lg bg-app-card-inner border border-app-card-inner-border shrink-0 text-app-text">
+                      {item.jobType === 'translate' ? (
+                        <FileText className="w-4 h-4 text-emerald-500" />
+                      ) : (
+                        <Video className="w-4 h-4 text-brand-500" />
+                      )}
+                    </div>
+
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span
+                          className="font-bold text-xs text-app-text truncate max-w-md"
+                          title={item.videoPath || item.subPath}
+                        >
+                          {item.name}
+                        </span>
+
+                        {item.episodeLabel && (
+                          <span className="text-[10px] font-bold px-1.5 py-0.2 rounded-md bg-brand-500/10 text-brand-600 dark:text-brand-400 border border-brand-500/20">
+                            {item.episodeLabel}
+                          </span>
+                        )}
+
+                        <span className="text-[10px] font-bold px-1.5 py-0.2 rounded-md bg-app-card-inner border border-app-card-inner-border text-app-text-muted uppercase">
+                          {item.jobType}
+                        </span>
+                      </div>
+
+                      {/* Subtitle pairing details for Sync jobs */}
+                      {item.jobType === 'sync' && (
+                        <div className="text-[11px] text-app-text-muted mt-0.5 flex items-center gap-1.5 truncate">
+                          {item.subPath ? (
+                            <span className="truncate flex items-center gap-1">
+                              <span className="text-emerald-600 dark:text-emerald-400 font-medium">
+                                Matched Sub:
+                              </span>{' '}
+                              <span className="truncate" title={item.subPath}>
+                                {item.subPath.split(/[\\/]/).pop()}
+                              </span>
+                            </span>
+                          ) : (
+                            <button
+                              type="button"
+                              onClick={() => onAssignSubtitle(item.id)}
+                              className="text-amber-600 dark:text-amber-400 font-bold hover:underline flex items-center gap-1 cursor-pointer"
+                            >
+                              <AlertCircle className="w-3 h-3" />
+                              <span>Missing subtitle — click to pair</span>
+                            </button>
+                          )}
+                        </div>
+                      )}
+
+                      {/* Live Status Message */}
+                      {item.statusMessage && (
+                        <p className="text-[11px] text-app-text-muted mt-0.5 truncate">
+                          {item.statusMessage}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Center / Right: Progress & Status Badge */}
+                  <div className="flex items-center gap-3 w-full sm:w-auto justify-between sm:justify-end shrink-0">
+                    {/* Live Progress on active item */}
+                    {isCurrent && (
+                      <div className="w-28 space-y-1">
+                        <div className="flex justify-between text-[10px] text-app-text-muted font-bold">
+                          <span>Processing</span>
+                          <span>{item.progress}%</span>
+                        </div>
+                        <ProgressBar percent={item.progress} />
+                      </div>
+                    )}
+
+                    {/* Status Badge */}
+                    <div>
+                      {item.status === 'pending' && (
+                        <span className="flex items-center gap-1 text-[11px] font-bold text-app-text-muted bg-app-card-inner px-2.5 py-1 rounded-full border border-app-card-inner-border">
+                          <Clock className="w-3 h-3" /> Queued
+                        </span>
+                      )}
+
+                      {item.status === 'processing' && (
+                        <span className="flex items-center gap-1.5 text-[11px] font-bold text-brand-600 dark:text-brand-400 bg-brand-500/10 px-2.5 py-1 rounded-full border border-brand-500/20 animate-pulse">
+                          <RefreshCw className="w-3 h-3 animate-spin" /> Working...
+                        </span>
+                      )}
+
+                      {item.status === 'completed' && (
+                        <span className="flex items-center gap-1 text-[11px] font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 px-2.5 py-1 rounded-full border border-emerald-500/20">
+                          <CheckCircle2 className="w-3 h-3" /> Done
+                        </span>
+                      )}
+
+                      {item.status === 'failed' && (
+                        <span
+                          className="flex items-center gap-1 text-[11px] font-bold text-rose-600 dark:text-rose-400 bg-rose-500/10 px-2.5 py-1 rounded-full border border-rose-500/20"
+                          title={item.error || 'Failed'}
+                        >
+                          <AlertCircle className="w-3 h-3" /> Failed
+                        </span>
+                      )}
+
+                      {item.status === 'cancelled' && (
+                        <span className="flex items-center gap-1 text-[11px] font-bold text-amber-600 dark:text-amber-400 bg-amber-500/10 px-2.5 py-1 rounded-full border border-amber-500/20">
+                          Cancelled
+                        </span>
+                      )}
+                    </div>
+
+                    {/* Item Controls */}
+                    <div className="flex items-center gap-1">
+                      {item.status === 'completed' && item.outputPath && (
+                        <button
+                          type="button"
+                          onClick={() => onOpenFolder(item.outputDir || item.outputPath)}
+                          className="p-1.5 rounded-md hover:bg-app-card-inner-hover text-app-text-muted hover:text-app-text transition-colors cursor-pointer"
+                          title="Show file in folder"
+                        >
+                          <FolderOpen className="w-3.5 h-3.5" />
+                        </button>
+                      )}
+
+                      {item.status === 'failed' && !isProcessing && (
+                        <button
+                          type="button"
+                          onClick={() => onRetryItem(item.id)}
+                          className="p-1.5 rounded-md hover:bg-app-card-inner-hover text-app-text-muted hover:text-app-text transition-colors cursor-pointer"
+                          title="Retry this item"
+                        >
+                          <RotateCcw className="w-3.5 h-3.5" />
+                        </button>
+                      )}
+
+                      {!isProcessing && (
+                        <button
+                          type="button"
+                          onClick={() => onRemoveItem(item.id)}
+                          className="p-1.5 rounded-md hover:bg-rose-500/10 text-app-text-muted hover:text-rose-500 transition-colors cursor-pointer"
+                          title="Remove from queue"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}

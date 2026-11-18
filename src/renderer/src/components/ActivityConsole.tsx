@@ -22,7 +22,8 @@ const ACTION_LABELS: Record<SubtitleAction, string> = {
   sync: 'Synchronize',
   extract: 'Extract',
   translate: 'Translate',
-  generate: 'Generate'
+  generate: 'Generate',
+  batch: 'Batch Queue'
 }
 
 export const ActivityConsole: React.FC<ActivityConsoleProps> = ({

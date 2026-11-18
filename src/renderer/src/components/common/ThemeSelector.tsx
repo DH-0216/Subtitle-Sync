@@ -1,6 +1,6 @@
 import React from 'react'
 import { AVAILABLE_THEMES, ThemeMode } from '../../theme'
-import { NewBadge } from './NewBadge'
+import { Badge } from './Badge'
 
 export type { ThemeMode }
 
@@ -47,7 +47,7 @@ export const ThemeSelector: React.FC<ThemeSelectorProps> = ({
 
                 {badgeText && (
                   <span className="absolute -top-1.5 -right-1.5 z-10 pointer-events-none drop-shadow-xs transition-transform group-hover:scale-110">
-                    <NewBadge text={badgeText} />
+                    <Badge text={badgeText} />
                   </span>
                 )}
               </div>

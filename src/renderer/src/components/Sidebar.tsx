@@ -1,5 +1,5 @@
 import React from "react";
-import { RefreshCw, FileUp, Sparkles, Languages, WifiOff } from "lucide-react";
+import { RefreshCw, FileUp, Sparkles, Languages, WifiOff, Layers } from "lucide-react";
 import { SubtitleAction } from "./SubtitleModeSelector";
 import { SidebarNav, SidebarNavItem } from "./common";
 
@@ -34,6 +34,12 @@ const NAV_ITEMS: readonly SidebarNavItem<SubtitleAction>[] = [
     label: "Generate Subtitle",
     icon: Sparkles,
     badge: "BETA",
+  },
+  {
+    id: "batch",
+    label: "Batch Process",
+    icon: Layers,
+    badge: "NEW",
   },
 ];
 

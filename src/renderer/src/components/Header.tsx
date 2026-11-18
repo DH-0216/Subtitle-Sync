@@ -46,12 +46,14 @@ export const Header: React.FC<HeaderProps> = ({
             {currentAction === 'extract' && 'Extract Encoded Subtitles'}
             {currentAction === 'translate' && 'Translate Subtitles (Cloud AI)'}
             {currentAction === 'generate' && 'Generate Subtitles (Whisper AI)'}
+            {currentAction === 'batch' && 'Batch Queue Processing'}
           </h1>
           <p className="text-[11px] text-app-text-muted font-medium truncate">
             {currentAction === 'sync' && 'Align out-of-sync subtitle files (.srt) automatically with movie audio'}
             {currentAction === 'extract' && 'Extract embedded subtitle streams from MKV or MP4 video containers'}
             {currentAction === 'translate' && 'Translate subtitle dialogue into other languages using Cloud AI (Gemini / OpenAI)'}
             {currentAction === 'generate' && 'Transcribe speech from movie audio using local offline Whisper AI'}
+            {currentAction === 'batch' && 'Queue multiple TV series episodes or movie files to synchronize, generate, or translate in sequence'}
           </p>
         </div>
       </div>

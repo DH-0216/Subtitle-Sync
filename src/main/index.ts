@@ -403,6 +403,63 @@ app.whenReady().then(() => {
     return cleanPathString(res.filePaths[0])
   })
 
+  ipcMain.handle('dialog:openVideos', async () => {
+    if (!mainWindow) return []
+    const res = await dialog.showOpenDialog(mainWindow, {
+      title: 'Select Movies / TV Series Episodes',
+      properties: ['openFile', 'multiSelections'],
+      filters: [
+        { name: 'Video Files', extensions: [...SUPPORTED_VIDEO_EXTENSIONS] },
+        { name: 'All Files', extensions: ['*'] }
+      ]
+    })
+    if (res.canceled || !res.filePaths.length) return []
+    return res.filePaths.map(cleanPathString).filter(Boolean)
+  })
+
+  ipcMain.handle('dialog:openFolder', async (_event, title?: string) => {
+    if (!mainWindow) return null
+    const res = await dialog.showOpenDialog(mainWindow, {
+      title: title || 'Select Folder (Movie / Series Folder)',
+      properties: ['openDirectory']
+    })
+    if (res.canceled || !res.filePaths.length) return null
+    return cleanPathString(res.filePaths[0])
+  })
+
+  // IPC: Batch Folder Scanner (scans directory recursively for videos and subtitles)
+  ipcMain.handle('batch:scanFolder', async (_event, rawFolderPath: string) => {
+    const folderPath = cleanPathString(rawFolderPath)
+    if (!folderPath || !fs.existsSync(folderPath)) return { videos: [], subtitles: [] }
+
+    const videos: string[] = []
+    const subtitles: string[] = []
+
+    const scanDir = (dir: string, depth = 0) => {
+      if (depth > 5) return
+      try {
+        const entries = fs.readdirSync(dir, { withFileTypes: true })
+        for (const entry of entries) {
+          const fullPath = join(dir, entry.name)
+          if (entry.isDirectory()) {
+            scanDir(fullPath, depth + 1)
+          } else if (entry.isFile()) {
+            if (isVideoFile(entry.name)) {
+              videos.push(cleanPathString(fullPath))
+            } else if (isSubtitleFile(entry.name)) {
+              subtitles.push(cleanPathString(fullPath))
+            }
+          }
+        }
+      } catch (err) {
+        console.warn(`[BATCH SCAN] Failed to read dir "${dir}":`, err)
+      }
+    }
+
+    scanDir(folderPath)
+    return { videos, subtitles }
+  })
+
   ipcMain.handle('dialog:openSubtitles', async () => {
     if (!mainWindow) return []
     const res = await dialog.showOpenDialog(mainWindow, {

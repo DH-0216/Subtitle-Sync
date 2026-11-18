@@ -4,7 +4,7 @@ import { Header } from './components/Header'
 import { Footer } from './components/Footer'
 import { Sidebar } from './components/Sidebar'
 import { SubtitleAction } from './components/SubtitleModeSelector'
-import { SyncView, ExtractView, TranslateView, GenerateView } from './views'
+import { SyncView, ExtractView, TranslateView, GenerateView, BatchView } from './views'
 import { ActivityConsole, LogEntry, LogCategory } from './components/ActivityConsole'
 import { AudioTrackModal } from './components/AudioTrackModal'
 import { SettingsModal } from './components/SettingsModal'
@@ -21,7 +21,8 @@ import {
   useSyncWorkflow,
   useExtractWorkflow,
   useGenerateWorkflow,
-  useTranslateWorkflow
+  useTranslateWorkflow,
+  useBatchWorkflow
 } from './hooks'
 
 export type { ThemeMode }
@@ -45,6 +46,7 @@ export default function App() {
   const addExtractLog = useCallback((msg: string) => addLog(msg, 'extract'), [addLog])
   const addTranslateLog = useCallback((msg: string) => addLog(msg, 'translate'), [addLog])
   const addGenerateLog = useCallback((msg: string) => addLog(msg, 'generate'), [addLog])
+  const addBatchLog = useCallback((msg: string) => addLog(msg, 'batch'), [addLog])
   const addVideoLog = useCallback((msg: string) => addLog(msg, subtitleActionRef.current), [addLog])
 
   const handleClearLogs = useCallback((category?: SubtitleAction | 'all') => {
@@ -183,6 +185,21 @@ export default function App() {
     }
   })
 
+  // 9. Batch Process Workflow Hook
+  const batch = useBatchWorkflow({
+    aiApiKey,
+    aiProvider,
+    aiModel,
+    aiPrompt,
+    aiPromptsByLang,
+    addLog: addBatchLog,
+    notifyJobComplete,
+    onOpenSettingsAiTab: () => {
+      setSettingsInitialTab('ai')
+      setSettingsModalOpen(true)
+    }
+  })
+
   // Online / Offline Listeners
   useEffect(() => {
     const handleOnline = () => {
@@ -285,15 +302,19 @@ export default function App() {
   }, [generate.loadWhisperModels])
 
   // Global Engine Event Listener (logs, status, progress)
-  const engineHandlersRef = React.useRef({ generate, translate, sync, addLog })
-  engineHandlersRef.current = { generate, translate, sync, addLog }
+  const engineHandlersRef = React.useRef({ generate, translate, sync, batch, addLog })
+  engineHandlersRef.current = { generate, translate, sync, batch, addLog }
 
   useEffect(() => {
     if (!window.api?.engine?.onEvent) return
     const unsub = window.api.engine.onEvent((event: any) => {
-      const { generate: gen, translate: trans, sync: snc, addLog: log } = engineHandlersRef.current
+      const { generate: gen, translate: trans, sync: snc, batch: btc, addLog: log } = engineHandlersRef.current
+      if (btc.isProcessing) {
+        btc.handleEngineEvent(event)
+      }
       if (event.type === 'log') {
         const cat: LogCategory =
+          subtitleActionRef.current === 'batch' ? 'batch' :
           event.job === 'translate' ? 'translate' :
           event.job === 'generate' ? 'generate' :
           event.job === 'sync' ? 'sync' :
@@ -422,7 +443,9 @@ export default function App() {
                   ? 'Extract Subtitle'
                   : action === 'generate'
                   ? 'Generate Subtitle (Whisper AI)'
-                  : 'Translate Subtitle (Cloud AI)'
+                  : action === 'translate'
+                  ? 'Translate Subtitle (Cloud AI)'
+                  : 'Batch Process'
               }`
             )
           }}
@@ -607,13 +630,62 @@ export default function App() {
                 />
               )}
 
+              {subtitleAction === 'batch' && (
+                <BatchView
+                  batchMode={batch.batchMode}
+                  setBatchMode={batch.setBatchMode}
+                  items={batch.items}
+                  isProcessing={batch.isProcessing}
+                  overallProgress={batch.overallProgress}
+                  activeItemId={batch.activeItemId}
+                  syncMode={batch.syncMode}
+                  setSyncMode={batch.setSyncMode}
+                  whisperModelQuality={batch.whisperModelQuality}
+                  setWhisperModelQuality={batch.setWhisperModelQuality}
+                  generateLanguage={batch.generateLanguage}
+                  setGenerateLanguage={batch.setGenerateLanguage}
+                  generateFormat={batch.generateFormat}
+                  setGenerateFormat={batch.setGenerateFormat}
+                  translateLanguage={batch.translateLanguage}
+                  setTranslateLanguage={batch.setTranslateLanguage}
+                  translateFormat={batch.translateFormat}
+                  setTranslateFormat={batch.setTranslateFormat}
+                  availableWhisperModels={generate.whisperModels}
+                  aiApiKey={aiApiKey}
+                  aiProvider={aiProvider}
+                  aiModel={aiModel}
+                  onOpenSettingsAiTab={() => {
+                    setSettingsInitialTab('ai')
+                    setSettingsModalOpen(true)
+                  }}
+                  lastBatchOutputDir={batch.lastBatchOutputDir}
+                  onAddFiles={batch.handleAddFiles}
+                  onAddFolder={batch.handleAddFolder}
+                  onDropFiles={batch.handleDropFiles}
+                  onAssignSubtitle={batch.handleAssignSubtitle}
+                  onRemoveItem={batch.handleRemoveItem}
+                  onClearCompleted={batch.handleClearCompleted}
+                  onClearAll={batch.handleClearAll}
+                  onRetryItem={batch.handleRetryItem}
+                  onStartBatch={batch.handleStartBatch}
+                  onStopBatch={batch.handleStopBatch}
+                  onOpenFolder={handleOpenFolder}
+                />
+              )}
+
               {/* Console */}
               <div className="!mt-auto pt-2 pb-1" style={{ marginTop: 'auto' }}>
                 <ActivityConsole
                   logs={logs}
                   currentAction={subtitleAction}
                   onClear={handleClearLogs}
-                  isSyncing={sync.isSyncing || generate.isGenerating || extract.isExtracting || translate.isTranslating}
+                  isSyncing={
+                    sync.isSyncing ||
+                    generate.isGenerating ||
+                    extract.isExtracting ||
+                    translate.isTranslating ||
+                    batch.isProcessing
+                  }
                 />
               </div>
             </main>
