@@ -5,7 +5,7 @@
 </p>
 
 <p align="center">
-  <b>A sleek, modern desktop app to automatically synchronize out-of-sync subtitles with your movie's reference audio.</b>
+  <b>A sleek, modern desktop app to synchronize, extract, generate (Whisper AI), and translate subtitles with reference audio.</b>
 </p>
 
 <p align="center">
@@ -26,18 +26,22 @@
 
 ## ✨ Features
 
+- **⚡ Automated Batch Processing Queue**:
+  - Multi-task queue pipeline supporting **Synchronize**, **Extract Subtitles**, **Generate (Whisper AI)**, and **Translate (Gemini AI)** in sequence.
+  - Intelligent drag-and-drop auto-pairing for TV series episodes (e.g., matching `Chernobyl.S01E04.mkv` with `Chernobyl.S01E04.srt`).
+  - Seamless mode switching between standalone `.srt` files and embedded MKV/MP4 tracks.
+  - Real-time queue progress indicators and live console execution logger.
 - **3 Powerful Sync Modes**:
   - **Standard**: Fast 1-pass alignment for matching video and subtitle cuts.
   - **Smart**: 4-pass scoring algorithm (wide $\pm$15 min search, frame-rate drift fix with `--gss`, and alternate `auditok` speech detector) to fix subtitles that slowly drift (e.g. 23.976 vs 25 fps).
   - **Split sync**: Slices subtitles and audio into 2-minute parts to align different video cuts (WEBRip vs HDTV with commercial ads or recaps added/removed).
 - **🎙️ Offline AI Subtitle Generation (Whisper.cpp)**: Automatically transcribe speech from videos into synchronized `.srt` subtitles completely offline using local Whisper models (Tiny, Base, Small, Medium, Large-v3-Turbo) — 100% private with no cloud uploads required.
 - **🌐 AI Subtitle Translation**: Translate subtitles into any target language with one click using Google Gemini or OpenAI API keys.
-- **📦 Embedded Subtitle Track Extractor**: Easily extract existing embedded subtitle streams (SRT, ASS, VTT, etc.) directly from multi-track MKV/MP4 files without needing external tools.
+- **📦 Embedded Subtitle Track Extractor**: Easily extract existing embedded subtitle streams (SRT, ASS, VTT, etc.) directly from multi-track MKV/MP4 files with interactive clickable track cards, format/SDH badges, and residual formatting tag cleaning.
 - **Audio Track Picker**: Detects multi-track video streams via ffprobe and allows picking the exact audio track (language, codec, channels) matching your subtitle.
 - **Guided Step-by-Step Workflow**: Clear 3-step interface with intelligent lock states until video and subtitle files are loaded.
-- **Batch Processing**: Add multiple subtitle files at once and synchronize them in sequence.
-- **🔄 In-App Auto-Updater**: Instant notification when a new release is available, featuring a user-friendly changelog viewer and 1-click installer download with live progress.
-- **Modern UI & Dark Mode**: Sleek cards, clean typography, dynamic status indicators, and one-click Dark/Light mode toggle.
+- **🔄 Smart In-App Auto-Updater**: Instant notification when a new release is available with changelog viewer, lightweight differential delta downloads (~15–20 MB), and silent in-place installation.
+- **🎨 Modern UI, Themes & Dark Mode**: Sleek cards, clean typography, dynamic status indicators, and one-click switching between Dark, Light, and **Glassmorphism (Frosted Glass)** themes.
 - **Embedded Activity Console**: View speech alignment and transcription progress in real time with detailed exit reports.
 - **Direct Output Access**: Quickly open the destination folder containing your output subtitles with one click.
 - **Standalone Portable App**: Available as a single double-clickable Windows `.exe` with zero installation required.
@@ -142,8 +146,12 @@ npm run package
 │   ├── shared/              # Shared AI model definitions, links, version & error utils
 │   └── renderer/            # React 18 + Tailwind CSS frontend UI
 │       ├── assets/          # App icons and media assets
-│       ├── components/      # Step cards, modals, ActivityConsole, ReleaseNotes, etc.
-│       └── App.tsx          # Main React application component
+│       ├── components/      # Modals, ActivityConsole, cards & navigation
+│       ├── views/           # Modular workflow views (Sync, Extract, Translate, Generate, Batch)
+│       ├── hooks/           # Modular workflow logic hooks
+│       ├── store/           # Zustand state management stores
+│       ├── theme/           # Theme registry, CSS definitions & styles
+│       └── App.tsx          # Main React application shell
 ├── electron.vite.config.ts  # Vite configuration for main, preload and renderer
 ├── package.json             # App manifest, dependencies & electron-builder targets
 ├── app_icon.ico             # Windows multi-resolution icon
@@ -165,6 +173,7 @@ npm run package
 Output subtitle files are automatically saved in the same directory as the original video or subtitle files:
 - **Synchronized Subtitles**: `Movie.Title.synced.srt`
 - **AI Generated Subtitles**: `Movie.Title.generated.srt`
+- **AI Translated Subtitles**: `Movie.Title.translated.si.srt`
 - **Extracted Subtitle Tracks**: `Movie.Title.track1.eng.srt`
 
 ---
@@ -177,6 +186,7 @@ Subtitle Sync Studio relies on the following open-source projects:
 - **[ffsubsync](https://github.com/smacke/ffsubsync)**: Speech-to-subtitle alignment engine powered by [ffsubsync](https://github.com/smacke/ffsubsync) (MIT License).
 - **[whisper.cpp](https://github.com/ggerganov/whisper.cpp)**: High-performance C/C++ port of OpenAI's Whisper model by Georgi Gerganov for offline speech recognition (MIT License).
 - **[Electron](https://www.electronjs.org/)** & **[React](https://react.dev/)**: Desktop application shell and modern reactive user interface (MIT License).
+- **[Google Gemini](https://ai.google.dev/) & [OpenAI](https://openai.com/)**: Large Language Model APIs powering intelligent, context-aware subtitle translation.
 
 ---
 
