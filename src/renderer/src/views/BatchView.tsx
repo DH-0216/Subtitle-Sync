@@ -688,39 +688,27 @@ export const BatchView: React.FC<BatchViewProps> = (props) => {
                     </div>
 
                     <div className="min-w-0 flex-1">
-                      <div className="flex items-center gap-2 flex-wrap">
+                      <div className="flex items-center gap-2 min-w-0">
                         <span
-                          className="font-bold text-xs text-app-text truncate max-w-md"
+                          className="font-bold text-xs text-app-text truncate min-w-0"
                           title={item.videoPath || item.subPath}
                         >
                           {item.name}
                         </span>
 
                         {item.episodeLabel && (
-                          <span className="text-[10px] font-bold px-1.5 py-0.2 rounded-md bg-brand-500/10 text-brand-600 dark:text-brand-400 border border-brand-500/20">
+                          <span className="text-[10px] font-bold px-1.5 py-0.2 rounded-md bg-brand-500/10 text-brand-600 dark:text-brand-400 border border-brand-500/20 shrink-0 whitespace-nowrap">
                             {item.episodeLabel}
                           </span>
                         )}
 
-                        <span className="text-[10px] font-bold px-1.5 py-0.2 rounded-md bg-app-card-inner border border-app-card-inner-border text-app-text-muted uppercase">
+                        <span className="text-[10px] font-bold px-1.5 py-0.2 rounded-md bg-app-card-inner border border-app-card-inner-border text-app-text-muted uppercase shrink-0 whitespace-nowrap">
                           {effectiveJobType}
                         </span>
 
                         {effectiveJobType === 'sync' && item.usedSyncMode && (
-                          <span className="text-[10px] font-bold px-1.5 py-0.2 rounded-md bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/20">
+                          <span className="text-[10px] font-bold px-1.5 py-0.2 rounded-md bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/20 shrink-0 whitespace-nowrap">
                             {item.usedSyncMode}
-                          </span>
-                        )}
-
-                        {effectiveJobType === 'translate' && translateSource === 'embedded' && (
-                          <span className="text-[10px] font-bold px-1.5 py-0.2 rounded-md bg-purple-500/10 text-purple-600 dark:text-purple-400 border border-purple-500/20">
-                            Embedded Sub
-                          </span>
-                        )}
-
-                        {effectiveJobType === 'translate' && translateSource === 'subtitles' && item.subPath && (
-                          <span className="text-[10px] font-bold px-1.5 py-0.2 rounded-md bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
-                            External Sub
                           </span>
                         )}
                       </div>
