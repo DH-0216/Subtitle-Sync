@@ -68,7 +68,8 @@ export function useBatchWorkflow(options: UseBatchWorkflowOptions = {}) {
   const notifyJobComplete = options.notifyJobComplete ?? settingsStore.notifyJobComplete
   const onOpenSettingsAiTab =
     options.onOpenSettingsAiTab ?? (() => uiStore.setSettingsModalOpen(true, 'ai'))
-  const [batchMode, setBatchMode] = useState<BatchOperationType>('sync')
+  const [batchMode, setBatchModeState] = useState<BatchOperationType>('sync')
+  const batchModeRef = useRef<BatchOperationType>('sync')
   const [items, setItems] = useState<BatchItem[]>([])
   const [isProcessing, setIsProcessing] = useState(false)
   const [overallProgress, setOverallProgress] = useState(0)
@@ -97,7 +98,20 @@ export function useBatchWorkflow(options: UseBatchWorkflowOptions = {}) {
 
   const [translateLanguage, setTranslateLanguage] = useState('si')
   const [translateFormat, setTranslateFormat] = useState<'srt' | 'vtt' | 'txt'>('srt')
-  const [translateSource, setTranslateSource] = useState<'subtitles' | 'embedded'>('subtitles')
+  const [translateSource, setTranslateSourceState] = useState<'subtitles' | 'embedded'>('subtitles')
+
+  const setTranslateSource = useCallback((source: 'subtitles' | 'embedded') => {
+    setTranslateSourceState(source)
+    setItems((prev) =>
+      prev.map((item) => {
+        if (item.status === 'completed') return item
+        return {
+          ...item,
+          translateSource: source
+        }
+      })
+    )
+  }, [])
   const [preferredTrackLang, setPreferredTrackLang] = useState('en')
   const [extractTrackOption, setExtractTrackOption] = useState('en')
   const [extractCleanTags, setExtractCleanTags] = useState(true)
@@ -124,6 +138,116 @@ export function useBatchWorkflow(options: UseBatchWorkflowOptions = {}) {
   useEffect(() => {
     itemsRef.current = items
   }, [items])
+
+  useEffect(() => {
+    batchModeRef.current = batchMode
+  }, [batchMode])
+
+  // Automatically adapt queue items when batch operation mode changes
+  const setBatchMode = useCallback((newMode: BatchOperationType) => {
+    if (isProcessingRef.current) {
+      toast.error('Cannot change mode while batch processing is active.')
+      return
+    }
+    setBatchModeState(newMode)
+    batchModeRef.current = newMode
+
+    // Automatically adapt all pending / actionable queue items to the new operation mode
+    if (newMode === 'translate') {
+      const hasVideos = itemsRef.current.some((it) => it.videoPath && it.status !== 'completed')
+      if (hasVideos) {
+        setTranslateSourceState('embedded')
+      } else {
+        const hasSubs = itemsRef.current.some((it) => it.subPath && !it.videoPath && it.status !== 'completed')
+        if (hasSubs) {
+          setTranslateSourceState('subtitles')
+        }
+      }
+    }
+
+    setItems((prev) =>
+      prev.map((item) => {
+        if (item.status === 'completed') return item
+
+        const updated: BatchItem = {
+          ...item,
+          jobType: newMode,
+          error: item.error?.includes('subtitle') ? undefined : item.error,
+          status: item.status === 'failed' && item.error?.includes('subtitle') ? 'pending' : item.status,
+          statusMessage: item.status === 'failed' && item.error?.includes('subtitle') ? undefined : item.statusMessage
+        }
+
+        if (newMode === 'translate') {
+          if (item.videoPath) {
+            updated.translateSource = 'embedded'
+          } else if (item.subPath) {
+            updated.translateSource = 'subtitles'
+          }
+        }
+
+        return updated
+      })
+    )
+
+    // When switching to sync mode, check if any unpaired videos have matching subtitles in the same folder
+    if (newMode === 'sync' && window.api?.batch?.scanFolder) {
+      setTimeout(async () => {
+        try {
+          const currentItems = itemsRef.current
+          const unpaired = currentItems.filter((it) => it.videoPath && !it.subPath && it.status !== 'completed')
+          if (unpaired.length === 0) return
+
+          const parentDirs = Array.from(
+            new Set(
+              unpaired.map((it) => {
+                const p = it.videoPath!
+                const idx = Math.max(p.lastIndexOf('/'), p.lastIndexOf('\\'))
+                return idx !== -1 ? p.substring(0, idx) : ''
+              }).filter(Boolean)
+            )
+          )
+
+          const discoveredSubs: string[] = []
+          for (const dir of parentDirs) {
+            const res = await window.api.batch.scanFolder(dir)
+            if (res?.subtitles?.length) {
+              discoveredSubs.push(...sanitizeFilePaths(res.subtitles).filter(isSubtitleFile))
+            }
+          }
+
+          if (discoveredSubs.length > 0) {
+            setItems((prev) => {
+              let updated = [...prev]
+              const remaining = [...discoveredSubs]
+              let newlyPaired = 0
+              for (let i = 0; i < updated.length && remaining.length > 0; i++) {
+                const it = updated[i]
+                if (it.videoPath && !it.subPath && it.status !== 'completed') {
+                  const matches = matchVideosWithSubtitles([it.videoPath], remaining)
+                  if (matches[0]?.subPath) {
+                    const sub = matches[0].subPath
+                    const idx = remaining.indexOf(sub)
+                    if (idx !== -1) remaining.splice(idx, 1)
+                    updated[i] = {
+                      ...it,
+                      subPath: sub,
+                      confidence: matches[0].confidence,
+                      episodeLabel: it.episodeLabel || matches[0].episodeLabel
+                    }
+                    newlyPaired++
+                  }
+                }
+              }
+              if (newlyPaired > 0) {
+                toast.success(`Auto-paired ${newlyPaired} subtitle(s) from video folder!`)
+              }
+              return updated
+            })
+          }
+        } catch {}
+      }, 50)
+    }
+  }, [])
 
   // Listen to live extraction events & progress during batch extraction
   useEffect(() => {
@@ -214,6 +338,48 @@ export function useBatchWorkflow(options: UseBatchWorkflowOptions = {}) {
           return
         }
         const sorted = naturalSortPaths(cleanPaths)
+
+        if (batchMode === 'sync' && window.api?.batch?.scanFolder) {
+          const parentDirs = Array.from(
+            new Set(
+              sorted.map((p) => {
+                const idx = Math.max(p.lastIndexOf('/'), p.lastIndexOf('\\'))
+                return idx !== -1 ? p.substring(0, idx) : ''
+              }).filter(Boolean)
+            )
+          )
+
+          const discoveredSubs: string[] = []
+          for (const dir of parentDirs) {
+            try {
+              const res = await window.api.batch.scanFolder(dir)
+              if (res?.subtitles?.length) {
+                discoveredSubs.push(...sanitizeFilePaths(res.subtitles).filter(isSubtitleFile))
+              }
+            } catch {}
+          }
+
+          const matches = matchVideosWithSubtitles(sorted, discoveredSubs)
+          const newItems: BatchItem[] = matches.map((m) => ({
+            id: nextId(),
+            name: getFileName(m.videoPath),
+            jobType: 'sync',
+            videoPath: m.videoPath,
+            subPath: m.subPath || undefined,
+            status: 'pending',
+            progress: 0,
+            confidence: m.confidence,
+            episodeLabel: m.episodeLabel
+          }))
+          setItems((prev) => [...prev, ...newItems])
+          const pairedCount = matches.filter((m) => m.subPath).length
+          toast.success(
+            `Added ${newItems.length} video(s)${pairedCount > 0 ? ` (${pairedCount} auto-paired with subtitles)` : ''}!`
+          )
+          addLog(`[BATCH] Added ${newItems.length} video(s) (${pairedCount} subtitles auto-paired).`)
+          return
+        }
+
         const newItems: BatchItem[] = sorted.map((p) => ({
           id: nextId(),
           name: getFileName(p),
@@ -544,6 +710,7 @@ export function useBatchWorkflow(options: UseBatchWorkflowOptions = {}) {
         )
       }
       if (freshVideos.length > 0) {
+        setTranslateSourceState('embedded')
         const sortedVideos = naturalSortPaths(freshVideos)
         newItems.push(
           ...sortedVideos.map((p) => ({
@@ -671,7 +838,16 @@ export function useBatchWorkflow(options: UseBatchWorkflowOptions = {}) {
   const handleRetryItem = useCallback((id: string) => {
     setItems((prev) =>
       prev.map((it) =>
-        it.id === id ? { ...it, status: 'pending', progress: 0, error: undefined, statusMessage: undefined } : it
+        it.id === id
+          ? {
+              ...it,
+              jobType: batchModeRef.current,
+              status: 'pending',
+              progress: 0,
+              error: undefined,
+              statusMessage: undefined
+            }
+          : it
       )
     )
   }, [])
@@ -715,12 +891,12 @@ export function useBatchWorkflow(options: UseBatchWorkflowOptions = {}) {
       return
     }
 
+    const activeJobType = batchModeRef.current || batchMode
+
     // Pre-flight check for translate / generate with AI translation
-    const needsAi = pendingItems.some(
-      (it) =>
-        it.jobType === 'translate' ||
-        (it.jobType === 'generate' && ['si', 'ta', 'hi', 'es'].includes(generateLanguage))
-    )
+    const needsAi =
+      activeJobType === 'translate' ||
+      (activeJobType === 'generate' && ['si', 'ta', 'hi', 'es'].includes(generateLanguage))
     if (needsAi && !aiApiKey.trim()) {
       toast.error('Please enter your AI API Key in Settings to process AI translation tasks!', {
         duration: 5000,
@@ -732,7 +908,7 @@ export function useBatchWorkflow(options: UseBatchWorkflowOptions = {}) {
 
     cancelRequestedRef.current = false
     setIsProcessing(true)
-    addLog(`=== Starting Batch Processing Queue (${pendingItems.length} items) ===`)
+    addLog(`=== Starting Batch Processing Queue (${pendingItems.length} items) [Mode: ${activeJobType.toUpperCase()}] ===`)
 
     let completedCount = 0
     let failedCount = 0
@@ -752,8 +928,8 @@ export function useBatchWorkflow(options: UseBatchWorkflowOptions = {}) {
         continue
       }
 
-      // If sync item has no subtitle, mark failed with clear reason
-      if (currentItem.jobType === 'sync' && !currentItem.subPath) {
+      // If sync mode, ensure both video and subtitle are present
+      if (activeJobType === 'sync' && (!currentItem.videoPath || !currentItem.subPath)) {
         setItems((prev) =>
           prev.map((it) =>
             it.id === currentItem.id
@@ -766,24 +942,75 @@ export function useBatchWorkflow(options: UseBatchWorkflowOptions = {}) {
         continue
       }
 
+      // If extract or generate mode, ensure video is present
+      if ((activeJobType === 'extract' || activeJobType === 'generate') && !currentItem.videoPath) {
+        setItems((prev) =>
+          prev.map((it) =>
+            it.id === currentItem.id
+              ? { ...it, status: 'failed', error: `Video container file required for ${activeJobType}.` }
+              : it
+          )
+        )
+        failedCount++
+        addLog(`[BATCH SKIP] "${currentItem.name}" skipped: requires video file.`)
+        continue
+      }
+
+      // If translate mode, validate required source
+      if (activeJobType === 'translate') {
+        if (translateSource === 'subtitles' && !currentItem.subPath) {
+          setItems((prev) =>
+            prev.map((it) =>
+              it.id === currentItem.id
+                ? {
+                    ...it,
+                    status: 'failed',
+                    error: 'Subtitle Files mode requires an .srt file. Pair an .srt file or switch to "Embedded in Movies".'
+                  }
+                : it
+            )
+          )
+          failedCount++
+          addLog(`[BATCH SKIP] "${currentItem.name}" skipped: no subtitle file assigned in Subtitle Files mode.`)
+          continue
+        }
+
+        if (translateSource === 'embedded' && !currentItem.videoPath) {
+          setItems((prev) =>
+            prev.map((it) =>
+              it.id === currentItem.id
+                ? {
+                    ...it,
+                    status: 'failed',
+                    error: 'Video container file required for "Embedded in Movies" translation.'
+                  }
+                : it
+            )
+          )
+          failedCount++
+          addLog(`[BATCH SKIP] "${currentItem.name}" skipped: requires video file.`)
+          continue
+        }
+      }
+
       // Mark current item processing
       setActiveItemId(currentItem.id)
       activeItemIdRef.current = currentItem.id
       setItems((prev) =>
         prev.map((it) =>
           it.id === currentItem.id
-            ? { ...it, status: 'processing', progress: 5, statusMessage: 'Starting...' }
+            ? { ...it, jobType: activeJobType, status: 'processing', progress: 5, statusMessage: 'Starting...' }
             : it
         )
       )
 
-      addLog(`[BATCH] (${i + 1}/${totalItemsCount}) Processing [${currentItem.jobType.toUpperCase()}]: ${currentItem.name}`)
+      addLog(`[BATCH] (${i + 1}/${totalItemsCount}) Processing [${activeJobType.toUpperCase()}]: ${currentItem.name}`)
 
       try {
         let result: any = null
 
         // --- JOB A: Synchronize ---
-        if (currentItem.jobType === 'sync') {
+        if (activeJobType === 'sync') {
           const sub = cleanPathString(currentItem.subPath!)
           const video = cleanPathString(currentItem.videoPath!)
           const ext = getFileExtension(sub) || 'srt'
@@ -890,7 +1117,7 @@ export function useBatchWorkflow(options: UseBatchWorkflowOptions = {}) {
         }
 
         // --- JOB B: Whisper Generate ---
-        else if (currentItem.jobType === 'generate') {
+        else if (activeJobType === 'generate') {
           const video = cleanPathString(currentItem.videoPath!)
           result = await window.api.generator.startGenerate({
             video,
@@ -945,12 +1172,12 @@ export function useBatchWorkflow(options: UseBatchWorkflowOptions = {}) {
         }
 
         // --- JOB C: AI Translate ---
-        else if (currentItem.jobType === 'translate') {
-          let sourceSubToTranslate = cleanPathString(currentItem.subPath)
+        else if (activeJobType === 'translate') {
+          let sourceSubToTranslate = translateSource === 'subtitles' ? cleanPathString(currentItem.subPath) : ''
           let isTempExtraction = false
 
           // If translating embedded subtitle track from video
-          if (!sourceSubToTranslate && currentItem.videoPath) {
+          if (translateSource === 'embedded' || (!sourceSubToTranslate && currentItem.videoPath)) {
             const cleanVideoPath = cleanPathString(currentItem.videoPath)
             setItems((prev) =>
               prev.map((it) =>
@@ -1062,7 +1289,7 @@ export function useBatchWorkflow(options: UseBatchWorkflowOptions = {}) {
         }
 
         // --- JOB D: Embedded Extract ---
-        else if (currentItem.jobType === 'extract') {
+        else if (activeJobType === 'extract') {
           const video = cleanPathString(currentItem.videoPath!)
           if (!video) {
             throw new Error('No video file provided for subtitle extraction.')
@@ -1265,6 +1492,7 @@ export function useBatchWorkflow(options: UseBatchWorkflowOptions = {}) {
     aiPrompt,
     aiPromptsByLang,
     aiProvider,
+    batchMode,
     generateFormat,
     generateLanguage,
     items,

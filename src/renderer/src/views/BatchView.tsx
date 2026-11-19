@@ -657,6 +657,7 @@ export const BatchView: React.FC<BatchViewProps> = (props) => {
           <div className="divide-y divide-app-card-border">
             {items.map((item, idx) => {
               const isCurrent = activeItemId === item.id
+              const effectiveJobType = item.status === 'completed' ? item.jobType : batchMode
               return (
                 <div
                   key={item.id}
@@ -673,11 +674,13 @@ export const BatchView: React.FC<BatchViewProps> = (props) => {
                     </span>
 
                     <div className="p-2 rounded-lg bg-app-card-inner border border-app-card-inner-border shrink-0 text-app-text">
-                      {item.jobType === 'extract' ? (
+                      {effectiveJobType === 'extract' ? (
                         <FileDown className="w-4 h-4 text-emerald-500" />
-                      ) : item.jobType === 'translate' && !item.videoPath ? (
+                      ) : effectiveJobType === 'generate' ? (
+                        <Sparkles className="w-4 h-4 text-amber-500" />
+                      ) : effectiveJobType === 'translate' && !item.videoPath ? (
                         <FileText className="w-4 h-4 text-emerald-500" />
-                      ) : item.jobType === 'translate' && item.videoPath ? (
+                      ) : effectiveJobType === 'translate' && item.videoPath ? (
                         <Video className="w-4 h-4 text-purple-500" />
                       ) : (
                         <Video className="w-4 h-4 text-brand-500" />
@@ -700,60 +703,111 @@ export const BatchView: React.FC<BatchViewProps> = (props) => {
                         )}
 
                         <span className="text-[10px] font-bold px-1.5 py-0.2 rounded-md bg-app-card-inner border border-app-card-inner-border text-app-text-muted uppercase">
-                          {item.jobType}
+                          {effectiveJobType}
                         </span>
 
-                        {item.jobType === 'sync' && item.usedSyncMode && (
+                        {effectiveJobType === 'sync' && item.usedSyncMode && (
                           <span className="text-[10px] font-bold px-1.5 py-0.2 rounded-md bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/20">
                             {item.usedSyncMode}
                           </span>
                         )}
 
-                        {item.jobType === 'translate' && (item.translateSource === 'embedded' || item.videoPath) && (
+                        {effectiveJobType === 'translate' && translateSource === 'embedded' && (
                           <span className="text-[10px] font-bold px-1.5 py-0.2 rounded-md bg-purple-500/10 text-purple-600 dark:text-purple-400 border border-purple-500/20">
                             Embedded Sub
                           </span>
                         )}
+
+                        {effectiveJobType === 'translate' && translateSource === 'subtitles' && item.subPath && (
+                          <span className="text-[10px] font-bold px-1.5 py-0.2 rounded-md bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
+                            External Sub
+                          </span>
+                        )}
                       </div>
 
-                      {/* Subtitle pairing details for Sync jobs */}
-                      {item.jobType === 'sync' && (
+                      {/* Subtitle pairing details for Sync jobs OR Translate jobs in Subtitle Files mode */}
+                      {(effectiveJobType === 'sync' || (effectiveJobType === 'translate' && translateSource === 'subtitles')) && (
                         <div className="text-[11px] text-app-text-muted mt-0.5 flex items-center gap-1.5 truncate">
                           {item.subPath ? (
-                            <span className="truncate flex items-center gap-1">
-                              <span className="text-emerald-600 dark:text-emerald-400 font-medium">
-                                Matched Sub:
-                              </span>{' '}
-                              <span className="truncate" title={item.subPath}>
-                                {item.subPath.split(/[\\/]/).pop()}
+                            <div className="flex items-center gap-2 truncate">
+                              <span className="truncate flex items-center gap-1">
+                                <span className="text-emerald-600 dark:text-emerald-400 font-medium shrink-0">
+                                  Matched Sub:
+                                </span>{' '}
+                                <span className="truncate" title={item.subPath}>
+                                  {item.subPath.split(/[\\/]/).pop()}
+                                </span>
                               </span>
-                            </span>
+                              {!isProcessing && (
+                                <button
+                                  type="button"
+                                  onClick={() => onAssignSubtitle(item.id)}
+                                  className="text-[10px] font-semibold px-2 py-0.5 rounded-md bg-app-card-inner border border-app-card-inner-border text-brand-600 dark:text-brand-400 hover:bg-brand-500/10 hover:border-brand-500/30 transition-colors shrink-0 cursor-pointer flex items-center gap-1"
+                                  title="Change paired subtitle file"
+                                >
+                                  <FolderOpen className="w-2.5 h-2.5" />
+                                  <span>Change</span>
+                                </button>
+                              )}
+                            </div>
                           ) : (
-                            <button
-                              type="button"
-                              onClick={() => onAssignSubtitle(item.id)}
-                              className="text-amber-600 dark:text-amber-400 font-bold hover:underline flex items-center gap-1 cursor-pointer"
-                            >
-                              <AlertCircle className="w-3 h-3" />
-                              <span>Missing subtitle — click to pair</span>
-                            </button>
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <button
+                                type="button"
+                                onClick={() => onAssignSubtitle(item.id)}
+                                className="text-amber-600 dark:text-amber-400 font-bold hover:underline flex items-center gap-1 cursor-pointer"
+                              >
+                                <AlertCircle className="w-3 h-3" />
+                                <span>Missing subtitle — click to pair</span>
+                              </button>
+
+                              {effectiveJobType === 'translate' && translateSource === 'subtitles' && item.videoPath && !isProcessing && (
+                                <>
+                                  <span className="text-app-text-muted text-[10px]">or</span>
+                                  <button
+                                    type="button"
+                                    onClick={() => setTranslateSource('embedded')}
+                                    className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-purple-500/10 text-purple-600 dark:text-purple-400 border border-purple-500/30 hover:bg-purple-500/20 transition-colors cursor-pointer flex items-center gap-1"
+                                    title="Switch to Embedded in Movies to extract embedded track"
+                                  >
+                                    <Video className="w-2.5 h-2.5" />
+                                    <span>Switch to &ldquo;Embedded in Movies&rdquo;</span>
+                                  </button>
+                                </>
+                              )}
+                            </div>
                           )}
                         </div>
                       )}
 
-                      {/* Embedded Subtitle details for Translate jobs */}
-                      {item.jobType === 'translate' && (item.translateSource === 'embedded' || item.videoPath) && (
+                      {/* Action details for Extract jobs */}
+                      {effectiveJobType === 'extract' && (
                         <div className="text-[11px] text-app-text-muted mt-0.5 flex items-center gap-1.5 truncate">
-                          <span className="text-purple-600 dark:text-purple-400 font-medium">Source:</span>
-                          <span>Extract embedded track from movie & translate</span>
+                          <span className="text-emerald-600 dark:text-emerald-400 font-medium">Extract:</span>
+                          <span>
+                            Extract embedded subtitle stream into standalone .srt
+                            {extractTrackOption === 'all' ? ' (All tracks)' : ` (${extractTrackOption.toUpperCase()})`}
+                          </span>
                         </div>
                       )}
 
-                      {/* Embedded Subtitle details for Extract jobs */}
-                      {item.jobType === 'extract' && (
+                      {/* Action details for Generate jobs */}
+                      {effectiveJobType === 'generate' && (
                         <div className="text-[11px] text-app-text-muted mt-0.5 flex items-center gap-1.5 truncate">
-                          <span className="text-emerald-600 dark:text-emerald-400 font-medium">Extract:</span>
-                          <span>Extract embedded subtitle stream into standalone .srt</span>
+                          <span className="text-amber-600 dark:text-amber-400 font-medium">Whisper AI:</span>
+                          <span>
+                            Transcribe speech to subtitles ({whisperModelQuality.toUpperCase()} model • {generateLanguage.toUpperCase()})
+                          </span>
+                        </div>
+                      )}
+
+                      {/* Action details for Translate jobs in Embedded mode */}
+                      {effectiveJobType === 'translate' && translateSource === 'embedded' && (
+                        <div className="text-[11px] text-app-text-muted mt-0.5 flex items-center gap-1.5 truncate">
+                          <span className="text-purple-600 dark:text-purple-400 font-medium shrink-0">Translate:</span>
+                          <span>
+                            Extract embedded track ({preferredTrackLang?.toUpperCase() || 'AUTO'}) & translate to {translateLanguage.toUpperCase()}
+                          </span>
                         </div>
                       )}
 
