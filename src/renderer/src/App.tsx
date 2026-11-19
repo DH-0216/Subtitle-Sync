@@ -447,7 +447,7 @@ export default function App() {
       <AudioTrackModal />
       <SettingsModal />
       <AboutModal />
-      <ModelDownloadModal />
+      <ModelDownloadModal onStartDownload={generate.handleStartDownloadModel} />
       <UpdateModal />
 
       <Toaster
