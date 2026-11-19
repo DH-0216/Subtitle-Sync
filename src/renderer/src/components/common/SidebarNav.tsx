@@ -1,4 +1,5 @@
 import React from 'react'
+import { Badge } from './Badge'
 
 export interface SidebarNavItem<T extends string = string> {
   id: T
@@ -58,15 +59,11 @@ export function SidebarNav<T extends string = string>({
               {item.label}
             </span>
             {item.badge && (
-              <span
-                className={`text-[8.5px] font-black uppercase tracking-wider px-1 py-0.2 rounded shrink-0 ${
-                  isActive
-                    ? 'bg-blue-700/80 text-white'
-                    : 'bg-amber-100 text-amber-900 dark:bg-amber-500/20 dark:text-amber-300'
-                }`}
-              >
-                {item.badge}
-              </span>
+              <Badge
+                text={item.badge}
+                size="xs"
+                variant={isActive ? 'glass' : 'auto'}
+              />
             )}
           </button>
         )

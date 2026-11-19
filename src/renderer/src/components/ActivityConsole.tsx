@@ -1,6 +1,7 @@
 import React, { useRef, useEffect, useState, useMemo } from 'react'
 import { Terminal, Trash2, Copy, Check, ChevronDown, ChevronUp, Maximize2, Minimize2, Layers } from 'lucide-react'
 import { SubtitleAction } from './SubtitleModeSelector'
+import { useLogStore, useUIStore } from '../store'
 
 export type LogCategory = SubtitleAction | 'system'
 
@@ -11,9 +12,9 @@ export interface LogEntry {
 }
 
 interface ActivityConsoleProps {
-  logs: LogEntry[] | string[]
+  logs?: LogEntry[] | string[]
   currentAction?: SubtitleAction
-  onClear: (category?: SubtitleAction | 'all') => void
+  onClear?: (category?: SubtitleAction | 'all') => void
   isSyncing?: boolean
   className?: string
 }
@@ -22,16 +23,25 @@ const ACTION_LABELS: Record<SubtitleAction, string> = {
   sync: 'Synchronize',
   extract: 'Extract',
   translate: 'Translate',
-  generate: 'Generate'
+  generate: 'Generate',
+  batch: 'Batch Queue'
 }
 
 export const ActivityConsole: React.FC<ActivityConsoleProps> = ({
   logs,
-  currentAction = 'sync',
+  currentAction,
   onClear,
   isSyncing,
   className = ''
 }) => {
+  const storeLogs = useLogStore((state) => state.logs)
+  const storeClearLogs = useLogStore((state) => state.clearLogs)
+  const storeAction = useUIStore((state) => state.subtitleAction)
+
+  const effectiveLogs = logs ?? storeLogs
+  const effectiveAction = currentAction ?? storeAction
+  const effectiveClear = onClear ?? storeClearLogs
+
   const terminalRef = useRef<HTMLDivElement>(null)
   const [isExpanded, setIsExpanded] = useState(false)
   const [isMaximized, setIsMaximized] = useState(false)
@@ -41,30 +51,30 @@ export const ActivityConsole: React.FC<ActivityConsoleProps> = ({
   // Automatically switch to the selected option whenever the user switches sidebar tabs
   useEffect(() => {
     setShowAll(false)
-  }, [currentAction])
+  }, [effectiveAction])
 
   // Normalize logs
   const normalizedLogs: LogEntry[] = useMemo(() => {
-    if (!logs || logs.length === 0) return []
-    if (typeof logs[0] === 'string') {
-      return (logs as string[]).map((text, idx) => ({
+    if (!effectiveLogs || effectiveLogs.length === 0) return []
+    if (typeof effectiveLogs[0] === 'string') {
+      return (effectiveLogs as string[]).map((text, idx) => ({
         id: idx,
         text,
         category: 'system' as LogCategory
       }))
     }
-    return logs as LogEntry[]
-  }, [logs])
+    return effectiveLogs as LogEntry[]
+  }, [effectiveLogs])
 
-  // Visible logs strictly based on currentAction (or showAll)
+  // Visible logs strictly based on effectiveAction (or showAll)
   const visibleLogs = useMemo(() => {
     if (showAll) {
       return normalizedLogs
     }
     return normalizedLogs.filter(
-      (l) => l.category === currentAction || (currentAction === 'sync' && l.category === 'system')
+      (l) => l.category === effectiveAction || (effectiveAction === 'sync' && l.category === 'system')
     )
-  }, [normalizedLogs, showAll, currentAction])
+  }, [normalizedLogs, showAll, effectiveAction])
 
   // Auto-expand when a task starts running
   useEffect(() => {
@@ -89,7 +99,7 @@ export const ActivityConsole: React.FC<ActivityConsoleProps> = ({
   }
 
   const handleClear = () => {
-    onClear(showAll ? 'all' : currentAction)
+    effectiveClear(showAll ? 'all' : effectiveAction)
   }
 
   const toggleExpand = () => {
@@ -103,7 +113,7 @@ export const ActivityConsole: React.FC<ActivityConsoleProps> = ({
     if (showAll) {
       return 'Console idle. Start a task to view real-time engine stdout/stderr and logs.'
     }
-    switch (currentAction) {
+    switch (effectiveAction) {
       case 'translate':
         return 'Translate activity idle. Start an AI translation to view real-time batch translation activity.'
       case 'generate':
@@ -143,7 +153,7 @@ export const ActivityConsole: React.FC<ActivityConsoleProps> = ({
 
           {/* Automatic Active Option Badge */}
           <span className="text-[10.5px] font-bold px-2.5 py-0.5 rounded-full bg-blue-100 text-blue-900 dark:bg-blue-900/50 dark:text-blue-300 border border-blue-200 dark:border-blue-800 shrink-0">
-            {showAll ? 'All Features' : ACTION_LABELS[currentAction] || currentAction}
+            {showAll ? 'All Features' : ACTION_LABELS[effectiveAction] || effectiveAction}
           </span>
 
           {/* Line count */}
@@ -165,7 +175,7 @@ export const ActivityConsole: React.FC<ActivityConsoleProps> = ({
                     ? 'border-blue-500 bg-blue-50 text-blue-700 dark:bg-blue-950/60 dark:text-blue-300 dark:border-blue-600'
                     : 'border-app-card-inner-border bg-app-card-inner text-app-text-muted hover:text-app-text'
                 }`}
-                title={showAll ? `Show only ${ACTION_LABELS[currentAction]} activity` : 'Show all console logs combined'}
+                title={showAll ? `Show only ${ACTION_LABELS[effectiveAction]} activity` : 'Show all console logs combined'}
               >
                 <Layers className="w-3 h-3" />
                 <span>{showAll ? 'Show Current' : 'Show All'}</span>
@@ -176,7 +186,7 @@ export const ActivityConsole: React.FC<ActivityConsoleProps> = ({
                   <button
                     onClick={handleCopy}
                     className="p-1.5 rounded-lg text-app-text-muted hover:text-app-text hover:bg-app-card-inner-hover transition-colors cursor-pointer"
-                    title={`Copy ${showAll ? 'all' : ACTION_LABELS[currentAction]} logs`}
+                    title={`Copy ${showAll ? 'all' : ACTION_LABELS[effectiveAction]} logs`}
                   >
                     {copied ? (
                       <Check className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
@@ -187,7 +197,7 @@ export const ActivityConsole: React.FC<ActivityConsoleProps> = ({
                   <button
                     onClick={handleClear}
                     className="p-1.5 rounded-lg text-app-text-muted hover:text-rose-500 hover:bg-app-card-inner-hover transition-colors cursor-pointer"
-                    title={`Clear ${showAll ? 'all' : ACTION_LABELS[currentAction]} logs`}
+                    title={`Clear ${showAll ? 'all' : ACTION_LABELS[effectiveAction]} logs`}
                   >
                     <Trash2 className="w-3.5 h-3.5" />
                   </button>

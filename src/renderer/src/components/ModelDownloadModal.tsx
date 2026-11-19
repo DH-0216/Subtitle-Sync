@@ -1,6 +1,8 @@
 import React, { useEffect } from 'react'
-import { X, Cpu, Download, Loader2, AlertCircle, HardDrive, WifiOff } from 'lucide-react'
+import { Cpu, Download, Loader2, AlertCircle, HardDrive, WifiOff } from 'lucide-react'
 import { formatBytes } from '@shared/fileSanitizer'
+import { ModalHeader, Badge } from './common'
+import { useWhisperStore } from '../store'
 
 export interface WhisperModelModalItem {
   id: string
@@ -11,35 +13,52 @@ export interface WhisperModelModalItem {
   description?: string
 }
 
-interface ModelDownloadModalProps {
-  isOpen: boolean
-  onClose: () => void
-  modelQuality: string
+export interface ModelDownloadModalProps {
+  isOpen?: boolean
+  onClose?: () => void
+  modelQuality?: string
   modelInfo?: WhisperModelModalItem | null
-  isDownloading: boolean
-  downloadProgress: number
+  isDownloading?: boolean
+  downloadProgress?: number
   downloadSpeed?: string
   downloadedBytes?: number
   totalBytes?: number
   errorMessage?: string | null
-  onStartDownload: () => void
-  onCancelDownload: () => void
+  onStartDownload?: () => void
+  onCancelDownload?: () => void
 }
 
 export const ModelDownloadModal: React.FC<ModelDownloadModalProps> = ({
-  isOpen,
-  onClose,
-  modelQuality,
-  modelInfo,
-  isDownloading,
-  downloadProgress,
-  downloadSpeed,
-  downloadedBytes,
-  totalBytes,
-  errorMessage,
-  onStartDownload,
-  onCancelDownload
+  isOpen: propIsOpen,
+  onClose: propOnClose,
+  modelQuality: propModelQuality,
+  modelInfo: propModelInfo,
+  isDownloading: propIsDownloading,
+  downloadProgress: propDownloadProgress,
+  downloadSpeed: propDownloadSpeed,
+  downloadedBytes: propDownloadedBytes,
+  totalBytes: propTotalBytes,
+  errorMessage: propErrorMessage,
+  onStartDownload: propOnStartDownload,
+  onCancelDownload: propOnCancelDownload
 }) => {
+  const store = useWhisperStore()
+
+  const isOpen = propIsOpen !== undefined ? propIsOpen : store.downloadModalOpen
+  const onClose = propOnClose ?? (() => store.setDownloadModalOpen(false))
+  const modelQuality = propModelQuality !== undefined ? propModelQuality : store.activeModelQuality
+  const modelInfo =
+    propModelInfo !== undefined
+      ? propModelInfo
+      : store.whisperModels.find((m) => m.id === modelQuality)
+  const isDownloading = propIsDownloading !== undefined ? propIsDownloading : store.isDownloadingModel
+  const downloadProgress = propDownloadProgress !== undefined ? propDownloadProgress : store.modelDownloadProgress
+  const downloadSpeed = propDownloadSpeed !== undefined ? propDownloadSpeed : store.modelDownloadSpeed
+  const downloadedBytes = propDownloadedBytes !== undefined ? propDownloadedBytes : store.modelDownloadedBytes
+  const totalBytes = propTotalBytes !== undefined ? propTotalBytes : store.modelTotalBytes
+  const errorMessage = propErrorMessage !== undefined ? propErrorMessage : store.modelDownloadError
+  const onStartDownload = propOnStartDownload ?? (() => store.handleStartDownloadModel())
+  const onCancelDownload = propOnCancelDownload ?? (() => store.handleCancelDownloadModel())
   useEffect(() => {
     if (!isOpen) return
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -79,43 +98,23 @@ export const ModelDownloadModal: React.FC<ModelDownloadModalProps> = ({
         if (e.target === e.currentTarget && !isDownloading) onClose()
       }}
     >
-      <div className="bg-app-card border border-app-card-border rounded-2xl w-full max-w-[480px] shadow-2xl p-6 transition-colors">
+      <div className="bg-app-card border border-app-card-border rounded-2xl w-full max-w-[480px] shadow-2xl overflow-hidden transition-colors">
         {/* Header */}
-        <div className="flex items-center justify-between pb-3.5 mb-4 border-b border-app-header-border">
-          <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-xl bg-app-accent-bg border border-app-accent-border flex items-center justify-center text-app-accent">
-              <Cpu className="w-5 h-5" />
-            </div>
-            <div>
-              <h3 className="font-bold text-app-text text-sm">
-                Whisper AI Model Required
-              </h3>
-              <p className="text-xs text-app-text-muted">
-                One-time download for offline speech transcription
-              </p>
-            </div>
-          </div>
+        <ModalHeader
+          title="Whisper AI Model Required"
+          subtitle="One-time download for offline speech transcription"
+          icon={<Cpu className="w-5 h-5" />}
+          onClose={isDownloading ? () => {} : onClose}
+        />
 
-          {!isDownloading && (
-            <button
-              onClick={onClose}
-              className="p-1.5 rounded-lg text-app-text-muted hover:text-app-text hover:bg-app-card-inner-hover transition-colors cursor-pointer"
-              title="Close"
-            >
-              <X className="w-4 h-4" />
-            </button>
-          )}
-        </div>
-
+        <div className="p-6 pt-4">
         {/* Model Card Info */}
         <div className="p-4 rounded-xl border border-blue-200/90 dark:border-blue-900/50 bg-blue-50/50 dark:bg-blue-950/20 mb-4 space-y-2">
           <div className="flex items-center justify-between">
             <span className="font-mono font-bold text-xs text-blue-900 dark:text-blue-200">
               {currentInfo.name}
             </span>
-            <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-blue-50 text-blue-600 dark:bg-blue-500/20 dark:text-blue-300">
-              {currentInfo.size}
-            </span>
+            <Badge text={currentInfo.size} variant="primary" size="xs" />
           </div>
           <p className="text-xs text-app-text-muted leading-relaxed">
             {currentInfo.desc}. Stored locally in your app folder so you can transcribe speech completely offline anytime.
@@ -201,6 +200,7 @@ export const ModelDownloadModal: React.FC<ModelDownloadModalProps> = ({
             </button>
           </div>
         )}
+        </div>
       </div>
     </div>
   )

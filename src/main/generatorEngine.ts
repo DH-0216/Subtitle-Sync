@@ -3,6 +3,7 @@ import { join } from 'path'
 import * as fs from 'fs'
 import { findBinary, killProcessTree } from './media'
 import { parseSrt, writeSrt, removeHallucinationLoops, getUniqueFilePath, cleanSdhFromCues } from './srtTools'
+import { cleanPathString } from '@shared/fileSanitizer'
 import { AiProviderId } from '@shared/aiModels'
 import { DEFAULT_AI_PROMPT, getLanguageConfig } from '@shared/translationPrompts'
 import {
@@ -120,8 +121,9 @@ export async function executeSubtitleGeneration(
     activeCreatedFiles.clear()
   }
 
+  const video = cleanPathString(params.video)
+  const sourceSubPath = cleanPathString(params.sourceSubPath)
   const {
-    video,
     trackIndex,
     modelQuality = 'base',
     format,
@@ -131,7 +133,6 @@ export async function executeSubtitleGeneration(
     aiModel,
     customPrompt,
     sourceType,
-    sourceSubPath,
     deleteSourceAfter
   } = params
 

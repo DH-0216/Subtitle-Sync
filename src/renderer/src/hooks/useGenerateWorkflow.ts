@@ -11,40 +11,47 @@ import { AiProviderId } from '@shared/aiModels'
 import { resolveEffectiveAiPrompt } from '@shared/translationPrompts'
 import { GenerateConfig } from '../components/Step2Generate'
 import { AudioTrack } from '../components/Step1Video'
+import { useMediaStore, useLogStore, useSettingsStore, useUIStore, useWhisperStore } from '../store'
 
 interface UseGenerateWorkflowOptions {
-  videoPath: string | null
-  videoDetails: any
-  audioTracks: AudioTrack[]
-  selectedTrack: number | null
-  aiApiKey: string
-  aiProvider: AiProviderId
-  aiModel: string
-  aiPrompt: string
+  videoPath?: string | null
+  videoDetails?: any
+  audioTracks?: AudioTrack[]
+  selectedTrack?: number | null
+  aiApiKey?: string
+  aiProvider?: AiProviderId
+  aiModel?: string
+  aiPrompt?: string
   aiPromptsByLang?: Record<string, string>
-  onOpenSettingsAiTab: () => void
-  addLog: (msg: string) => void
-  notifyJobComplete: (title: string, body: string) => void
+  onOpenSettingsAiTab?: () => void
+  addLog?: (msg: string) => void
+  notifyJobComplete?: (title: string, body: string) => void
   onOutputReady?: (filePath: string, dirPath: string) => void
   onOutputClear?: () => void
 }
 
-export function useGenerateWorkflow({
-  videoPath,
-  videoDetails,
-  audioTracks,
-  selectedTrack,
-  aiApiKey,
-  aiProvider,
-  aiModel,
-  aiPrompt,
-  aiPromptsByLang,
-  onOpenSettingsAiTab,
-  addLog,
-  notifyJobComplete,
-  onOutputReady,
-  onOutputClear
-}: UseGenerateWorkflowOptions) {
+export function useGenerateWorkflow(options: UseGenerateWorkflowOptions = {}) {
+  const mediaStore = useMediaStore()
+  const logStore = useLogStore()
+  const settingsStore = useSettingsStore()
+  const uiStore = useUIStore()
+  const whisperStore = useWhisperStore()
+
+  const videoPath = options.videoPath ?? mediaStore.videoPath
+  const videoDetails = options.videoDetails ?? mediaStore.videoDetails
+  const audioTracks = options.audioTracks ?? mediaStore.audioTracks
+  const selectedTrack = options.selectedTrack ?? mediaStore.selectedTrack
+  const aiApiKey = options.aiApiKey ?? settingsStore.aiApiKey
+  const aiProvider = options.aiProvider ?? settingsStore.aiProvider
+  const aiModel = options.aiModel ?? settingsStore.aiModel
+  const aiPrompt = options.aiPrompt ?? settingsStore.aiPrompt
+  const aiPromptsByLang = options.aiPromptsByLang ?? settingsStore.aiPromptsByLang
+  const onOpenSettingsAiTab =
+    options.onOpenSettingsAiTab ?? (() => uiStore.setSettingsModalOpen(true, 'ai'))
+  const addLog = options.addLog ?? logStore.addGenerateLog
+  const notifyJobComplete = options.notifyJobComplete ?? settingsStore.notifyJobComplete
+  const onOutputReady = options.onOutputReady ?? mediaStore.setOutput
+  const onOutputClear = options.onOutputClear ?? (() => mediaStore.setOutput(null, null))
   const [generateConfig, setGenerateConfig] = useState<GenerateConfig>({
     sourceType: 'video',
     sourceSubPath: null,
@@ -57,19 +64,19 @@ export function useGenerateWorkflow({
   const [generateStatusMessage, setGenerateStatusMessage] = useState('')
   const [generateSubError, setGenerateSubError] = useState<string | null>(null)
 
-  // Whisper Models State
-  const [whisperModels, setWhisperModels] = useState<any[]>([])
-  const [isLoadingWhisperModels, setIsLoadingWhisperModels] = useState(false)
-  const [whisperModelsSource, setWhisperModelsSource] = useState<'remote' | 'cached' | 'fallback'>('fallback')
-
-  // Model Download Modal State
-  const [downloadModalOpen, setDownloadModalOpen] = useState(false)
-  const [isDownloadingModel, setIsDownloadingModel] = useState(false)
-  const [modelDownloadProgress, setModelDownloadProgress] = useState(0)
-  const [modelDownloadSpeed, setModelDownloadSpeed] = useState('')
-  const [modelDownloadedBytes, setModelDownloadedBytes] = useState(0)
-  const [modelTotalBytes, setModelTotalBytes] = useState(0)
-  const [modelDownloadError, setModelDownloadError] = useState<string | null>(null)
+  // Whisper Models & Model Download State from Zustand Store
+  const whisperModels = whisperStore.whisperModels
+  const isLoadingWhisperModels = whisperStore.isLoadingWhisperModels
+  const whisperModelsSource = whisperStore.whisperModelsSource
+  const loadWhisperModels = whisperStore.loadWhisperModels
+  const downloadModalOpen = whisperStore.downloadModalOpen
+  const setDownloadModalOpen = whisperStore.setDownloadModalOpen
+  const isDownloadingModel = whisperStore.isDownloadingModel
+  const modelDownloadProgress = whisperStore.modelDownloadProgress
+  const modelDownloadSpeed = whisperStore.modelDownloadSpeed
+  const modelDownloadedBytes = whisperStore.modelDownloadedBytes
+  const modelTotalBytes = whisperStore.modelTotalBytes
+  const modelDownloadError = whisperStore.modelDownloadError
 
   const generateCancelledRef = useRef(false)
   const isGeneratingRef = useRef(false)
@@ -82,45 +89,6 @@ export function useGenerateWorkflow({
   useEffect(() => {
     isGeneratingRef.current = isGenerating
   }, [isGenerating])
-
-  const loadWhisperModels = useCallback(async (forceRefresh = false) => {
-    if (!window.api?.generator?.getAvailableModels) return
-    setIsLoadingWhisperModels(true)
-    try {
-      const res = await window.api.generator.getAvailableModels(forceRefresh)
-      if (res?.models && res.models.length > 0) {
-        setWhisperModels(res.models)
-        setWhisperModelsSource(res.source || 'fallback')
-        if (forceRefresh) {
-          if (res.source === 'remote') {
-            toast.success(`Loaded ${res.models.length} live models from Hugging Face!`, { icon: '🤗' })
-          } else {
-            toast('Using local/cached models catalog', { icon: '📂' })
-          }
-        }
-      }
-    } catch (e: any) {
-      if (forceRefresh) {
-        toast.error('Failed to fetch models from Hugging Face: ' + (e?.message || 'Network error'))
-      }
-    } finally {
-      setIsLoadingWhisperModels(false)
-    }
-  }, [])
-
-  // Listen to model download progress
-  useEffect(() => {
-    if (!window.api?.generator?.onDownloadProgress) return
-    const unsub = window.api.generator.onDownloadProgress((data: any) => {
-      setModelDownloadProgress(data.percent || 0)
-      setModelDownloadedBytes(data.downloaded || 0)
-      setModelTotalBytes(data.total || 0)
-      if (data.speed) {
-        setModelDownloadSpeed(data.speed)
-      }
-    })
-    return () => unsub()
-  }, [])
 
   const handleClearGenerateSubError = useCallback(() => {
     setGenerateSubError(null)
@@ -201,7 +169,8 @@ export function useGenerateWorkflow({
       try {
         const modelCheck = await window.api.generator.checkModel(effectiveConfig.modelQuality)
         if (!modelCheck?.exists) {
-          setDownloadModalOpen(true)
+          whisperStore.setActiveModelQuality(effectiveConfig.modelQuality)
+          whisperStore.setDownloadModalOpen(true)
           return
         }
       } catch (e) {
@@ -337,57 +306,12 @@ export function useGenerateWorkflow({
   }, [addLog, onOutputClear])
 
   const handleStartDownloadModel = useCallback(async () => {
-    if (!navigator.onLine) {
-      toast.error('No internet connection. Please connect to the internet to download this Whisper model.', {
-        duration: 5500,
-        icon: '📡'
-      })
-      setModelDownloadError('No internet connection detected. An active internet connection is required to download models.')
-      return
-    }
-
-    if (!window.api?.generator?.downloadModel) {
-      toast.error('Please restart the application to load backend!')
-      return
-    }
-
-    setIsDownloadingModel(true)
-    setModelDownloadError(null)
-    setModelDownloadProgress(0)
-
-    try {
-      const res = await window.api.generator.downloadModel(generateConfig.modelQuality)
-      setIsDownloadingModel(false)
-      if (res?.success) {
-        toast.success(`Whisper model (${generateConfig.modelQuality}) ready!`)
-        notifyJobComplete(
-          'Whisper Model Ready',
-          `Whisper ${generateConfig.modelQuality.toUpperCase()} model downloaded and ready!`
-        )
-        setDownloadModalOpen(false)
-        loadWhisperModels(false)
-        handleStartGenerate()
-      } else {
-        const friendly = formatUserFriendlyError(res?.error || 'Failed to download model.')
-        setModelDownloadError(friendly)
-        toast.error(friendly)
-      }
-    } catch (err: any) {
-      setIsDownloadingModel(false)
-      const friendly = formatUserFriendlyError(err)
-      setModelDownloadError(friendly)
-      toast.error(friendly)
-    }
-  }, [generateConfig.modelQuality, handleStartGenerate, loadWhisperModels, notifyJobComplete])
+    await whisperStore.handleStartDownloadModel(generateConfig.modelQuality, handleStartGenerate)
+  }, [generateConfig.modelQuality, handleStartGenerate, whisperStore])
 
   const handleCancelDownloadModel = useCallback(async () => {
-    if (window.api?.generator?.cancelDownload) {
-      await window.api.generator.cancelDownload()
-    }
-    setIsDownloadingModel(false)
-    setModelDownloadProgress(0)
-    toast('Model download cancelled')
-  }, [])
+    await whisperStore.handleCancelDownloadModel()
+  }, [whisperStore])
 
   return {
     generateConfig,

@@ -3,22 +3,32 @@ import { Settings, Info, RefreshCw } from 'lucide-react'
 import appIcon from '../assets/app_icon.png'
 import { APP_VERSION } from '@shared/version'
 import { SubtitleAction } from './SubtitleModeSelector'
+import { useUIStore, useUpdaterStore } from '../store'
 
 interface HeaderProps {
-  currentAction: SubtitleAction
-  onOpenSettings: () => void
-  onOpenAbout: () => void
+  currentAction?: SubtitleAction
+  onOpenSettings?: () => void
+  onOpenAbout?: () => void
   isUpdateReady?: boolean
   onRestartToApplyUpdate?: () => void
 }
 
 export const Header: React.FC<HeaderProps> = ({
-  currentAction,
-  onOpenSettings,
-  onOpenAbout,
-  isUpdateReady = false,
-  onRestartToApplyUpdate
+  currentAction: propAction,
+  onOpenSettings: propOpenSettings,
+  onOpenAbout: propOpenAbout,
+  isUpdateReady: propIsUpdateReady,
+  onRestartToApplyUpdate: propRestart
 }) => {
+  const storeAction = useUIStore((s) => s.subtitleAction)
+  const storeIsUpdateReady = useUpdaterStore((s) => s.isUpdateReady)
+  const currentAction = propAction ?? storeAction
+  const onOpenSettings =
+    propOpenSettings ?? (() => useUIStore.getState().setSettingsModalOpen(true, 'general'))
+  const onOpenAbout = propOpenAbout ?? (() => useUIStore.getState().setAboutModalOpen(true))
+  const isUpdateReady = propIsUpdateReady !== undefined ? propIsUpdateReady : storeIsUpdateReady
+  const onRestartToApplyUpdate =
+    propRestart ?? (() => useUpdaterStore.getState().handleRestartToApply())
   return (
     <header className="bg-app-header border-b border-app-header-border pr-5 py-2.5 flex items-center justify-between shrink-0 z-20">
       <div className="flex items-center min-w-0 flex-1">
@@ -46,12 +56,14 @@ export const Header: React.FC<HeaderProps> = ({
             {currentAction === 'extract' && 'Extract Encoded Subtitles'}
             {currentAction === 'translate' && 'Translate Subtitles (Cloud AI)'}
             {currentAction === 'generate' && 'Generate Subtitles (Whisper AI)'}
+            {currentAction === 'batch' && 'Batch Queue Processing'}
           </h1>
           <p className="text-[11px] text-app-text-muted font-medium truncate">
             {currentAction === 'sync' && 'Align out-of-sync subtitle files (.srt) automatically with movie audio'}
             {currentAction === 'extract' && 'Extract embedded subtitle streams from MKV or MP4 video containers'}
             {currentAction === 'translate' && 'Translate subtitle dialogue into other languages using Cloud AI (Gemini / OpenAI)'}
             {currentAction === 'generate' && 'Transcribe speech from movie audio using local offline Whisper AI'}
+            {currentAction === 'batch' && 'Queue multiple TV series episodes or movie files to synchronize, generate, or translate in sequence'}
           </p>
         </div>
       </div>

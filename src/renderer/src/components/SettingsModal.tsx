@@ -14,17 +14,9 @@ export { DEFAULT_AI_PROMPT, TRANSLATION_LANGUAGES };
 export type { SettingsModalProps };
 
 export const SettingsModal: React.FC<SettingsModalProps> = (props) => {
-  const {
-    isOpen,
-    theme,
-    checkUpdates,
-    autoDownloadUpdates = false,
-    notificationsEnabled = true
-  } = props;
-
   const state = useSettingsModalState(props);
 
-  if (!isOpen) return null;
+  if (!state.isOpen) return null;
 
   const navItems: SidebarNavItem<"general" | "ai">[] = [
     {
@@ -83,13 +75,15 @@ export const SettingsModal: React.FC<SettingsModalProps> = (props) => {
           <main className="flex-1 p-5 overflow-y-auto space-y-4 bg-app-canvas">
             {state.activeTab === "general" && (
               <SettingsGeneralTab
-                theme={theme}
+                theme={state.theme}
                 onSelectTheme={state.handleSelectTheme}
-                checkUpdates={checkUpdates}
+                defaultSubtitleFormat={state.defaultSubtitleFormat}
+                onSelectDefaultSubtitleFormat={state.handleSelectDefaultSubtitleFormat}
+                checkUpdates={state.checkUpdates}
                 onToggleAutoUpdate={state.handleToggleAutoUpdate}
-                autoDownloadUpdates={autoDownloadUpdates}
+                autoDownloadUpdates={state.autoDownloadUpdates}
                 onToggleAutoDownload={state.handleToggleAutoDownload}
-                notificationsEnabled={notificationsEnabled}
+                notificationsEnabled={state.notificationsEnabled}
                 onToggleNotifications={state.handleToggleNotifications}
                 updateStatus={state.updateStatus}
                 updateStatusType={state.updateStatusType}

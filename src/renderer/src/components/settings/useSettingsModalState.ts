@@ -6,59 +6,70 @@ import { APP_VERSION, compareVersions } from "@shared/version";
 import { AiProviderId, getAiProvider } from "@shared/aiModels";
 import { getLanguageConfig } from "@shared/translationPrompts";
 import { ThemeMode } from "../common";
+import { useSettingsStore, useUIStore, useUpdaterStore } from "../../store";
 
 export interface SettingsModalProps {
-  isOpen: boolean;
-  onClose: () => void;
+  isOpen?: boolean;
+  onClose?: () => void;
   initialTab?: "general" | "ai";
-  theme: ThemeMode;
-  setTheme: (t: ThemeMode) => void;
-  checkUpdates: boolean;
-  setCheckUpdates: (c: boolean) => void;
+  theme?: ThemeMode;
+  setTheme?: (t: ThemeMode) => void;
+  checkUpdates?: boolean;
+  setCheckUpdates?: (c: boolean) => void;
   autoDownloadUpdates?: boolean;
   setAutoDownloadUpdates?: (a: boolean) => void;
   notificationsEnabled?: boolean;
   setNotificationsEnabled?: (n: boolean) => void;
-  aiApiKey: string;
-  setAiApiKey: (k: string) => void;
-  aiProvider: AiProviderId;
-  setAiProvider: (p: AiProviderId) => void;
+  defaultSubtitleFormat?: 'srt' | 'vtt' | 'txt';
+  setDefaultSubtitleFormat?: (fmt: 'srt' | 'vtt' | 'txt') => void;
+  aiApiKey?: string;
+  setAiApiKey?: (k: string) => void;
+  aiProvider?: AiProviderId;
+  setAiProvider?: (p: AiProviderId) => void;
   aiModel?: string;
   setAiModel?: (m: string) => void;
-  aiPrompt: string;
-  setAiPrompt: (p: string) => void;
+  aiPrompt?: string;
+  setAiPrompt?: (p: string) => void;
   aiPromptsByLang?: Record<string, string>;
   setAiPromptsByLang?: (p: Record<string, string>) => void;
   onSave?: () => void;
   onOpenUpdateModal?: (info: any) => void;
 }
 
-export function useSettingsModalState(props: SettingsModalProps) {
-  const {
-    isOpen,
-    onClose,
-    initialTab = "general",
-    theme,
-    setTheme,
-    checkUpdates,
-    setCheckUpdates,
-    autoDownloadUpdates = false,
-    setAutoDownloadUpdates,
-    notificationsEnabled = true,
-    setNotificationsEnabled,
-    aiApiKey,
-    setAiApiKey,
-    aiProvider,
-    setAiProvider,
-    aiModel = "auto",
-    setAiModel,
-    aiPrompt,
-    setAiPrompt,
-    aiPromptsByLang = {},
-    setAiPromptsByLang,
-    onSave,
-    onOpenUpdateModal
-  } = props;
+export function useSettingsModalState(props: SettingsModalProps = {}) {
+  const storeSettings = useSettingsStore();
+  const storeUI = useUIStore();
+
+  const isOpen = props.isOpen ?? storeUI.settingsModalOpen;
+  const onClose = props.onClose ?? (() => storeUI.setSettingsModalOpen(false));
+  const initialTab = props.initialTab ?? storeUI.settingsInitialTab;
+  const theme = props.theme ?? storeSettings.theme;
+  const setTheme = props.setTheme ?? storeSettings.setTheme;
+  const checkUpdates = props.checkUpdates ?? storeSettings.checkUpdates;
+  const setCheckUpdates = props.setCheckUpdates ?? storeSettings.setCheckUpdates;
+  const autoDownloadUpdates = props.autoDownloadUpdates ?? storeSettings.autoDownloadUpdates;
+  const setAutoDownloadUpdates = props.setAutoDownloadUpdates ?? storeSettings.setAutoDownloadUpdates;
+  const notificationsEnabled = props.notificationsEnabled ?? storeSettings.notificationsEnabled;
+  const setNotificationsEnabled = props.setNotificationsEnabled ?? storeSettings.setNotificationsEnabled;
+  const defaultSubtitleFormat = props.defaultSubtitleFormat ?? storeSettings.defaultSubtitleFormat;
+  const setDefaultSubtitleFormat = props.setDefaultSubtitleFormat ?? storeSettings.setDefaultSubtitleFormat;
+  const aiApiKey = props.aiApiKey ?? storeSettings.aiApiKey;
+  const setAiApiKey = props.setAiApiKey ?? storeSettings.setAiApiKey;
+  const aiProvider = props.aiProvider ?? storeSettings.aiProvider;
+  const setAiProvider = props.setAiProvider ?? storeSettings.setAiProvider;
+  const aiModel = props.aiModel ?? storeSettings.aiModel;
+  const setAiModel = props.setAiModel ?? storeSettings.setAiModel;
+  const aiPrompt = props.aiPrompt ?? storeSettings.aiPrompt;
+  const setAiPrompt = props.setAiPrompt ?? storeSettings.setAiPrompt;
+  const aiPromptsByLang = props.aiPromptsByLang ?? storeSettings.aiPromptsByLang;
+  const setAiPromptsByLang = props.setAiPromptsByLang ?? storeSettings.setAiPromptsByLang;
+  const onSave = props.onSave;
+  const onOpenUpdateModal =
+    props.onOpenUpdateModal ??
+    ((info: any) => {
+      useUpdaterStore.getState().setAppUpdateInfo(info);
+      useUpdaterStore.getState().setUpdateModalOpen(true);
+    });
 
   const [activeTab, setActiveTab] = useState<"general" | "ai">(initialTab);
   const [checkingUpdate, setCheckingUpdate] = useState(false);
@@ -418,6 +429,16 @@ export function useSettingsModalState(props: SettingsModalProps) {
     );
   };
 
+  const handleSelectDefaultSubtitleFormat = (format: 'srt' | 'vtt' | 'txt') => {
+    if (setDefaultSubtitleFormat) {
+      setDefaultSubtitleFormat(format);
+    }
+    window.api?.settings?.save({
+      defaultSubtitleFormat: format
+    });
+    toast.success(`Default subtitle format set to .${format.toUpperCase()}`);
+  };
+
   const handleCheckNow = async () => {
     if (!navigator.onLine) {
       setUpdateStatus(
@@ -588,6 +609,11 @@ export function useSettingsModalState(props: SettingsModalProps) {
   };
 
   return {
+    isOpen,
+    theme,
+    checkUpdates,
+    autoDownloadUpdates,
+    notificationsEnabled,
     activeTab,
     setActiveTab,
     currentLangConfig,
@@ -622,6 +648,8 @@ export function useSettingsModalState(props: SettingsModalProps) {
     handleToggleAutoUpdate,
     handleToggleAutoDownload,
     handleToggleNotifications,
+    defaultSubtitleFormat,
+    handleSelectDefaultSubtitleFormat,
     handleCheckNow,
     handleOpenGitHub,
     handleOpenKeyPortal,

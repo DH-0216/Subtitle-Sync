@@ -9,6 +9,7 @@ import * as fs from 'fs'
 import { app } from 'electron'
 import { getFfmpegPath, SubtitleTrackInfo, killProcessTree } from './media'
 import { parseSrt, formatHms } from './srtTools'
+import { cleanPathString } from '@shared/fileSanitizer'
 
 let activeExtractProcess: ChildProcess | null = null
 let isExtractionCancelled = false
@@ -129,7 +130,10 @@ export async function extractSingleSubtitleTrack(
   params: ExtractSingleParams,
   onLog?: (line: string) => void
 ): Promise<ExtractSingleResult> {
-  const { videoPath, track, outputDir, cleanTags = true, isTemporary = false } = params
+  const videoPath = cleanPathString(params.videoPath)
+  const outputDir = cleanPathString(params.outputDir)
+  const outputPath = cleanPathString(params.outputPath)
+  const { track, cleanTags = true, isTemporary = false } = params
 
   if (!fs.existsSync(videoPath)) {
     return {
@@ -144,7 +148,7 @@ export async function extractSingleSubtitleTrack(
 
   const targetDir = isTemporary ? app.getPath('temp') : (outputDir || dirname(videoPath))
   const outPath =
-    params.outputPath ||
+    outputPath ||
     (isTemporary
       ? join(targetDir, `temp_extract_${Date.now()}_track${track.index + 1}.srt`)
       : buildDefaultSrtOutputPath(videoPath, track, outputDir))
@@ -300,7 +304,9 @@ export async function extractMultipleSubtitleTracks(
   onProgress?: (progress: { percent: number; message: string; currentTrack?: string }) => void,
   onLog?: (line: string) => void
 ): Promise<ExtractMultipleResult> {
-  const { videoPath, tracks, outputDir, cleanTags = true } = params
+  const videoPath = cleanPathString(params.videoPath)
+  const outputDir = cleanPathString(params.outputDir)
+  const { tracks, cleanTags = true } = params
   const extracted: ExtractSingleResult[] = []
   const failed: ExtractSingleResult[] = []
 

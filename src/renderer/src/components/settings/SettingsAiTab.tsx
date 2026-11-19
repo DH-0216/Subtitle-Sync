@@ -7,7 +7,6 @@ import {
   Loader2,
   CheckCircle2,
   AlertCircle,
-  RefreshCw,
   Languages,
   RotateCcw,
   Check,
@@ -15,6 +14,7 @@ import {
 } from 'lucide-react'
 import { AiProviderId, AI_PROVIDER_LIST, getAiProvider } from '@shared/aiModels'
 import { TRANSLATION_LANGUAGES, getLanguageConfig } from '@shared/translationPrompts'
+import { AiModelSelector, LanguageSelector } from '../common'
 
 export interface SettingsAiTabProps {
   draftProvider: AiProviderId
@@ -191,65 +191,17 @@ export const SettingsAiTab: React.FC<SettingsAiTabProps> = ({
 
           {/* Choose AI Model */}
           <div className="space-y-1.5 pt-2 border-t border-app-card-inner-border">
-            <div className="flex items-center justify-between text-xs font-semibold text-app-text">
-              <div className="flex items-center gap-1.5">
-                <label>AI Model</label>
-                {availableModels.length > 0 && (
-                  <span className="text-[10px] font-normal px-1.5 py-0.5 rounded bg-emerald-100 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300">
-                    Live ({availableModels.length})
-                  </span>
-                )}
-              </div>
-
-              <div className="flex items-center gap-2">
-                <button
-                  type="button"
-                  onClick={onFetchModels}
-                  disabled={isLoadingModels || !draftApiKey.trim()}
-                  className="text-[11px] text-app-accent hover:underline flex items-center gap-1 cursor-pointer disabled:opacity-40 disabled:no-underline"
-                  title="Fetch latest available models directly from provider API"
-                >
-                  <RefreshCw className={`w-3 h-3 ${isLoadingModels ? 'animate-spin' : ''}`} />
-                  <span>{isLoadingModels ? 'Fetching...' : 'Fetch Models'}</span>
-                </button>
-                <span className="text-[11px] text-app-text-muted font-normal">
-                  {availableModels.length > 0
-                    ? `${availableModels[0]?.id || ''} recommended`
-                    : draftModel && draftModel !== 'auto'
-                      ? `${draftModel} selected`
-                      : 'Auto-detected from provider'}
-                </span>
-              </div>
-            </div>
-
-            <select
+            <AiModelSelector
+              provider={draftProvider}
               value={draftModel}
-              onChange={(e) => onChangeModel(e.target.value)}
-              className="w-full px-3 py-2 text-xs rounded-xl border border-app-input-border bg-app-input text-app-input-text cursor-pointer focus:outline-hidden focus:ring-2 focus:ring-blue-500/30 font-medium"
-            >
-              <option value="auto">
-                Auto-detect latest active model from provider (Recommended)
-              </option>
-              {availableModels.length > 0 ? (
-                <>
-                  {draftModel &&
-                    draftModel !== 'auto' &&
-                    !availableModels.some((m) => m.id === draftModel) && (
-                      <option value={draftModel}>{draftModel} (Current selection)</option>
-                    )}
-                  {availableModels.map((m) => (
-                    <option key={m.id} value={m.id}>
-                      {m.name || m.id}
-                    </option>
-                  ))}
-                </>
-              ) : (
-                draftModel &&
-                draftModel !== 'auto' && (
-                  <option value={draftModel}>{draftModel} (Current selection)</option>
-                )
-              )}
-            </select>
+              onChange={onChangeModel}
+              availableModels={availableModels}
+              isLoading={isLoadingModels}
+              onRefresh={onFetchModels}
+              showLabel={true}
+              disabled={!draftApiKey.trim()}
+              size="md"
+            />
             {availableModels.length === 0 && (
               <p className="text-[10px] text-app-text-muted">
                 Tip: Click &quot;Fetch Models&quot; or &quot;Verify&quot; to auto-load all current models
@@ -285,17 +237,12 @@ export const SettingsAiTab: React.FC<SettingsAiTabProps> = ({
           </div>
 
           <div className="flex items-center gap-2">
-            <select
+            <LanguageSelector
+              mode="translate"
               value={selectedPromptLang}
-              onChange={(e) => onChangePromptLang(e.target.value)}
-              className="text-xs font-semibold px-3 py-1.5 rounded-lg border border-app-input-border bg-app-input text-app-input-text focus:outline-hidden focus:ring-2 focus:ring-blue-500/30 cursor-pointer transition-colors"
-            >
-              {TRANSLATION_LANGUAGES.map((l) => (
-                <option key={l.code} value={l.code}>
-                  {l.name} — {l.nativeName}
-                </option>
-              ))}
-            </select>
+              onChange={onChangePromptLang}
+              size="sm"
+            />
           </div>
         </div>
 

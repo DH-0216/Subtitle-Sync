@@ -403,6 +403,69 @@ app.whenReady().then(() => {
     return cleanPathString(res.filePaths[0])
   })
 
+  ipcMain.handle('dialog:openVideos', async () => {
+    if (!mainWindow) return []
+    const res = await dialog.showOpenDialog(mainWindow, {
+      title: 'Select Movies / TV Series Episodes',
+      properties: ['openFile', 'multiSelections'],
+      filters: [
+        { name: 'Video Files', extensions: [...SUPPORTED_VIDEO_EXTENSIONS] },
+        { name: 'All Files', extensions: ['*'] }
+      ]
+    })
+    if (res.canceled || !res.filePaths.length) return []
+    return res.filePaths.map(cleanPathString).filter(Boolean)
+  })
+
+  ipcMain.handle('dialog:openFolder', async (_event, title?: string) => {
+    if (!mainWindow) return null
+    const res = await dialog.showOpenDialog(mainWindow, {
+      title: title || 'Select Folder (Movie / Series Folder)',
+      properties: ['openDirectory']
+    })
+    if (res.canceled || !res.filePaths.length) return null
+    return cleanPathString(res.filePaths[0])
+  })
+
+  // IPC: Batch Folder Scanner (scans directory recursively for videos and subtitles)
+  ipcMain.handle('batch:scanFolder', async (_event, rawFolderPath: string) => {
+    const folderPath = cleanPathString(rawFolderPath)
+    if (!folderPath || !fs.existsSync(folderPath)) return { videos: [], subtitles: [] }
+
+    const videos: string[] = []
+    const subtitles: string[] = []
+
+    const scanDir = (dir: string, depth = 0) => {
+      if (depth > 5) return
+      try {
+        const entries = fs.readdirSync(dir, { withFileTypes: true })
+        for (const entry of entries) {
+          const fullPath = cleanPathString(join(dir, entry.name))
+          if (entry.isDirectory()) {
+            scanDir(fullPath, depth + 1)
+          } else if (entry.isFile()) {
+            try {
+              const stat = fs.statSync(fullPath)
+              if (stat.size <= 0) continue
+            } catch {
+              continue
+            }
+            if (isVideoFile(entry.name)) {
+              videos.push(fullPath)
+            } else if (isSubtitleFile(entry.name)) {
+              subtitles.push(fullPath)
+            }
+          }
+        }
+      } catch (err) {
+        console.warn(`[BATCH SCAN] Failed to read dir "${dir}":`, err)
+      }
+    }
+
+    scanDir(folderPath)
+    return { videos, subtitles }
+  })
+
   ipcMain.handle('dialog:openSubtitles', async () => {
     if (!mainWindow) return []
     const res = await dialog.showOpenDialog(mainWindow, {
@@ -418,18 +481,19 @@ app.whenReady().then(() => {
   })
 
   ipcMain.handle('shell:showItemInFolder', async (_event, fullPath: string) => {
-    if (fullPath && fs.existsSync(fullPath)) {
+    const clean = cleanPathString(fullPath)
+    if (clean && fs.existsSync(clean)) {
       try {
-        const stat = fs.statSync(fullPath)
+        const stat = fs.statSync(clean)
         if (stat.isDirectory()) {
           // Open directly INSIDE the directory
-          await shell.openPath(fullPath)
+          await shell.openPath(clean)
           return true
         }
-        shell.showItemInFolder(fullPath)
+        shell.showItemInFolder(clean)
         return true
-      } catch (e) {
-        shell.showItemInFolder(fullPath)
+      } catch {
+        shell.showItemInFolder(clean)
         return true
       }
     }
@@ -437,13 +501,14 @@ app.whenReady().then(() => {
   })
 
   ipcMain.handle('shell:openPath', async (_event, targetPath: string) => {
-    if (targetPath && fs.existsSync(targetPath)) {
+    const clean = cleanPathString(targetPath)
+    if (clean && fs.existsSync(clean)) {
       try {
-        const stat = fs.statSync(targetPath)
-        const folder = stat.isDirectory() ? targetPath : join(targetPath, '..')
+        const stat = fs.statSync(clean)
+        const folder = stat.isDirectory() ? clean : join(clean, '..')
         await shell.openPath(folder)
         return true
-      } catch (e) {
+      } catch {
         return false
       }
     }
@@ -753,24 +818,43 @@ app.whenReady().then(() => {
         return { success: false, cancelled: true }
       }
 
-      if (result.success) {
+      const isOutValid = Boolean(
+        result.success &&
+        params.out &&
+        fs.existsSync(params.out) &&
+        fs.statSync(params.out).size > 0
+      )
+
+      if (isOutValid) {
         event.sender.send('sync:event', {
           type: 'done',
           success: true,
           score: result.score,
           output: params.out
         })
+        if (activeSyncEngine === currentEngine) {
+          activeSyncEngine = null
+        }
+        return { success: true, out: params.out }
       } else {
+        if (params.out && fs.existsSync(params.out) && fs.statSync(params.out).size === 0) {
+          try {
+            fs.unlinkSync(params.out)
+          } catch (e) {}
+        }
         event.sender.send('sync:event', {
           type: 'done',
           success: false,
           score: null
         })
+        if (activeSyncEngine === currentEngine) {
+          activeSyncEngine = null
+        }
+        return {
+          success: false,
+          error: 'Output subtitle file was not generated or contains no valid subtitle cues.'
+        }
       }
-      if (activeSyncEngine === currentEngine) {
-        activeSyncEngine = null
-      }
-      return { success: result.success, out: params.out }
     } catch (e: any) {
       event.sender.send('sync:event', { type: 'error', message: e.message })
       if (activeSyncEngine === currentEngine) {
@@ -821,6 +905,10 @@ app.whenReady().then(() => {
   })
 
   ipcMain.handle('generator:startGenerate', async (event, params) => {
+    if (params) {
+      if (params.video) params.video = cleanPathString(params.video)
+      if (params.sourceSubPath) params.sourceSubPath = cleanPathString(params.sourceSubPath)
+    }
     const job = (params?.sourceType === 'subtitle' || (!params?.video && params?.sourceSubPath)) ? 'translate' : 'generate'
     try {
       const result = await executeSubtitleGeneration(params, (data) => {
@@ -839,6 +927,11 @@ app.whenReady().then(() => {
 
   // IPC: Extractor Handlers
   ipcMain.handle('extractor:extractSingle', async (event, params) => {
+    if (params) {
+      if (params.videoPath) params.videoPath = cleanPathString(params.videoPath)
+      if (params.outputPath) params.outputPath = cleanPathString(params.outputPath)
+      if (params.outputDir) params.outputDir = cleanPathString(params.outputDir)
+    }
     const logCb = (line: string) => {
       event.sender.send('extractor:event', { type: 'log', message: line })
     }
@@ -846,6 +939,10 @@ app.whenReady().then(() => {
   })
 
   ipcMain.handle('extractor:extractMultiple', async (event, params) => {
+    if (params) {
+      if (params.videoPath) params.videoPath = cleanPathString(params.videoPath)
+      if (params.outputDir) params.outputDir = cleanPathString(params.outputDir)
+    }
     const progressCb = (data: { percent: number; message: string; currentTrack?: string }) => {
       event.sender.send('extractor:event', { type: 'progress', ...data })
     }

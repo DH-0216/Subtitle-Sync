@@ -1,13 +1,13 @@
 import React from 'react'
-import { Languages, Key, Settings, CheckCircle2, FileCode } from 'lucide-react'
-import { StepCard } from './common/StepCard'
+import { Key, Settings, CheckCircle2 } from 'lucide-react'
+import { StepCard, LanguageSelector } from './common'
 import { TRANSLATION_LANGUAGES } from '@shared/translationPrompts'
 
 interface Step2TranslateProps {
   language: string
   onChangeLanguage: (lang: string) => void
-  format: 'srt' | 'vtt' | 'txt'
-  onChangeFormat: (fmt: 'srt' | 'vtt' | 'txt') => void
+  format?: 'srt' | 'vtt' | 'txt'
+  onChangeFormat?: (fmt: 'srt' | 'vtt' | 'txt') => void
   aiApiKey: string
   aiProvider: string
   aiModel: string
@@ -61,47 +61,18 @@ export const Step2Translate: React.FC<Step2TranslateProps> = ({
       headerRight={headerRight}
     >
       <div className="space-y-4">
-        {/* Row 1: Target Language & Output Format */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div className="space-y-1.5">
-            <label className="text-xs font-bold text-app-text flex items-center gap-1.5">
-              <Languages className="w-3.5 h-3.5 text-blue-700 dark:text-blue-400" />
-              <span>Target Subtitle Language</span>
-            </label>
-            <select
-              value={language}
-              onChange={(e) => onChangeLanguage(e.target.value)}
-              className="w-full text-xs font-medium px-3 py-2.5 rounded-xl border border-app-input-border bg-app-input text-app-input-text focus:outline-hidden focus:ring-2 focus:ring-blue-700/30 transition-all cursor-pointer"
-            >
-              {translationLanguages.map((l) => (
-                <option key={l.code} value={l.code}>
-                  {l.name}
-                </option>
-              ))}
-            </select>
-            <p className="text-[11px] text-app-text-muted">
-              {(TRANSLATION_LANGUAGES.find((l) => l.code === language) || TRANSLATION_LANGUAGES[0]).subtitleNote}
-            </p>
-          </div>
-
-          <div className="space-y-1.5">
-            <label className="text-xs font-bold text-app-text flex items-center gap-1.5">
-              <FileCode className="w-3.5 h-3.5 text-blue-700 dark:text-blue-400" />
-              <span>Output Format</span>
-            </label>
-            <select
-              value={format}
-              onChange={(e) => onChangeFormat(e.target.value as 'srt' | 'vtt' | 'txt')}
-              className="w-full text-xs font-medium px-3 py-2.5 rounded-xl border border-app-input-border bg-app-input text-app-input-text focus:outline-hidden focus:ring-2 focus:ring-blue-700/30 transition-all cursor-pointer"
-            >
-              <option value="srt">SubRip (.srt) — Universal standard for media players</option>
-              <option value="vtt">WebVTT (.vtt) — Web video standard</option>
-              <option value="txt">Plain Text (.txt) — Dialogue script without timestamps</option>
-            </select>
-            <p className="text-[11px] text-app-text-muted">
-              Standard SubRip (.srt) is universally supported by VLC, TV devices, and media centers.
-            </p>
-          </div>
+        {/* Target Language Selection */}
+        <div className="space-y-1.5">
+          <LanguageSelector
+            mode="translate"
+            value={language}
+            onChange={onChangeLanguage}
+            showLabel={true}
+            size="md"
+          />
+          <p className="text-[11px] text-app-text-muted">
+            {(TRANSLATION_LANGUAGES.find((l) => l.code === language) || TRANSLATION_LANGUAGES[0]).subtitleNote}
+          </p>
         </div>
 
         {/* Prompt to configure API Key if not yet configured */}

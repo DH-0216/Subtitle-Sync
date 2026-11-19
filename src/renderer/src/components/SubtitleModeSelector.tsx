@@ -1,7 +1,8 @@
 import React from "react";
-import { RefreshCw, Sparkles, FileUp, Languages } from "lucide-react";
+import { RefreshCw, Sparkles, FileUp, Languages, Layers } from "lucide-react";
+import { Badge } from "./common/Badge";
 
-export type SubtitleAction = "sync" | "extract" | "generate" | "translate";
+export type SubtitleAction = "sync" | "extract" | "generate" | "translate" | "batch";
 
 interface SubtitleModeSelectorProps {
   action: SubtitleAction;
@@ -42,6 +43,13 @@ export const SubtitleModeSelector: React.FC<SubtitleModeSelectorProps> = ({
       icon: Sparkles,
       badge: "BETA",
     },
+    {
+      id: "batch" as SubtitleAction,
+      title: "Batch Process",
+      desc: "Queue multiple movies or TV series to sync, generate, or translate",
+      icon: Layers,
+      badge: "NEW",
+    },
   ];
 
   return (
@@ -78,15 +86,11 @@ export const SubtitleModeSelector: React.FC<SubtitleModeSelectorProps> = ({
                   {f.title}
                 </span>
                 {f.badge && (
-                  <span
-                    className={`text-[9px] font-extrabold uppercase tracking-wider px-1.5 py-0.5 rounded shrink-0 ${
-                      isActive
-                        ? "bg-blue-700/80 text-white"
-                        : "bg-amber-100 text-amber-900 border border-amber-300/80 dark:bg-amber-500/15 dark:text-amber-300 dark:border-amber-400/30"
-                    }`}
-                  >
-                    {f.badge}
-                  </span>
+                  <Badge
+                    text={f.badge}
+                    size="xs"
+                    variant={isActive ? 'glass' : 'auto'}
+                  />
                 )}
               </div>
               <p

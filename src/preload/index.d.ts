@@ -9,9 +9,14 @@ export interface IElectronAPI {
   }
   dialog: {
     openVideo: () => Promise<string | null>
+    openVideos: () => Promise<string[]>
     openSubtitles: () => Promise<string[]>
+    openFolder: (title?: string) => Promise<string | null>
     selectFolder: (defaultPath?: string) => Promise<string | null>
     saveSrt: (defaultPath: string) => Promise<string | null>
+  }
+  batch: {
+    scanFolder: (folderPath: string) => Promise<{ videos: string[]; subtitles: string[] }>
   }
   shell: {
     showItemInFolder: (path: string) => Promise<boolean>

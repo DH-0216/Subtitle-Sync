@@ -9,6 +9,7 @@ import {
 } from '@shared/fileSanitizer'
 import { AudioTrack, SubtitleTrack } from '../components/Step1Video'
 import { SubtitleAction } from '../components/SubtitleModeSelector'
+import { useMediaStore } from '../store'
 
 interface UseVideoMediaOptions {
   subtitleAction: SubtitleAction
@@ -36,6 +37,7 @@ export function useVideoMedia({
 
   const handleClearVideoError = useCallback(() => {
     setVideoError(null)
+    useMediaStore.getState().setVideoError(null)
   }, [])
 
   const handleRemoveVideo = useCallback(() => {
@@ -45,6 +47,7 @@ export function useVideoMedia({
     setVideoDetails(null)
     setSelectedTrack(null)
     setSubtitleTracks([])
+    useMediaStore.getState().clearMedia()
     if (onVideoReset) onVideoReset()
   }, [onVideoReset])
 
@@ -89,6 +92,7 @@ export function useVideoMedia({
 
     setVideoError(null)
     setVideoPath(cleanPath)
+    useMediaStore.getState().setVideoPath(cleanPath)
     if (onVideoReset) onVideoReset()
     addLog(`[MEDIA] Loading video: ${cleanPath}`)
     setStatusMessage('Probing video audio and subtitle tracks...')
@@ -105,6 +109,11 @@ export function useVideoMedia({
         setVideoDetails(details)
         setSubtitleTracks(subTracks)
         setSelectedTrack(firstAudioIdx)
+
+        useMediaStore.getState().setAudioTracks(audio)
+        useMediaStore.getState().setVideoDetails(details)
+        useMediaStore.getState().setSubtitleTracks(subTracks)
+        useMediaStore.getState().setSelectedTrack(firstAudioIdx)
 
         if (subTracks.length > 0) {
           const subSummary = subTracks

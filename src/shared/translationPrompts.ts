@@ -15,6 +15,54 @@ export interface TranslationLanguageConfig {
   defaultPrompt: string
 }
 
+export interface SpeechLanguageConfig {
+  code: string
+  name: string
+  label: string
+  isOriginal?: boolean
+  description: string
+}
+
+export const WHISPER_SPEECH_LANGUAGES: SpeechLanguageConfig[] = [
+  {
+    code: 'original',
+    name: 'Original Spoken Language',
+    label: 'Original Spoken Language (Auto-detect)',
+    isOriginal: true,
+    description: 'Auto-detect spoken dialogue directly from movie audio stream'
+  },
+  {
+    code: 'en',
+    name: 'English',
+    label: 'English (Direct Whisper Transcription)',
+    description: 'Direct Speech-to-Text transcription via Whisper'
+  },
+  {
+    code: 'si',
+    name: 'Sinhala',
+    label: 'Sinhala (Whisper + Spoken Sinhala AI)',
+    description: 'Transcribes movie audio and translates to natural spoken Sinhala'
+  },
+  {
+    code: 'ta',
+    name: 'Tamil',
+    label: 'Tamil (Whisper + Spoken Tamil AI)',
+    description: 'Transcribes movie audio and translates to natural spoken Tamil'
+  },
+  {
+    code: 'hi',
+    name: 'Hindi',
+    label: 'Hindi (Whisper + Spoken Hindi AI)',
+    description: 'Transcribes movie audio and translates to natural spoken Hindi'
+  },
+  {
+    code: 'es',
+    name: 'Spanish',
+    label: 'Spanish (Whisper + Natural Spanish AI)',
+    description: 'Transcribes movie audio and translates to natural conversational Spanish'
+  }
+]
+
 export const TRANSLATION_LANGUAGES: TranslationLanguageConfig[] = [
   {
     code: 'si',

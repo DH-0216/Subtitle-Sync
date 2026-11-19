@@ -1,24 +1,28 @@
 import { useState, useRef, useCallback, useEffect } from 'react'
 import toast from 'react-hot-toast'
 import { SubtitleTrack } from '../components/Step1Video'
+import { useMediaStore, useLogStore, useSettingsStore } from '../store'
 
 interface UseExtractWorkflowOptions {
-  videoPath: string | null
-  subtitleTracks: SubtitleTrack[]
-  addLog: (msg: string) => void
-  notifyJobComplete: (title: string, body: string) => void
+  videoPath?: string | null
+  subtitleTracks?: SubtitleTrack[]
+  addLog?: (msg: string) => void
+  notifyJobComplete?: (title: string, body: string) => void
   onOutputReady?: (filePath: string, dirPath: string) => void
   onOutputClear?: () => void
 }
 
-export function useExtractWorkflow({
-  videoPath,
-  subtitleTracks,
-  addLog,
-  notifyJobComplete,
-  onOutputReady,
-  onOutputClear
-}: UseExtractWorkflowOptions) {
+export function useExtractWorkflow(options: UseExtractWorkflowOptions = {}) {
+  const mediaStore = useMediaStore()
+  const logStore = useLogStore()
+  const settingsStore = useSettingsStore()
+
+  const videoPath = options.videoPath ?? mediaStore.videoPath
+  const subtitleTracks = options.subtitleTracks ?? mediaStore.subtitleTracks
+  const addLog = options.addLog ?? logStore.addExtractLog
+  const notifyJobComplete = options.notifyJobComplete ?? settingsStore.notifyJobComplete
+  const onOutputReady = options.onOutputReady ?? mediaStore.setOutput
+  const onOutputClear = options.onOutputClear ?? (() => mediaStore.setOutput(null, null))
   const [selectedExtractTrackIndices, setSelectedExtractTrackIndices] = useState<number[]>([])
   const [extractOutputDir, setExtractOutputDir] = useState<string | null>(null)
   const [isExtracting, setIsExtracting] = useState(false)

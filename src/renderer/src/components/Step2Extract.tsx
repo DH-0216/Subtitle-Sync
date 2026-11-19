@@ -10,6 +10,7 @@ import {
 } from 'lucide-react'
 import { SubtitleTrack } from './Step1Video'
 import { StepCard } from './common/StepCard'
+import { Badge } from './common/Badge'
 
 interface Step2ExtractProps {
   videoPath: string | null;
@@ -81,9 +82,11 @@ export const Step2Extract: React.FC<Step2ExtractProps> = ({
   );
 
   const badge = subtitleTracks.length > 0 ? (
-    <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-app-card-inner-hover text-app-text border border-app-card-inner-border whitespace-nowrap shrink-0">
-      {subtitleTracks.length} {subtitleTracks.length === 1 ? 'stream' : 'streams'} detected
-    </span>
+    <Badge
+      text={`${subtitleTracks.length} ${subtitleTracks.length === 1 ? 'stream' : 'streams'} detected`}
+      variant="subtle"
+      size="xs"
+    />
   ) : undefined
 
   const headerRight = textTracks.length > 0 ? (
@@ -193,12 +196,28 @@ export const Step2Extract: React.FC<Step2ExtractProps> = ({
               return (
                 <div
                   key={track.index}
-                  className={`p-3.5 rounded-xl border transition-all ${
+                  role="checkbox"
+                  aria-checked={isSelected}
+                  tabIndex={track.isText && !isExtracting ? 0 : -1}
+                  onClick={() => {
+                    if (track.isText && !isExtracting) {
+                      onToggleTrack(track.index)
+                    }
+                  }}
+                  onKeyDown={(e) => {
+                    if ((e.key === ' ' || e.key === 'Enter') && track.isText && !isExtracting) {
+                      e.preventDefault()
+                      onToggleTrack(track.index)
+                    }
+                  }}
+                  className={`p-3.5 rounded-xl border transition-all select-none ${
                     !track.isText
-                      ? "bg-app-card-inner border-app-card-inner-border opacity-70"
-                      : isSelected
-                        ? "bg-blue-50/50 border-blue-400 dark:bg-blue-950/20 dark:border-blue-600/50 shadow-2xs"
-                        : "bg-app-card-inner border border-app-card-inner-border hover:border-blue-400 shadow-2xs"
+                      ? "bg-app-card-inner border-app-card-inner-border opacity-70 cursor-not-allowed"
+                      : isExtracting
+                        ? "bg-app-card-inner border-app-card-inner-border opacity-70 cursor-not-allowed"
+                        : isSelected
+                          ? "bg-blue-50/50 border-blue-400 dark:bg-blue-950/20 dark:border-blue-600/50 shadow-2xs cursor-pointer hover:border-blue-500"
+                          : "bg-app-card-inner border border-app-card-inner-border hover:border-blue-400 hover:bg-app-card-inner-hover/40 shadow-2xs cursor-pointer"
                   }`}
                 >
                   <div className="flex items-start justify-between gap-3">
@@ -206,9 +225,12 @@ export const Step2Extract: React.FC<Step2ExtractProps> = ({
                       {/* Checkbox */}
                       <button
                         type="button"
-                        onClick={() =>
-                          track.isText && onToggleTrack(track.index)
-                        }
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          if (track.isText && !isExtracting) {
+                            onToggleTrack(track.index)
+                          }
+                        }}
                         disabled={!track.isText || isExtracting}
                         className={`mt-0.5 shrink-0 ${
                           !track.isText
@@ -274,7 +296,10 @@ export const Step2Extract: React.FC<Step2ExtractProps> = ({
                     {track.isText && onExtractSingleNow && (
                       <button
                         type="button"
-                        onClick={() => onExtractSingleNow(track)}
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          onExtractSingleNow(track)
+                        }}
                         disabled={isExtracting}
                         className="text-xs font-semibold px-2.5 py-1.5 rounded-lg bg-app-btn text-app-btn-text border border-app-btn-border hover:bg-app-primary hover:text-app-primary-fg transition-all shrink-0 cursor-pointer flex items-center gap-1 shadow-2xs"
                       >
