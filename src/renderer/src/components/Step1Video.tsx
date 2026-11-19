@@ -10,6 +10,7 @@ import { MetadataBadge } from './MetadataBadge'
 import { StepCard } from './common/StepCard'
 import { FileDropzone } from './common/FileDropzone'
 import { cleanPathString } from '@shared/fileSanitizer'
+import { useMediaStore, useUIStore } from '../store'
 
 export interface AudioTrack {
   index: number
@@ -30,33 +31,33 @@ export interface SubtitleTrack {
   isText: boolean
 }
 
-interface Step1VideoProps {
-  videoPath: string | null
-  videoDetails: {
+export interface Step1VideoProps {
+  videoPath?: string | null
+  videoDetails?: {
     fps: number | null
     duration: string
     resolution: string
     audioCount: number
     subtitleCount?: number
   } | null
-  audioTracks: AudioTrack[]
-  selectedTrack: number | null
+  audioTracks?: AudioTrack[]
+  selectedTrack?: number | null
   subtitleTracks?: SubtitleTrack[]
   errorMessage?: string | null
   onClearError?: () => void
-  onBrowse: () => void
-  onRemove: () => void
-  onSelectTrackModal: () => void
+  onBrowse?: () => void
+  onRemove?: () => void
+  onSelectTrackModal?: () => void
   onDropFile?: (path: string) => void
   onDropFiles?: (paths: string[]) => void
 }
 
 export const Step1Video: React.FC<Step1VideoProps> = ({
-  videoPath,
-  videoDetails,
-  audioTracks,
-  selectedTrack,
-  subtitleTracks = [],
+  videoPath: propVideoPath,
+  videoDetails: propVideoDetails,
+  audioTracks: propAudioTracks,
+  selectedTrack: propSelectedTrack,
+  subtitleTracks: propSubtitleTracks,
   errorMessage,
   onClearError,
   onBrowse,
@@ -65,6 +66,16 @@ export const Step1Video: React.FC<Step1VideoProps> = ({
   onDropFile,
   onDropFiles
 }) => {
+  const mediaStore = useMediaStore()
+  const uiStore = useUIStore()
+
+  const videoPath = propVideoPath !== undefined ? propVideoPath : mediaStore.videoPath
+  const videoDetails = propVideoDetails !== undefined ? propVideoDetails : mediaStore.videoDetails
+  const audioTracks = propAudioTracks !== undefined ? propAudioTracks : mediaStore.audioTracks
+  const selectedTrack = propSelectedTrack !== undefined ? propSelectedTrack : mediaStore.selectedTrack
+  const subtitleTracks = propSubtitleTracks !== undefined ? propSubtitleTracks : mediaStore.subtitleTracks
+  const handleSelectTrackModal = onSelectTrackModal ?? (() => uiStore.setAudioModalOpen(true))
+
   const [isDragOver, setIsDragOver] = useState(false)
 
   const handleDragOver = (e: React.DragEvent) => {
@@ -217,7 +228,7 @@ export const Step1Video: React.FC<Step1VideoProps> = ({
               {audioTracks.length > 1 && (
                 <button
                   type="button"
-                  onClick={onSelectTrackModal}
+                  onClick={handleSelectTrackModal}
                   className="text-xs font-bold text-app-primary-fg bg-app-primary hover:bg-app-primary-hover shadow-2xs px-3 py-1 rounded-lg transition-all cursor-pointer shrink-0 ml-auto"
                 >
                   Change Audio Track ({audioTracks.length})

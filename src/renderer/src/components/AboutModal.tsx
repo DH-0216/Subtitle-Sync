@@ -3,13 +3,23 @@ import { Github, ExternalLink } from 'lucide-react'
 import appIcon from '../assets/app_icon.png'
 import { EXTERNAL_LINKS } from '@shared/links'
 import { APP_VERSION } from '@shared/version'
+import { useUIStore } from '../store'
 
 interface AboutModalProps {
-  isOpen: boolean
-  onClose: () => void
+  isOpen?: boolean
+  onClose?: () => void
 }
 
-export const AboutModal: React.FC<AboutModalProps> = ({ isOpen, onClose }) => {
+export const AboutModal: React.FC<AboutModalProps> = ({
+  isOpen: propIsOpen,
+  onClose: propOnClose
+}) => {
+  const storeIsOpen = useUIStore((s) => s.aboutModalOpen)
+  const storeClose = () => useUIStore.getState().setAboutModalOpen(false)
+
+  const isOpen = propIsOpen ?? storeIsOpen
+  const onClose = propOnClose ?? storeClose
+
   React.useEffect(() => {
     if (!isOpen) return
     const handleKeyDown = (e: KeyboardEvent) => {

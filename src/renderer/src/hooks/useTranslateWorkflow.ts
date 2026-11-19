@@ -8,42 +8,48 @@ import {
 import { AiProviderId } from '@shared/aiModels'
 import { DEFAULT_AI_PROMPT, resolveEffectiveAiPrompt } from '@shared/translationPrompts'
 import { SubtitleTrack } from '../components/Step1Video'
+import { useMediaStore, useLogStore, useSettingsStore, useUIStore } from '../store'
 
 interface UseTranslateWorkflowOptions {
-  videoPath: string | null
-  isOnline: boolean
-  aiApiKey: string
-  aiProvider: AiProviderId
-  aiModel: string
-  aiPrompt: string
+  videoPath?: string | null
+  isOnline?: boolean
+  aiApiKey?: string
+  aiProvider?: AiProviderId
+  aiModel?: string
+  aiPrompt?: string
   aiPromptsByLang?: Record<string, string>
-  extractCleanTags: boolean
-  onOpenSettingsAiTab: () => void
-  onRemoveVideo: () => void
-  setIsExtracting: (e: boolean) => void
-  setExtractStatusMessage: (msg: string) => void
-  addLog: (msg: string) => void
-  notifyJobComplete: (title: string, body: string) => void
+  extractCleanTags?: boolean
+  onOpenSettingsAiTab?: () => void
+  onRemoveVideo?: () => void
+  setIsExtracting?: (e: boolean) => void
+  setExtractStatusMessage?: (msg: string) => void
+  addLog?: (msg: string) => void
+  notifyJobComplete?: (title: string, body: string) => void
   onOutputReady?: (filePath: string, dirPath: string) => void
 }
 
-export function useTranslateWorkflow({
-  videoPath,
-  isOnline,
-  aiApiKey,
-  aiProvider,
-  aiModel,
-  aiPrompt,
-  aiPromptsByLang,
-  extractCleanTags,
-  onOpenSettingsAiTab,
-  onRemoveVideo,
-  setIsExtracting,
-  setExtractStatusMessage,
-  addLog,
-  notifyJobComplete,
-  onOutputReady
-}: UseTranslateWorkflowOptions) {
+export function useTranslateWorkflow(options: UseTranslateWorkflowOptions = {}) {
+  const mediaStore = useMediaStore()
+  const logStore = useLogStore()
+  const settingsStore = useSettingsStore()
+  const uiStore = useUIStore()
+
+  const videoPath = options.videoPath ?? mediaStore.videoPath
+  const isOnline = options.isOnline ?? uiStore.isOnline
+  const aiApiKey = options.aiApiKey ?? settingsStore.aiApiKey
+  const aiProvider = options.aiProvider ?? settingsStore.aiProvider
+  const aiModel = options.aiModel ?? settingsStore.aiModel
+  const aiPrompt = options.aiPrompt ?? settingsStore.aiPrompt
+  const aiPromptsByLang = options.aiPromptsByLang ?? settingsStore.aiPromptsByLang
+  const extractCleanTags = options.extractCleanTags ?? true
+  const onOpenSettingsAiTab =
+    options.onOpenSettingsAiTab ?? (() => uiStore.setSettingsModalOpen(true, 'ai'))
+  const onRemoveVideo = options.onRemoveVideo ?? mediaStore.clearMedia
+  const setIsExtracting = options.setIsExtracting
+  const setExtractStatusMessage = options.setExtractStatusMessage
+  const addLog = options.addLog ?? logStore.addTranslateLog
+  const notifyJobComplete = options.notifyJobComplete ?? settingsStore.notifyJobComplete
+  const onOutputReady = options.onOutputReady ?? mediaStore.setOutput
   const [translateSubPath, setTranslateSubPath] = useState<string | null>(null)
   const [translateLanguage, setTranslateLanguage] = useState('si')
   const [translateFormat, setTranslateFormat] = useState<'srt' | 'vtt' | 'txt'>('srt')

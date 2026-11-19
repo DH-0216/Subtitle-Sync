@@ -2,22 +2,39 @@ import React from 'react'
 import { Music, Check } from 'lucide-react'
 import { AudioTrack } from './Step1Video'
 import { ModalHeader } from './common'
+import { useUIStore, useMediaStore, useLogStore } from '../store'
 
 interface AudioTrackModalProps {
-  isOpen: boolean
-  onClose: () => void
-  tracks: AudioTrack[]
-  selectedTrack: number | null
-  onSelectTrack: (trackIndex: number) => void
+  isOpen?: boolean
+  onClose?: () => void
+  tracks?: AudioTrack[]
+  selectedTrack?: number | null
+  onSelectTrack?: (trackIndex: number) => void
 }
 
 export const AudioTrackModal: React.FC<AudioTrackModalProps> = ({
-  isOpen,
-  onClose,
-  tracks,
-  selectedTrack,
-  onSelectTrack
+  isOpen: propIsOpen,
+  onClose: propOnClose,
+  tracks: propTracks,
+  selectedTrack: propSelectedTrack,
+  onSelectTrack: propOnSelectTrack
 }) => {
+  const storeIsOpen = useUIStore((s) => s.audioModalOpen)
+  const storeClose = () => useUIStore.getState().setAudioModalOpen(false)
+  const storeTracks = useMediaStore((s) => s.audioTracks)
+  const storeSelectedTrack = useMediaStore((s) => s.selectedTrack)
+
+  const isOpen = propIsOpen ?? storeIsOpen
+  const onClose = propOnClose ?? storeClose
+  const tracks = propTracks ?? storeTracks
+  const selectedTrack = propSelectedTrack !== undefined ? propSelectedTrack : storeSelectedTrack
+  const onSelectTrack =
+    propOnSelectTrack ??
+    ((idx: number) => {
+      useMediaStore.getState().setSelectedTrack(idx)
+      useLogStore.getState().addSyncLog(`[AUDIO] Selected audio reference track #${idx}`)
+    })
+
   React.useEffect(() => {
     if (!isOpen) return
     const handleKeyDown = (e: KeyboardEvent) => {

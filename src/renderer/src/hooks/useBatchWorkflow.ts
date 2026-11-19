@@ -17,6 +17,7 @@ import {
   MatchedPair
 } from '../utils/batchMatcher'
 import { SyncMode } from '../components/Step3Sync'
+import { useSettingsStore, useLogStore, useUIStore } from '../store'
 
 export type BatchSyncMode = 'Best Match' | 'Standard' | 'Smart' | 'Split sync'
 export type BatchOperationType = 'sync' | 'extract' | 'generate' | 'translate'
@@ -43,26 +44,30 @@ export interface BatchItem {
 }
 
 interface UseBatchWorkflowOptions {
-  aiApiKey: string
-  aiProvider: AiProviderId
-  aiModel: string
-  aiPrompt: string
+  aiApiKey?: string
+  aiProvider?: AiProviderId
+  aiModel?: string
+  aiPrompt?: string
   aiPromptsByLang?: Record<string, string>
-  addLog: (msg: string) => void
-  notifyJobComplete: (title: string, body: string) => void
-  onOpenSettingsAiTab: () => void
+  addLog?: (msg: string) => void
+  notifyJobComplete?: (title: string, body: string) => void
+  onOpenSettingsAiTab?: () => void
 }
 
-export function useBatchWorkflow({
-  aiApiKey,
-  aiProvider,
-  aiModel,
-  aiPrompt,
-  aiPromptsByLang,
-  addLog,
-  notifyJobComplete,
-  onOpenSettingsAiTab
-}: UseBatchWorkflowOptions) {
+export function useBatchWorkflow(options: UseBatchWorkflowOptions = {}) {
+  const settingsStore = useSettingsStore()
+  const logStore = useLogStore()
+  const uiStore = useUIStore()
+
+  const aiApiKey = options.aiApiKey ?? settingsStore.aiApiKey
+  const aiProvider = options.aiProvider ?? settingsStore.aiProvider
+  const aiModel = options.aiModel ?? settingsStore.aiModel
+  const aiPrompt = options.aiPrompt ?? settingsStore.aiPrompt
+  const aiPromptsByLang = options.aiPromptsByLang ?? settingsStore.aiPromptsByLang
+  const addLog = options.addLog ?? logStore.addBatchLog
+  const notifyJobComplete = options.notifyJobComplete ?? settingsStore.notifyJobComplete
+  const onOpenSettingsAiTab =
+    options.onOpenSettingsAiTab ?? (() => uiStore.setSettingsModalOpen(true, 'ai'))
   const [batchMode, setBatchMode] = useState<BatchOperationType>('sync')
   const [items, setItems] = useState<BatchItem[]>([])
   const [isProcessing, setIsProcessing] = useState(false)

@@ -15,6 +15,7 @@ import { ModalHeader, Badge } from './common'
 import { UserFriendlyReleaseNotes } from './UserFriendlyReleaseNotes'
 import { compareVersions } from '@shared/version'
 import { formatBytes } from '@shared/fileSanitizer'
+import { useUpdaterStore } from '../store'
 
 export interface AppUpdateData {
   updateAvailable: boolean
@@ -31,12 +32,12 @@ export interface AppUpdateData {
   releaseUrl?: string
 }
 
-interface UpdateModalProps {
-  isOpen: boolean
-  onClose: () => void
-  updateInfo: AppUpdateData | null
-  isDownloading: boolean
-  downloadProgress: number
+export interface UpdateModalProps {
+  isOpen?: boolean
+  onClose?: () => void
+  updateInfo?: AppUpdateData | null
+  isDownloading?: boolean
+  downloadProgress?: number
   downloadSpeed?: string
   downloadedBytes?: number
   totalBytes?: number
@@ -44,26 +45,43 @@ interface UpdateModalProps {
   onRestartToApply?: () => void
   onRestartLater?: () => void
   errorMessage?: string | null
-  onDownloadAndInstall: (downloadUrl: string) => void
-  onCancelDownload: () => void
+  onDownloadAndInstall?: (downloadUrl: string) => void
+  onCancelDownload?: () => void
 }
 
 export const UpdateModal: React.FC<UpdateModalProps> = ({
-  isOpen,
-  onClose,
-  updateInfo,
-  isDownloading,
-  downloadProgress,
-  downloadSpeed = '0 MB/s',
-  downloadedBytes = 0,
-  totalBytes = 0,
-  isUpdateReady = false,
-  onRestartToApply,
-  onRestartLater,
-  errorMessage,
-  onDownloadAndInstall,
-  onCancelDownload
+  isOpen: propIsOpen,
+  onClose: propOnClose,
+  updateInfo: propUpdateInfo,
+  isDownloading: propIsDownloading,
+  downloadProgress: propDownloadProgress,
+  downloadSpeed: propDownloadSpeed,
+  downloadedBytes: propDownloadedBytes,
+  totalBytes: propTotalBytes,
+  isUpdateReady: propIsUpdateReady,
+  onRestartToApply: propOnRestartToApply,
+  onRestartLater: propOnRestartLater,
+  errorMessage: propErrorMessage,
+  onDownloadAndInstall: propOnDownloadAndInstall,
+  onCancelDownload: propOnCancelDownload
 }) => {
+  const store = useUpdaterStore()
+
+  const isOpen = propIsOpen !== undefined ? propIsOpen : store.updateModalOpen
+  const onClose = propOnClose ?? (() => store.setUpdateModalOpen(false))
+  const updateInfo = propUpdateInfo !== undefined ? propUpdateInfo : store.appUpdateInfo
+  const isDownloading = propIsDownloading !== undefined ? propIsDownloading : store.isDownloadingUpdate
+  const downloadProgress = propDownloadProgress !== undefined ? propDownloadProgress : store.updateDownloadProgress
+  const downloadSpeed = propDownloadSpeed !== undefined ? propDownloadSpeed : store.updateDownloadSpeed || '0 MB/s'
+  const downloadedBytes = propDownloadedBytes !== undefined ? propDownloadedBytes : store.updateDownloadedBytes
+  const totalBytes = propTotalBytes !== undefined ? propTotalBytes : store.updateTotalBytes
+  const isUpdateReady = propIsUpdateReady !== undefined ? propIsUpdateReady : store.isUpdateReady
+  const onRestartToApply = propOnRestartToApply ?? store.handleRestartToApply
+  const onRestartLater = propOnRestartLater ?? store.handleRestartLater
+  const errorMessage = propErrorMessage !== undefined ? propErrorMessage : store.updateErrorMessage
+  const onDownloadAndInstall = propOnDownloadAndInstall ?? store.handleDownloadAndInstallUpdate
+  const onCancelDownload = propOnCancelDownload ?? store.handleCancelUpdateDownload
+
   // ESC to close if not downloading
   useEffect(() => {
     if (!isOpen) return

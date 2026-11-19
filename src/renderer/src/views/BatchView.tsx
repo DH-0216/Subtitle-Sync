@@ -27,26 +27,30 @@ import { SyncMode } from '../components/Step3Sync'
 import { BatchOperationType, BatchItem, BatchSyncMode } from '../hooks/useBatchWorkflow'
 import { cleanPathString } from '@shared/fileSanitizer'
 import { WhisperModelItem } from '../components/Step2Generate'
+import { useBatchWorkflow } from '../hooks/useBatchWorkflow'
+import { useMediaStore, useSettingsStore, useUIStore, useWhisperStore } from '../store'
 
 export interface BatchViewProps {
-  batchMode: BatchOperationType
-  setBatchMode: (mode: BatchOperationType) => void
-  items: BatchItem[]
-  isProcessing: boolean
-  overallProgress: number
-  activeItemId: string | null
-  syncMode: BatchSyncMode
-  setSyncMode: (mode: BatchSyncMode) => void
-  whisperModelQuality: string
-  setWhisperModelQuality: (quality: string) => void
-  generateLanguage: string
-  setGenerateLanguage: (lang: string) => void
-  generateFormat: 'srt' | 'vtt'
-  setGenerateFormat: (fmt: 'srt' | 'vtt') => void
-  translateLanguage: string
-  setTranslateLanguage: (lang: string) => void
-  translateFormat: 'srt' | 'vtt' | 'txt'
-  setTranslateFormat: (fmt: 'srt' | 'vtt' | 'txt') => void
+  workflow?: ReturnType<typeof useBatchWorkflow>
+
+  batchMode?: BatchOperationType
+  setBatchMode?: (mode: BatchOperationType) => void
+  items?: BatchItem[]
+  isProcessing?: boolean
+  overallProgress?: number
+  activeItemId?: string | null
+  syncMode?: BatchSyncMode
+  setSyncMode?: (mode: BatchSyncMode) => void
+  whisperModelQuality?: string
+  setWhisperModelQuality?: (quality: string) => void
+  generateLanguage?: string
+  setGenerateLanguage?: (lang: string) => void
+  generateFormat?: 'srt' | 'vtt'
+  setGenerateFormat?: (fmt: 'srt' | 'vtt') => void
+  translateLanguage?: string
+  setTranslateLanguage?: (lang: string) => void
+  translateFormat?: 'srt' | 'vtt' | 'txt'
+  setTranslateFormat?: (fmt: 'srt' | 'vtt' | 'txt') => void
   translateSource?: 'subtitles' | 'embedded'
   setTranslateSource?: (source: 'subtitles' | 'embedded') => void
   preferredTrackLang?: string
@@ -56,69 +60,74 @@ export interface BatchViewProps {
   extractCleanTags?: boolean
   setExtractCleanTags?: (clean: boolean) => void
   availableWhisperModels?: WhisperModelItem[]
-  aiApiKey: string
-  aiProvider: string
-  aiModel: string
-  onOpenSettingsAiTab: () => void
-  lastBatchOutputDir: string | null
-  onAddFiles: () => void
-  onAddFolder: () => void
-  onDropFiles: (paths: string[]) => void
-  onAssignSubtitle: (itemId: string) => void
-  onRemoveItem: (id: string) => void
-  onClearCompleted: () => void
-  onClearAll: () => void
-  onRetryItem: (id: string) => void
-  onStartBatch: () => void
-  onStopBatch: () => void
-  onOpenFolder: (folder?: string) => void
+  aiApiKey?: string
+  aiProvider?: string
+  aiModel?: string
+  onOpenSettingsAiTab?: () => void
+  lastBatchOutputDir?: string | null
+  onAddFiles?: () => void
+  onAddFolder?: () => void
+  onDropFiles?: (paths: string[]) => void
+  onAssignSubtitle?: (itemId: string) => void
+  onRemoveItem?: (id: string) => void
+  onClearCompleted?: () => void
+  onClearAll?: () => void
+  onRetryItem?: (id: string) => void
+  onStartBatch?: () => void
+  onStopBatch?: () => void
+  onOpenFolder?: (folder?: string) => void
 }
 
-export const BatchView: React.FC<BatchViewProps> = ({
-  batchMode,
-  setBatchMode,
-  items,
-  isProcessing,
-  overallProgress,
-  activeItemId,
-  syncMode = 'Best Match',
-  setSyncMode,
-  whisperModelQuality,
-  setWhisperModelQuality,
-  generateLanguage,
-  setGenerateLanguage,
-  generateFormat,
-  setGenerateFormat,
-  translateLanguage,
-  setTranslateLanguage,
-  translateFormat,
-  setTranslateFormat,
-  translateSource = 'subtitles',
-  setTranslateSource,
-  preferredTrackLang = 'en',
-  setPreferredTrackLang,
-  extractTrackOption = 'en',
-  setExtractTrackOption,
-  extractCleanTags = true,
-  setExtractCleanTags,
-  availableWhisperModels = [],
-  aiApiKey,
-  aiProvider,
-  aiModel,
-  onOpenSettingsAiTab,
-  lastBatchOutputDir,
-  onAddFiles,
-  onAddFolder,
-  onDropFiles,
-  onAssignSubtitle,
-  onRemoveItem,
-  onClearCompleted,
-  onClearAll,
-  onRetryItem,
-  onStartBatch,
-  onStopBatch,
-  onOpenFolder
-}) => {
+export const BatchView: React.FC<BatchViewProps> = (props) => {
+  const { workflow } = props
+  const settingsStore = useSettingsStore()
+  const mediaStore = useMediaStore()
+  const uiStore = useUIStore()
+
+  const batchMode = props.batchMode ?? workflow?.batchMode ?? 'sync'
+  const setBatchMode = props.setBatchMode ?? workflow?.setBatchMode ?? (() => {})
+  const items = props.items ?? workflow?.items ?? []
+  const isProcessing = props.isProcessing ?? workflow?.isProcessing ?? false
+  const overallProgress = props.overallProgress ?? workflow?.overallProgress ?? 0
+  const activeItemId = props.activeItemId ?? workflow?.activeItemId ?? null
+  const syncMode = props.syncMode ?? workflow?.syncMode ?? 'Best Match'
+  const setSyncMode = props.setSyncMode ?? workflow?.setSyncMode ?? (() => {})
+  const whisperModelQuality = props.whisperModelQuality ?? workflow?.whisperModelQuality ?? 'base'
+  const setWhisperModelQuality = props.setWhisperModelQuality ?? workflow?.setWhisperModelQuality ?? (() => {})
+  const generateLanguage = props.generateLanguage ?? workflow?.generateLanguage ?? 'original'
+  const setGenerateLanguage = props.setGenerateLanguage ?? workflow?.setGenerateLanguage ?? (() => {})
+  const generateFormat = props.generateFormat ?? workflow?.generateFormat ?? 'srt'
+  const setGenerateFormat = props.setGenerateFormat ?? workflow?.setGenerateFormat ?? (() => {})
+  const translateLanguage = props.translateLanguage ?? workflow?.translateLanguage ?? 'si'
+  const setTranslateLanguage = props.setTranslateLanguage ?? workflow?.setTranslateLanguage ?? (() => {})
+  const translateFormat = props.translateFormat ?? workflow?.translateFormat ?? 'srt'
+  const setTranslateFormat = props.setTranslateFormat ?? workflow?.setTranslateFormat ?? (() => {})
+  const translateSource = props.translateSource ?? workflow?.translateSource ?? 'subtitles'
+  const setTranslateSource = props.setTranslateSource ?? workflow?.setTranslateSource ?? (() => {})
+  const preferredTrackLang = props.preferredTrackLang ?? workflow?.preferredTrackLang ?? 'en'
+  const setPreferredTrackLang = props.setPreferredTrackLang ?? workflow?.setPreferredTrackLang ?? (() => {})
+  const extractTrackOption = props.extractTrackOption ?? workflow?.extractTrackOption ?? 'en'
+  const setExtractTrackOption = props.setExtractTrackOption ?? workflow?.setExtractTrackOption ?? (() => {})
+  const extractCleanTags = props.extractCleanTags ?? workflow?.extractCleanTags ?? true
+  const setExtractCleanTags = props.setExtractCleanTags ?? workflow?.setExtractCleanTags ?? (() => {})
+  const availableWhisperModels =
+    props.availableWhisperModels ?? useWhisperStore((s) => s.whisperModels) ?? []
+  const aiApiKey = props.aiApiKey ?? settingsStore.aiApiKey
+  const aiProvider = props.aiProvider ?? settingsStore.aiProvider
+  const aiModel = props.aiModel ?? settingsStore.aiModel
+  const onOpenSettingsAiTab = props.onOpenSettingsAiTab ?? (() => uiStore.setSettingsModalOpen(true, 'ai'))
+  const lastBatchOutputDir = props.lastBatchOutputDir ?? workflow?.lastBatchOutputDir ?? mediaStore.lastOutputDir
+  const onAddFiles = props.onAddFiles ?? workflow?.handleAddFiles ?? (() => {})
+  const onAddFolder = props.onAddFolder ?? workflow?.handleAddFolder ?? (() => {})
+  const onDropFiles = props.onDropFiles ?? workflow?.handleDropFiles ?? (() => {})
+  const onAssignSubtitle = props.onAssignSubtitle ?? workflow?.handleAssignSubtitle ?? (() => {})
+  const onRemoveItem = props.onRemoveItem ?? workflow?.handleRemoveItem ?? (() => {})
+  const onClearCompleted = props.onClearCompleted ?? workflow?.handleClearCompleted ?? (() => {})
+  const onClearAll = props.onClearAll ?? workflow?.handleClearAll ?? (() => {})
+  const onRetryItem = props.onRetryItem ?? workflow?.handleRetryItem ?? (() => {})
+  const onStartBatch = props.onStartBatch ?? workflow?.handleStartBatch ?? (() => {})
+  const onStopBatch = props.onStopBatch ?? workflow?.handleStopBatch ?? (() => {})
+  const onOpenFolder = props.onOpenFolder ?? mediaStore.openFolder
   const dragCounter = useRef(0)
   const [isDragging, setIsDragging] = useState(false)
 

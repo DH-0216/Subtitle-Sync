@@ -2,6 +2,7 @@ import React, { useEffect } from 'react'
 import { Cpu, Download, Loader2, AlertCircle, HardDrive, WifiOff } from 'lucide-react'
 import { formatBytes } from '@shared/fileSanitizer'
 import { ModalHeader, Badge } from './common'
+import { useWhisperStore } from '../store'
 
 export interface WhisperModelModalItem {
   id: string
@@ -12,35 +13,52 @@ export interface WhisperModelModalItem {
   description?: string
 }
 
-interface ModelDownloadModalProps {
-  isOpen: boolean
-  onClose: () => void
-  modelQuality: string
+export interface ModelDownloadModalProps {
+  isOpen?: boolean
+  onClose?: () => void
+  modelQuality?: string
   modelInfo?: WhisperModelModalItem | null
-  isDownloading: boolean
-  downloadProgress: number
+  isDownloading?: boolean
+  downloadProgress?: number
   downloadSpeed?: string
   downloadedBytes?: number
   totalBytes?: number
   errorMessage?: string | null
-  onStartDownload: () => void
-  onCancelDownload: () => void
+  onStartDownload?: () => void
+  onCancelDownload?: () => void
 }
 
 export const ModelDownloadModal: React.FC<ModelDownloadModalProps> = ({
-  isOpen,
-  onClose,
-  modelQuality,
-  modelInfo,
-  isDownloading,
-  downloadProgress,
-  downloadSpeed,
-  downloadedBytes,
-  totalBytes,
-  errorMessage,
-  onStartDownload,
-  onCancelDownload
+  isOpen: propIsOpen,
+  onClose: propOnClose,
+  modelQuality: propModelQuality,
+  modelInfo: propModelInfo,
+  isDownloading: propIsDownloading,
+  downloadProgress: propDownloadProgress,
+  downloadSpeed: propDownloadSpeed,
+  downloadedBytes: propDownloadedBytes,
+  totalBytes: propTotalBytes,
+  errorMessage: propErrorMessage,
+  onStartDownload: propOnStartDownload,
+  onCancelDownload: propOnCancelDownload
 }) => {
+  const store = useWhisperStore()
+
+  const isOpen = propIsOpen !== undefined ? propIsOpen : store.downloadModalOpen
+  const onClose = propOnClose ?? (() => store.setDownloadModalOpen(false))
+  const modelQuality = propModelQuality !== undefined ? propModelQuality : store.activeModelQuality
+  const modelInfo =
+    propModelInfo !== undefined
+      ? propModelInfo
+      : store.whisperModels.find((m) => m.id === modelQuality)
+  const isDownloading = propIsDownloading !== undefined ? propIsDownloading : store.isDownloadingModel
+  const downloadProgress = propDownloadProgress !== undefined ? propDownloadProgress : store.modelDownloadProgress
+  const downloadSpeed = propDownloadSpeed !== undefined ? propDownloadSpeed : store.modelDownloadSpeed
+  const downloadedBytes = propDownloadedBytes !== undefined ? propDownloadedBytes : store.modelDownloadedBytes
+  const totalBytes = propTotalBytes !== undefined ? propTotalBytes : store.modelTotalBytes
+  const errorMessage = propErrorMessage !== undefined ? propErrorMessage : store.modelDownloadError
+  const onStartDownload = propOnStartDownload ?? (() => store.handleStartDownloadModel())
+  const onCancelDownload = propOnCancelDownload ?? (() => store.handleCancelDownloadModel())
   useEffect(() => {
     if (!isOpen) return
     const handleKeyDown = (e: KeyboardEvent) => {

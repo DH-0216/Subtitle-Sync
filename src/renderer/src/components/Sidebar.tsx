@@ -2,11 +2,12 @@ import React from "react";
 import { RefreshCw, FileUp, Sparkles, Languages, WifiOff, Layers } from "lucide-react";
 import { SubtitleAction } from "./SubtitleModeSelector";
 import { SidebarNav, SidebarNavItem } from "./common";
+import { useUIStore } from "../store";
 
 interface SidebarProps {
-  currentAction: SubtitleAction;
-  onSelectAction: (action: SubtitleAction) => void;
-  engineReady: boolean;
+  currentAction?: SubtitleAction;
+  onSelectAction?: (action: SubtitleAction) => void;
+  engineReady?: boolean;
   isOnline?: boolean;
 }
 
@@ -44,11 +45,20 @@ const NAV_ITEMS: readonly SidebarNavItem<SubtitleAction>[] = [
 ];
 
 export const Sidebar: React.FC<SidebarProps> = ({
-  currentAction,
-  onSelectAction,
-  engineReady,
-  isOnline = true,
+  currentAction: propAction,
+  onSelectAction: propSelectAction,
+  engineReady: propEngineReady,
+  isOnline: propIsOnline,
 }) => {
+  const storeAction = useUIStore((s) => s.subtitleAction)
+  const storeSetAction = useUIStore((s) => s.setSubtitleAction)
+  const storeEngineReady = useUIStore((s) => s.engineReady)
+  const storeIsOnline = useUIStore((s) => s.isOnline)
+
+  const currentAction = propAction ?? storeAction
+  const onSelectAction = propSelectAction ?? storeSetAction
+  const engineReady = propEngineReady ?? storeEngineReady
+  const isOnline = propIsOnline ?? storeIsOnline
   return (
     <aside className="w-56 xl:w-60 bg-app-sidebar border-r border-app-sidebar-border flex flex-col justify-between shrink-0 select-none z-10 transition-colors">
       {/* Navigation List */}

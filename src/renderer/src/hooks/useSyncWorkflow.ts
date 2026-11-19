@@ -9,22 +9,26 @@ import {
 } from '@shared/fileSanitizer'
 import { SubtitleItem } from '../components/Step2Subtitles'
 import { SyncMode } from '../components/Step3Sync'
+import { useMediaStore, useLogStore, useSettingsStore } from '../store'
 
 interface UseSyncWorkflowOptions {
-  videoPath: string | null
-  selectedTrack: number | null
-  onVideoSelect: (path: string) => void
-  addLog: (msg: string) => void
-  notifyJobComplete: (title: string, body: string) => void
+  videoPath?: string | null
+  selectedTrack?: number | null
+  onVideoSelect?: (path: string) => void
+  addLog?: (msg: string) => void
+  notifyJobComplete?: (title: string, body: string) => void
 }
 
-export function useSyncWorkflow({
-  videoPath,
-  selectedTrack,
-  onVideoSelect,
-  addLog,
-  notifyJobComplete
-}: UseSyncWorkflowOptions) {
+export function useSyncWorkflow(options: UseSyncWorkflowOptions = {}) {
+  const mediaStore = useMediaStore()
+  const logStore = useLogStore()
+  const settingsStore = useSettingsStore()
+
+  const videoPath = options.videoPath ?? mediaStore.videoPath
+  const selectedTrack = options.selectedTrack ?? mediaStore.selectedTrack
+  const onVideoSelect = options.onVideoSelect ?? mediaStore.setVideoPath
+  const addLog = options.addLog ?? logStore.addSyncLog
+  const notifyJobComplete = options.notifyJobComplete ?? settingsStore.notifyJobComplete
   const [subtitles, setSubtitles] = useState<SubtitleItem[]>([])
   const [subtitleError, setSubtitleError] = useState<string | null>(null)
   const [syncMode, setSyncMode] = useState<SyncMode>('Standard')
