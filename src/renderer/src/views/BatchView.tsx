@@ -24,7 +24,7 @@ import { ProgressBar } from '../components/common/ProgressBar'
 import { StepCard } from '../components/common/StepCard'
 import { WhisperModelSelector, LanguageSelector } from '../components/common'
 import { SyncMode } from '../components/Step3Sync'
-import { BatchOperationType, BatchItem } from '../hooks/useBatchWorkflow'
+import { BatchOperationType, BatchItem, BatchSyncMode } from '../hooks/useBatchWorkflow'
 import { cleanPathString } from '@shared/fileSanitizer'
 import { WhisperModelItem } from '../components/Step2Generate'
 
@@ -35,8 +35,8 @@ export interface BatchViewProps {
   isProcessing: boolean
   overallProgress: number
   activeItemId: string | null
-  syncMode: SyncMode
-  setSyncMode: (mode: SyncMode) => void
+  syncMode: BatchSyncMode
+  setSyncMode: (mode: BatchSyncMode) => void
   whisperModelQuality: string
   setWhisperModelQuality: (quality: string) => void
   generateLanguage: string
@@ -81,7 +81,7 @@ export const BatchView: React.FC<BatchViewProps> = ({
   isProcessing,
   overallProgress,
   activeItemId,
-  syncMode,
+  syncMode = 'Best Match',
   setSyncMode,
   whisperModelQuality,
   setWhisperModelQuality,
@@ -125,6 +125,10 @@ export const BatchView: React.FC<BatchViewProps> = ({
   const completedCount = items.filter((it) => it.status === 'completed').length
   const failedCount = items.filter((it) => it.status === 'failed').length
   const pendingCount = items.filter((it) => it.status === 'pending').length
+  const cancelledCount = items.filter((it) => it.status === 'cancelled').length
+  const actionableCount = items.filter(
+    (it) => it.status === 'pending' || it.status === 'failed' || it.status === 'cancelled'
+  ).length
   const isKeyConfigured = Boolean(aiApiKey && aiApiKey.trim().length > 0)
 
   // Drag and drop handlers with counter to prevent child-element flicker
@@ -264,25 +268,25 @@ export const BatchView: React.FC<BatchViewProps> = ({
                 <span className="font-semibold text-app-text flex items-center gap-1.5">
                   <Sliders className="w-3.5 h-3.5 text-brand-500" /> Sync Engine Mode:
                 </span>
-                <div className="flex items-center gap-1">
-                  {(['Standard', 'Smart', 'Split sync'] as SyncMode[]).map((mode) => (
+                <div className="flex items-center gap-0.5 p-0.5 bg-app-card-inner border border-app-card-inner-border rounded-lg shrink-0">
+                  {(['Best Match', 'Standard', 'Smart', 'Split sync'] as BatchSyncMode[]).map((mode) => (
                     <button
                       key={mode}
                       type="button"
                       disabled={isProcessing}
                       onClick={() => setSyncMode(mode)}
-                      className={`px-2.5 py-1 rounded border text-xs font-medium transition-colors ${
+                      className={`h-7 px-3 text-[11px] font-semibold rounded-md whitespace-nowrap flex items-center justify-center transition-colors select-none ${
                         syncMode === mode
-                          ? 'bg-brand-500 text-white border-brand-600 font-bold'
-                          : 'bg-app-input border-app-input-border text-app-text-muted hover:text-app-text'
-                      }`}
+                          ? 'bg-app-primary text-app-primary-fg shadow-xs font-bold'
+                          : 'text-app-text-muted hover:text-app-text hover:bg-app-card-inner-hover'
+                      } ${isProcessing ? 'opacity-60 cursor-not-allowed' : 'cursor-pointer'}`}
                     >
-                      {mode}
+                      {mode === 'Best Match' ? '✨ Best Match' : mode === 'Split sync' ? 'Split Sync' : mode}
                     </button>
                   ))}
                 </div>
                 <span className="text-app-text-muted text-[11px] hidden sm:inline">
-                  (Standard: 1-Pass fast • Smart: 4-Pass high accuracy)
+                  (Best Match: Automatically detects optimal engine per episode • Standard: 1-Pass fast • Smart: 4-Pass)
                 </span>
               </div>
             </div>
@@ -455,6 +459,11 @@ export const BatchView: React.FC<BatchViewProps> = ({
             <span className="text-xs font-bold px-2.5 py-1 rounded-full bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/20">
               Pending: {pendingCount}
             </span>
+            {cancelledCount > 0 && (
+              <span className="text-xs font-bold px-2.5 py-1 rounded-full bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20">
+                Cancelled: {cancelledCount}
+              </span>
+            )}
             <span className="text-xs font-bold px-2.5 py-1 rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
               Completed: {completedCount}
             </span>
@@ -532,16 +541,16 @@ export const BatchView: React.FC<BatchViewProps> = ({
             {!isProcessing ? (
               <button
                 type="button"
-                disabled={items.length === 0 || pendingCount === 0}
+                disabled={items.length === 0 || actionableCount === 0}
                 onClick={onStartBatch}
                 className={`flex items-center gap-2 px-5 py-2.5 rounded-lg font-bold text-sm shadow-xs transition-all ${
-                  items.length > 0 && pendingCount > 0
+                  items.length > 0 && actionableCount > 0
                     ? 'bg-emerald-600 hover:bg-emerald-700 text-white cursor-pointer active:scale-98'
                     : 'bg-app-card-inner border border-app-card-inner-border text-app-text-muted opacity-50 cursor-not-allowed'
                 }`}
               >
                 <Play className="w-4 h-4 fill-current" />
-                <span>Start Batch Processing</span>
+                <span>{completedCount > 0 && actionableCount > 0 ? 'Resume Batch Processing' : 'Start Batch Processing'}</span>
               </button>
             ) : (
               <button
@@ -685,6 +694,12 @@ export const BatchView: React.FC<BatchViewProps> = ({
                           {item.jobType}
                         </span>
 
+                        {item.jobType === 'sync' && item.usedSyncMode && (
+                          <span className="text-[10px] font-bold px-1.5 py-0.2 rounded-md bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/20">
+                            {item.usedSyncMode}
+                          </span>
+                        )}
+
                         {item.jobType === 'translate' && (item.translateSource === 'embedded' || item.videoPath) && (
                           <span className="text-[10px] font-bold px-1.5 py-0.2 rounded-md bg-purple-500/10 text-purple-600 dark:text-purple-400 border border-purple-500/20">
                             Embedded Sub
@@ -804,7 +819,7 @@ export const BatchView: React.FC<BatchViewProps> = ({
                         </button>
                       )}
 
-                      {item.status === 'failed' && !isProcessing && (
+                      {(item.status === 'failed' || item.status === 'cancelled') && !isProcessing && (
                         <button
                           type="button"
                           onClick={() => onRetryItem(item.id)}

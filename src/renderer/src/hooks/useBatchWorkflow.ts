@@ -18,6 +18,7 @@ import {
 } from '../utils/batchMatcher'
 import { SyncMode } from '../components/Step3Sync'
 
+export type BatchSyncMode = 'Best Match' | 'Standard' | 'Smart' | 'Split sync'
 export type BatchOperationType = 'sync' | 'extract' | 'generate' | 'translate'
 export type BatchItemStatus = 'pending' | 'processing' | 'completed' | 'failed' | 'cancelled'
 
@@ -38,6 +39,7 @@ export interface BatchItem {
   episodeLabel?: string
   confidence?: 'high' | 'medium' | 'none'
   fileSizeFormatted?: string
+  usedSyncMode?: string
 }
 
 interface UseBatchWorkflowOptions {
@@ -68,7 +70,22 @@ export function useBatchWorkflow({
   const [activeItemId, setActiveItemId] = useState<string | null>(null)
 
   // Configuration options
-  const [syncMode, setSyncMode] = useState<SyncMode>('Standard')
+  const [syncMode, setSyncModeState] = useState<BatchSyncMode>(() => {
+    try {
+      const saved = localStorage.getItem('batch_sync_mode')
+      if (saved && ['Best Match', 'Standard', 'Smart', 'Split sync'].includes(saved)) {
+        return saved as BatchSyncMode
+      }
+    } catch {}
+    return 'Best Match'
+  })
+
+  const setSyncMode = useCallback((mode: BatchSyncMode) => {
+    setSyncModeState(mode)
+    try {
+      localStorage.setItem('batch_sync_mode', mode)
+    } catch {}
+  }, [])
   const [whisperModelQuality, setWhisperModelQuality] = useState('base')
   const [generateLanguage, setGenerateLanguage] = useState('original')
   const [generateFormat, setGenerateFormat] = useState<'srt' | 'vtt'>('srt')
@@ -94,6 +111,17 @@ export function useBatchWorkflow({
   useEffect(() => {
     activeItemIdRef.current = activeItemId
   }, [activeItemId])
+
+  // Listen to live extraction events & progress during batch extraction
+  useEffect(() => {
+    if (!window.api?.extractor?.onEvent) return
+    const unsub = window.api.extractor.onEvent((event: any) => {
+      if (isProcessingRef.current) {
+        handleEngineEvent(event)
+      }
+    })
+    return () => unsub()
+  }, [])
 
   // Helper: generate unique id
   const nextId = () => `batch_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`
@@ -553,7 +581,17 @@ export function useBatchWorkflow({
   }, [])
 
   const handleClearCompleted = useCallback(() => {
-    setItems((prev) => prev.filter((it) => it.status !== 'completed'))
+    if (isProcessingRef.current) {
+      toast.error('Please stop batch execution before modifying the queue.')
+      return
+    }
+    setItems((prev) => {
+      const remaining = prev.filter((it) => it.status !== 'completed')
+      if (remaining.length === 0) {
+        setOverallProgress(0)
+      }
+      return remaining
+    })
     toast.success('Cleared completed items from queue')
   }, [])
 
@@ -565,11 +603,15 @@ export function useBatchWorkflow({
     setItems([])
     setOverallProgress(0)
     setActiveItemId(null)
+    activeItemIdRef.current = null
+    setLastBatchOutputDir(null)
   }, [])
 
   const handleRetryItem = useCallback((id: string) => {
     setItems((prev) =>
-      prev.map((it) => (it.id === id ? { ...it, status: 'pending', progress: 0, error: undefined } : it))
+      prev.map((it) =>
+        it.id === id ? { ...it, status: 'pending', progress: 0, error: undefined, statusMessage: undefined } : it
+      )
     )
   }, [])
 
@@ -598,7 +640,9 @@ export function useBatchWorkflow({
 
   // 7. Start sequential batch execution
   const handleStartBatch = useCallback(async () => {
-    const pendingItems = items.filter((it) => it.status === 'pending' || it.status === 'failed')
+    const pendingItems = items.filter(
+      (it) => it.status === 'pending' || it.status === 'failed' || it.status === 'cancelled'
+    )
     if (pendingItems.length === 0) {
       toast('No pending items in queue to process', { icon: 'ℹ️' })
       return
@@ -652,6 +696,7 @@ export function useBatchWorkflow({
 
       // Mark current item processing
       setActiveItemId(currentItem.id)
+      activeItemIdRef.current = currentItem.id
       setItems((prev) =>
         prev.map((it) =>
           it.id === currentItem.id
@@ -672,11 +717,61 @@ export function useBatchWorkflow({
           const ext = sub.substring(sub.lastIndexOf('.'))
           const outPath = sub.replace(new RegExp(`\\${ext}$`, 'i'), `.synced${ext}`)
 
+          let effectiveSyncMode: SyncMode = (syncMode === 'Best Match' ? 'Standard' : syncMode) as SyncMode
+
+          if (syncMode === 'Best Match') {
+            setItems((prev) =>
+              prev.map((it) =>
+                it.id === currentItem.id
+                  ? { ...it, statusMessage: 'Analyzing media for Best Match recommendation...' }
+                  : it
+              )
+            )
+
+            try {
+              if (window.api?.engine?.recommend) {
+                const rec = await window.api.engine.recommend(video, sub)
+                if (rec?.mode && ['Standard', 'Smart', 'Split sync'].includes(rec.mode)) {
+                  effectiveSyncMode = rec.mode as SyncMode
+                  addLog(
+                    `[BEST MATCH] "${currentItem.name}": Selected "${effectiveSyncMode}" (${rec.title || ''} ${rec.hint || ''})`
+                  )
+                }
+              }
+            } catch (err: any) {
+              addLog(
+                `[BEST MATCH WARNING] Recommender analysis skipped (${err?.message || 'media inspection'}), defaulting to Standard mode.`
+              )
+            }
+
+            setItems((prev) =>
+              prev.map((it) =>
+                it.id === currentItem.id
+                  ? {
+                      ...it,
+                      usedSyncMode: effectiveSyncMode,
+                      statusMessage: `Best Match: Selected ${effectiveSyncMode} mode...`
+                    }
+                  : it
+              )
+            )
+          } else {
+            setItems((prev) =>
+              prev.map((it) =>
+                it.id === currentItem.id
+                  ? { ...it, usedSyncMode: effectiveSyncMode }
+                  : it
+              )
+            )
+          }
+
+          if (cancelRequestedRef.current) break
+
           result = await window.api.engine.startSync({
             video,
             sub,
             out: outPath,
-            mode: syncMode
+            mode: effectiveSyncMode
           })
 
           if (cancelRequestedRef.current || result?.cancelled) {
@@ -704,15 +799,16 @@ export function useBatchWorkflow({
                       ...it,
                       status: 'completed',
                       progress: 100,
-                      statusMessage: 'Synchronized successfully!',
+                      statusMessage: `Synchronized with ${effectiveSyncMode} mode!`,
                       outputPath: finalOut,
-                      outputDir: outDir
+                      outputDir: outDir,
+                      usedSyncMode: effectiveSyncMode
                     }
                   : it
               )
             )
             completedCount++
-            addLog(`[BATCH SUCCESS] Synced: ${finalOut}`)
+            addLog(`[BATCH SUCCESS] Synced (${effectiveSyncMode}): ${finalOut}`)
           } else {
             throw new Error(result?.error || 'Synchronization failed.')
           }
@@ -733,7 +829,16 @@ export function useBatchWorkflow({
             customPrompt: resolveEffectiveAiPrompt(generateLanguage, aiPrompt, aiPromptsByLang)
           })
 
-          if (cancelRequestedRef.current) break
+          if (cancelRequestedRef.current || result?.cancelled) {
+            setItems((prev) =>
+              prev.map((it) =>
+                it.id === currentItem.id
+                  ? { ...it, status: 'cancelled', statusMessage: 'Cancelled by user' }
+                  : it
+              )
+            )
+            break
+          }
 
           if (result?.success) {
             const finalOut = result.output
@@ -840,7 +945,16 @@ export function useBatchWorkflow({
             customPrompt: resolveEffectiveAiPrompt(translateLanguage, aiPrompt, aiPromptsByLang)
           })
 
-          if (cancelRequestedRef.current) break
+          if (cancelRequestedRef.current || result?.cancelled) {
+            setItems((prev) =>
+              prev.map((it) =>
+                it.id === currentItem.id
+                  ? { ...it, status: 'cancelled', statusMessage: 'Cancelled by user' }
+                  : it
+              )
+            )
+            break
+          }
 
           if (result?.success) {
             const finalOut = result.output
@@ -912,6 +1026,17 @@ export function useBatchWorkflow({
               cleanTags: extractCleanTags
             })
 
+            if (cancelRequestedRef.current || extractRes?.cancelled) {
+              setItems((prev) =>
+                prev.map((it) =>
+                  it.id === currentItem.id
+                    ? { ...it, status: 'cancelled', statusMessage: 'Cancelled by user' }
+                    : it
+                )
+              )
+              break
+            }
+
             if (!extractRes?.success || !extractRes?.extracted?.length) {
               throw new Error(extractRes?.failed?.[0]?.error || 'Failed to extract subtitle tracks.')
             }
@@ -966,6 +1091,17 @@ export function useBatchWorkflow({
               track: chosenTrack,
               cleanTags: extractCleanTags
             })
+
+            if (cancelRequestedRef.current || extractRes?.cancelled) {
+              setItems((prev) =>
+                prev.map((it) =>
+                  it.id === currentItem.id
+                    ? { ...it, status: 'cancelled', statusMessage: 'Cancelled by user' }
+                    : it
+                )
+              )
+              break
+            }
 
             if (!extractRes?.success || !extractRes?.outputPath) {
               throw new Error(extractRes?.error || 'Failed to extract subtitle track from video.')
