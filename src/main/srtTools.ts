@@ -186,9 +186,13 @@ export function sanitizeSinhalaScript(text: string): string {
 export function cleanAndSortCues(cues: SrtCue[]): SrtCue[] {
   if (!cues || cues.length === 0) return []
 
-  // Filter out negative timestamps and empty text, and sort chronologically
+  // Clamp slight negative offsets (e.g. from ffsubsync shifts) to 0, and filter out dead cues
   const sorted = cues
-    .filter((c) => c.startMs >= 0 && c.text.trim().length > 0)
+    .map((c) => ({
+      ...c,
+      startMs: Math.max(0, c.startMs)
+    }))
+    .filter((c) => c.endMs > 0 && c.endMs > c.startMs && c.text.trim().length > 0)
     .sort((a, b) => a.startMs - b.startMs)
 
   const cleaned: SrtCue[] = []

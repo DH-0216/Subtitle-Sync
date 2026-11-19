@@ -108,6 +108,10 @@ export function useBatchWorkflow(options: UseBatchWorkflowOptions = {}) {
   const isProcessingRef = useRef(false)
   const cancelRequestedRef = useRef(false)
   const activeItemIdRef = useRef<string | null>(null)
+  const itemsRef = useRef<BatchItem[]>([])
+  const activeItemIndexRef = useRef(0)
+  const totalItemsCountRef = useRef(0)
+  const completedCountRef = useRef(0)
 
   useEffect(() => {
     isProcessingRef.current = isProcessing
@@ -116,6 +120,10 @@ export function useBatchWorkflow(options: UseBatchWorkflowOptions = {}) {
   useEffect(() => {
     activeItemIdRef.current = activeItemId
   }, [activeItemId])
+
+  useEffect(() => {
+    itemsRef.current = items
+  }, [items])
 
   // Listen to live extraction events & progress during batch extraction
   useEffect(() => {
@@ -569,11 +577,59 @@ export function useBatchWorkflow(options: UseBatchWorkflowOptions = {}) {
       }
       const rawSubs = await window.api.dialog.openSubtitles()
       const subs = sanitizeFilePaths(rawSubs || []).filter(isSubtitleFile)
-      if (subs && subs.length > 0) {
+      if (!subs || subs.length === 0) return
+
+      if (subs.length === 1) {
         setItems((prev) =>
           prev.map((it) => (it.id === itemId ? { ...it, subPath: subs[0], confidence: 'high' } : it))
         )
         toast.success(`Assigned subtitle: ${getFileName(subs[0])}`)
+      } else {
+        // Multi-selection: Assign the best match or first to clicked item,
+        // and intelligently pair the remaining subtitles with unpaired sync items in the queue!
+        setItems((prev) => {
+          let updated = [...prev]
+          const targetItem = updated.find((it) => it.id === itemId)
+          const remainingSubs = [...subs]
+
+          if (targetItem && targetItem.videoPath) {
+            const matches = matchVideosWithSubtitles([targetItem.videoPath], remainingSubs)
+            if (matches[0]?.subPath) {
+              const bestSub = matches[0].subPath
+              const idx = remainingSubs.indexOf(bestSub)
+              if (idx !== -1) remainingSubs.splice(idx, 1)
+              targetItem.subPath = bestSub
+              targetItem.confidence = 'high'
+            } else {
+              targetItem.subPath = remainingSubs.shift()
+              targetItem.confidence = 'high'
+            }
+          } else if (targetItem) {
+            targetItem.subPath = remainingSubs.shift()
+            targetItem.confidence = 'high'
+          }
+
+          // Automatically pair remaining subtitles to other unpaired sync items in the queue
+          for (let i = 0; i < updated.length && remainingSubs.length > 0; i++) {
+            const it = updated[i]
+            if (it.id !== itemId && it.jobType === 'sync' && !it.subPath && it.videoPath) {
+              const m = matchVideosWithSubtitles([it.videoPath], remainingSubs)
+              if (m[0]?.subPath) {
+                const sub = m[0].subPath
+                const idx = remainingSubs.indexOf(sub)
+                if (idx !== -1) remainingSubs.splice(idx, 1)
+                it.subPath = sub
+                it.confidence = m[0].confidence
+              } else {
+                it.subPath = remainingSubs.shift()
+                it.confidence = 'medium'
+              }
+            }
+          }
+
+          return updated
+        })
+        toast.success(`Assigned ${subs.length} subtitle(s) to queue items!`)
       }
     } catch (err: any) {
       toast.error('Could not select subtitle: ' + err?.message)
@@ -626,7 +682,7 @@ export function useBatchWorkflow(options: UseBatchWorkflowOptions = {}) {
     if (!curId) return
 
     if (event.type === 'progress') {
-      const pct = typeof event.percent === 'number' ? Math.round(event.percent) : 0
+      const pct = typeof event.percent === 'number' ? Math.max(0, Math.min(100, Math.round(event.percent))) : 0
       setItems((prev) =>
         prev.map((it) =>
           it.id === curId
@@ -634,6 +690,12 @@ export function useBatchWorkflow(options: UseBatchWorkflowOptions = {}) {
             : it
         )
       )
+
+      // Calculate smooth continuous overall progress across entire batch queue
+      const total = totalItemsCountRef.current || 1
+      const completed = completedCountRef.current || 0
+      const currentOverall = Math.min(99, Math.round(((completed * 100) + pct) / total))
+      setOverallProgress((prev) => Math.max(prev, currentOverall))
     } else if (event.type === 'status') {
       setItems((prev) =>
         prev.map((it) =>
@@ -674,14 +736,19 @@ export function useBatchWorkflow(options: UseBatchWorkflowOptions = {}) {
 
     let completedCount = 0
     let failedCount = 0
-    const totalItemsCount = items.length
+    const queueSnapshot = [...(itemsRef.current.length > 0 ? itemsRef.current : items)]
+    const totalItemsCount = queueSnapshot.length
+    totalItemsCountRef.current = totalItemsCount
+    completedCountRef.current = 0
 
-    for (let i = 0; i < items.length; i++) {
+    for (let i = 0; i < queueSnapshot.length; i++) {
       if (cancelRequestedRef.current) break
 
-      const currentItem = items[i]
+      activeItemIndexRef.current = i
+      const currentItem = queueSnapshot[i]
       if (currentItem.status === 'completed') {
         completedCount++
+        completedCountRef.current = completedCount
         continue
       }
 
@@ -719,8 +786,12 @@ export function useBatchWorkflow(options: UseBatchWorkflowOptions = {}) {
         if (currentItem.jobType === 'sync') {
           const sub = cleanPathString(currentItem.subPath!)
           const video = cleanPathString(currentItem.videoPath!)
-          const ext = sub.substring(sub.lastIndexOf('.'))
-          const outPath = sub.replace(new RegExp(`\\${ext}$`, 'i'), `.synced${ext}`)
+          const ext = getFileExtension(sub) || 'srt'
+          const lastSep = Math.max(sub.lastIndexOf('/'), sub.lastIndexOf('\\'))
+          const dir = lastSep !== -1 ? sub.substring(0, lastSep) : ''
+          const filename = lastSep !== -1 ? sub.substring(lastSep + 1) : sub
+          const baseName = filename.replace(new RegExp(`\\.${ext}$`, 'i'), '')
+          const outPath = dir ? `${dir}/${baseName}.synced.${ext}` : `${baseName}.synced.${ext}`
 
           let effectiveSyncMode: SyncMode = (syncMode === 'Best Match' ? 'Standard' : syncMode) as SyncMode
 
@@ -790,13 +861,11 @@ export function useBatchWorkflow(options: UseBatchWorkflowOptions = {}) {
             break
           }
 
-          if (result?.success) {
-            const finalOut = result.out || outPath
-            const outDir = finalOut.substring(
-              0,
-              Math.max(finalOut.lastIndexOf('/'), finalOut.lastIndexOf('\\'))
-            )
-            setLastBatchOutputDir(outDir)
+          if (result?.success && result?.out) {
+            const finalOut = result.out
+            const outSep = Math.max(finalOut.lastIndexOf('/'), finalOut.lastIndexOf('\\'))
+            const outDir = outSep !== -1 ? finalOut.substring(0, outSep) : undefined
+            if (outDir) setLastBatchOutputDir(outDir)
             setItems((prev) =>
               prev.map((it) =>
                 it.id === currentItem.id
@@ -813,9 +882,10 @@ export function useBatchWorkflow(options: UseBatchWorkflowOptions = {}) {
               )
             )
             completedCount++
+            completedCountRef.current = completedCount
             addLog(`[BATCH SUCCESS] Synced (${effectiveSyncMode}): ${finalOut}`)
           } else {
-            throw new Error(result?.error || 'Synchronization failed.')
+            throw new Error(result?.error || 'Synchronization failed to generate output file.')
           }
         }
 
@@ -867,6 +937,7 @@ export function useBatchWorkflow(options: UseBatchWorkflowOptions = {}) {
               )
             )
             completedCount++
+            completedCountRef.current = completedCount
             addLog(`[BATCH SUCCESS] Generated subtitle: ${finalOut}`)
           } else {
             throw new Error(result?.message || result?.error || 'Generation failed.')
@@ -983,6 +1054,7 @@ export function useBatchWorkflow(options: UseBatchWorkflowOptions = {}) {
               )
             )
             completedCount++
+            completedCountRef.current = completedCount
             addLog(`[BATCH SUCCESS] Translated subtitle: ${finalOut}`)
           } else {
             throw new Error(result?.message || result?.error || 'Translation failed.')
@@ -1067,6 +1139,7 @@ export function useBatchWorkflow(options: UseBatchWorkflowOptions = {}) {
               )
             )
             completedCount++
+            completedCountRef.current = completedCount
             addLog(`[BATCH SUCCESS] Extracted ${extractRes.extracted.length} tracks from "${currentItem.name}".`)
           } else {
             // Find track by preferred language or fallback
@@ -1133,6 +1206,7 @@ export function useBatchWorkflow(options: UseBatchWorkflowOptions = {}) {
               )
             )
             completedCount++
+            completedCountRef.current = completedCount
             addLog(`[BATCH SUCCESS] Extracted ${trackLabel}: ${finalOut}`)
           }
         }
@@ -1161,7 +1235,7 @@ export function useBatchWorkflow(options: UseBatchWorkflowOptions = {}) {
 
       // Update overall progress bar
       const overall = Math.round(((completedCount + failedCount) / totalItemsCount) * 100)
-      setOverallProgress(overall)
+      setOverallProgress((prev) => Math.max(prev, overall))
     }
 
     setActiveItemId(null)

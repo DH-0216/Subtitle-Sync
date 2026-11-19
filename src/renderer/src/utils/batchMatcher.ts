@@ -37,8 +37,8 @@ export function extractEpisodeInfo(filePath: string): EpisodeInfo {
     }
   }
 
-  // Pattern 3: EP04, Episode 4, Ep 04
-  const epMatch = fileName.match(/(?:ep|episode)[._\s-]?(\d{1,3})(?:\D|$)/)
+  // Pattern 3: EP04, Episode 4, Ep 04, E04, E4
+  const epMatch = fileName.match(/(?:^|[._\s-])(?:ep|episode|e)[._\s-]?(\d{1,3})(?:\D|$)/)
   if (epMatch) {
     return {
       season: null,

@@ -818,24 +818,43 @@ app.whenReady().then(() => {
         return { success: false, cancelled: true }
       }
 
-      if (result.success) {
+      const isOutValid = Boolean(
+        result.success &&
+        params.out &&
+        fs.existsSync(params.out) &&
+        fs.statSync(params.out).size > 0
+      )
+
+      if (isOutValid) {
         event.sender.send('sync:event', {
           type: 'done',
           success: true,
           score: result.score,
           output: params.out
         })
+        if (activeSyncEngine === currentEngine) {
+          activeSyncEngine = null
+        }
+        return { success: true, out: params.out }
       } else {
+        if (params.out && fs.existsSync(params.out) && fs.statSync(params.out).size === 0) {
+          try {
+            fs.unlinkSync(params.out)
+          } catch (e) {}
+        }
         event.sender.send('sync:event', {
           type: 'done',
           success: false,
           score: null
         })
+        if (activeSyncEngine === currentEngine) {
+          activeSyncEngine = null
+        }
+        return {
+          success: false,
+          error: 'Output subtitle file was not generated or contains no valid subtitle cues.'
+        }
       }
-      if (activeSyncEngine === currentEngine) {
-        activeSyncEngine = null
-      }
-      return { success: result.success, out: params.out }
     } catch (e: any) {
       event.sender.send('sync:event', { type: 'error', message: e.message })
       if (activeSyncEngine === currentEngine) {
