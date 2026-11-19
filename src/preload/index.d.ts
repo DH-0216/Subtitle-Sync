@@ -9,9 +9,14 @@ export interface IElectronAPI {
   }
   dialog: {
     openVideo: () => Promise<string | null>
+    openVideos: () => Promise<string[]>
     openSubtitles: () => Promise<string[]>
+    openFolder: (title?: string) => Promise<string | null>
     selectFolder: (defaultPath?: string) => Promise<string | null>
     saveSrt: (defaultPath: string) => Promise<string | null>
+  }
+  batch: {
+    scanFolder: (folderPath: string) => Promise<{ videos: string[]; subtitles: string[] }>
   }
   shell: {
     showItemInFolder: (path: string) => Promise<boolean>
@@ -21,6 +26,9 @@ export interface IElectronAPI {
   settings: {
     load: () => Promise<any>
     save: (settings: any) => Promise<boolean>
+  }
+  window: {
+    setBackgroundMaterial: (material: 'acrylic' | 'mica' | 'none') => Promise<boolean>
   }
   notification: {
     show: (title: string, body: string) => Promise<boolean>
@@ -125,8 +133,8 @@ export interface IElectronAPI {
     checkWhisper: () => Promise<{ exists: boolean; path: string | null }>
     downloadModel: (quality: string) => Promise<{ success: boolean; path?: string; error?: string }>
     cancelDownload: () => Promise<boolean>
-    startGenerate: (params: any) => Promise<{ success: boolean; output?: string; message?: string }>
-    cancelGenerate: () => Promise<boolean>
+    startGenerate: (params: any) => Promise<{ success: boolean; output?: string; message?: string; error?: string }>
+    cancelGenerate: (job?: 'translate' | 'generate') => Promise<boolean>
     onDownloadProgress: (callback: (data: {
       percent: number
       downloaded: number
@@ -150,6 +158,7 @@ export interface IElectronAPI {
       outputPath?: string
       outputDir?: string
       cleanTags?: boolean
+      isTemporary?: boolean
     }) => Promise<{
       success: boolean
       outputPath?: string

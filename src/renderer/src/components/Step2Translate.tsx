@@ -1,0 +1,111 @@
+import React from 'react'
+import { Key, Settings, CheckCircle2 } from 'lucide-react'
+import { StepCard, LanguageSelector } from './common'
+import { TRANSLATION_LANGUAGES } from '@shared/translationPrompts'
+
+interface Step2TranslateProps {
+  language: string
+  onChangeLanguage: (lang: string) => void
+  format?: 'srt' | 'vtt' | 'txt'
+  onChangeFormat?: (fmt: 'srt' | 'vtt' | 'txt') => void
+  aiApiKey: string
+  aiProvider: string
+  aiModel: string
+  onOpenSettings: () => void
+  isOnline?: boolean
+}
+
+export const translationLanguages = TRANSLATION_LANGUAGES.map((lang) => ({
+  code: lang.code,
+  name: lang.label
+}))
+
+export const Step2Translate: React.FC<Step2TranslateProps> = ({
+  language,
+  onChangeLanguage,
+  format,
+  onChangeFormat,
+  aiApiKey,
+  aiProvider,
+  aiModel,
+  onOpenSettings
+}) => {
+  const isKeyConfigured = Boolean(aiApiKey && aiApiKey.trim().length > 0)
+
+  const badge = (
+    <span className="text-xs font-bold px-2 py-0.5 rounded-full border bg-app-card-inner-hover text-app-text border-app-card-inner-border whitespace-nowrap shrink-0">
+      Cloud AI
+    </span>
+  )
+
+  const headerRight = isKeyConfigured ? (
+    <span className="flex items-center gap-1.5 text-xs font-bold text-emerald-950 bg-emerald-100 border border-emerald-400 dark:text-emerald-300 dark:bg-emerald-950/40 px-2.5 py-0.5 rounded-full dark:border-emerald-700 whitespace-nowrap shrink-0">
+      <CheckCircle2 className="w-3.5 h-3.5" /> AI Ready
+    </span>
+  ) : (
+    <button
+      type="button"
+      onClick={onOpenSettings}
+      className="flex items-center gap-1.5 text-xs font-bold text-amber-950 bg-amber-100 border border-amber-400 dark:text-amber-300 dark:bg-amber-950/40 px-2.5 py-0.5 rounded-full dark:border-amber-700 whitespace-nowrap shrink-0 hover:bg-amber-200 transition-colors cursor-pointer"
+      title="Click to enter your AI API key in Settings"
+    >
+      <Key className="w-3.5 h-3.5" /> API Key Required
+    </button>
+  )
+
+  return (
+    <StepCard
+      step={2}
+      title="AI Translation Settings"
+      badge={badge}
+      headerRight={headerRight}
+    >
+      <div className="space-y-4">
+        {/* Target Language Selection */}
+        <div className="space-y-1.5">
+          <LanguageSelector
+            mode="translate"
+            value={language}
+            onChange={onChangeLanguage}
+            showLabel={true}
+            size="md"
+          />
+          <p className="text-[11px] text-app-text-muted">
+            {(TRANSLATION_LANGUAGES.find((l) => l.code === language) || TRANSLATION_LANGUAGES[0]).subtitleNote}
+          </p>
+        </div>
+
+        {/* Prompt to configure API Key if not yet configured */}
+        {!isKeyConfigured && (
+          <div className="p-3.5 rounded-xl border border-amber-200 dark:border-amber-800/80 bg-amber-50/80 dark:bg-amber-950/30 flex items-center justify-between flex-wrap gap-2.5">
+            <div className="flex items-center gap-2.5 text-xs">
+              <div className="w-7 h-7 rounded-lg bg-amber-100 dark:bg-amber-900/40 text-amber-800 dark:text-amber-400 flex items-center justify-center font-bold text-[10px] uppercase">
+                {aiProvider.substring(0, 3)}
+              </div>
+              <div>
+                <p className="font-bold text-app-text flex items-center gap-2">
+                  <span>AI Provider: {aiProvider.toUpperCase()}</span>
+                  <span className="text-[10px] font-mono font-medium px-2 py-0.2 rounded-full bg-app-card-inner-hover text-app-text-muted">
+                    {aiModel || 'default model'}
+                  </span>
+                </p>
+                <p className="text-[11px] text-amber-800 dark:text-amber-300 font-medium">
+                  API Key missing. Enter your key to start translation.
+                </p>
+              </div>
+            </div>
+
+            <button
+              type="button"
+              onClick={onOpenSettings}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-app-btn-border bg-app-btn hover:bg-app-btn-hover text-app-btn-text text-xs font-semibold transition-all cursor-pointer shadow-2xs"
+            >
+              <Settings className="w-3.5 h-3.5 text-app-btn-text" />
+              <span>Configure AI Settings</span>
+            </button>
+          </div>
+        )}
+      </div>
+    </StepCard>
+  )
+}

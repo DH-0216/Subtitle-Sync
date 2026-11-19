@@ -90,22 +90,22 @@ const TAG_CONFIG: Record<string, TagBadgeConfig> = {
   improve: {
     label: 'Improved',
     className:
-      'bg-blue-100 dark:bg-blue-950/70 text-blue-800 dark:text-blue-300 border-blue-300 dark:border-blue-800'
+      'bg-blue-100 dark:bg-blue-950/70 text-blue-700 dark:text-blue-300 border-blue-300 dark:border-blue-800'
   },
   improved: {
     label: 'Improved',
     className:
-      'bg-blue-100 dark:bg-blue-950/70 text-blue-800 dark:text-blue-300 border-blue-300 dark:border-blue-800'
+      'bg-blue-100 dark:bg-blue-950/70 text-blue-700 dark:text-blue-300 border-blue-300 dark:border-blue-800'
   },
   update: {
     label: 'Update',
     className:
-      'bg-blue-100 dark:bg-blue-950/70 text-blue-800 dark:text-blue-300 border-blue-300 dark:border-blue-800'
+      'bg-blue-100 dark:bg-blue-950/70 text-blue-700 dark:text-blue-300 border-blue-300 dark:border-blue-800'
   },
   enhance: {
     label: 'Improved',
     className:
-      'bg-blue-100 dark:bg-blue-950/70 text-blue-800 dark:text-blue-300 border-blue-300 dark:border-blue-800'
+      'bg-blue-100 dark:bg-blue-950/70 text-blue-700 dark:text-blue-300 border-blue-300 dark:border-blue-800'
   },
   docs: {
     label: 'Docs',
@@ -115,12 +115,12 @@ const TAG_CONFIG: Record<string, TagBadgeConfig> = {
   refactor: {
     label: 'Internal',
     className:
-      'bg-slate-200/80 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border-slate-300 dark:border-slate-700'
+      'bg-app-card-inner-hover text-app-text border-app-card-inner-border'
   },
   chore: {
     label: 'Maintenance',
     className:
-      'bg-slate-200/80 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border-slate-300 dark:border-slate-700'
+      'bg-app-card-inner-hover text-app-text border-app-card-inner-border'
   },
   security: {
     label: 'Security',
@@ -169,7 +169,7 @@ function renderInlineFormatting(text: string): React.ReactNode[] {
       nodes.push(
         <code
           key={key}
-          className="px-1.5 py-0.5 rounded bg-slate-200/70 dark:bg-slate-800 text-blue-700 dark:text-blue-300 font-mono text-[11px] border border-slate-300/40 dark:border-slate-700/60"
+          className="px-1.5 py-0.5 rounded bg-app-card-inner-hover text-blue-700 dark:text-blue-300 font-mono text-[11px] border border-app-card-inner-border"
         >
           {token.slice(1, -1)}
         </code>
@@ -179,7 +179,7 @@ function renderInlineFormatting(text: string): React.ReactNode[] {
       (token.startsWith('__') && token.endsWith('__'))
     ) {
       nodes.push(
-        <strong key={key} className="font-semibold text-slate-900 dark:text-slate-100">
+        <strong key={key} className="font-semibold text-app-text">
           {token.slice(2, -2)}
         </strong>
       )
@@ -433,7 +433,7 @@ export const UserFriendlyReleaseNotes: React.FC<UserFriendlyReleaseNotesProps> =
     <div className="space-y-2">
       {/* Subheader Toolbar */}
       <div className="flex items-center justify-between">
-        <div className="flex items-center gap-1.5 text-xs font-bold text-slate-800 dark:text-slate-200">
+        <div className="flex items-center gap-1.5 text-xs font-bold text-app-text">
           <Sparkles className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
           <span>What&apos;s New in v{latestVersion || 'this Version'}:</span>
         </div>
@@ -452,17 +452,17 @@ export const UserFriendlyReleaseNotes: React.FC<UserFriendlyReleaseNotesProps> =
       </div>
 
       {/* Main Release Notes Content Box */}
-      <div className="max-h-60 overflow-y-auto p-4 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/80 dark:bg-slate-950/60 font-sans text-xs text-slate-700 dark:text-slate-300 select-text leading-relaxed">
+      <div className="max-h-60 overflow-y-auto p-4 rounded-xl border border-app-card-inner-border bg-app-card-inner font-sans text-xs text-app-text select-text leading-relaxed">
         {isEmpty ? (
           /* Friendly Empty / Generic Fallback Card */
           <div className="p-4 rounded-xl bg-blue-50/50 dark:bg-blue-950/20 border border-blue-100 dark:border-blue-900/40 text-center space-y-2">
             <div className="w-8 h-8 rounded-full bg-blue-100 dark:bg-blue-900/50 text-blue-600 dark:text-blue-400 mx-auto flex items-center justify-center">
               <Sparkles className="w-4 h-4" />
             </div>
-            <div className="text-xs font-semibold text-slate-800 dark:text-slate-200">
+            <div className="text-xs font-semibold text-app-text">
               Stability &amp; Performance Update
             </div>
-            <p className="text-[11px] text-slate-500 dark:text-slate-400 max-w-sm mx-auto leading-relaxed">
+            <p className="text-[11px] text-app-text-muted max-w-sm mx-auto leading-relaxed">
               This release brings overall performance optimizations, bug fixes, and reliability
               improvements to Subtitle Sync Studio.
             </p>
@@ -494,9 +494,9 @@ export const UserFriendlyReleaseNotes: React.FC<UserFriendlyReleaseNotesProps> =
                   return (
                     <div
                       key={item.id}
-                      className="pb-2 border-b border-slate-200/80 dark:border-slate-800/80 flex items-center justify-between"
+                      className="pb-2 border-b border-app-card-inner-border flex items-center justify-between"
                     >
-                      <div className="flex items-center gap-1.5 text-xs font-bold text-slate-800 dark:text-slate-200">
+                      <div className="flex items-center gap-1.5 text-xs font-bold text-app-text">
                         {getHeaderIcon(item.text || '')}
                         <span>{item.text}</span>
                       </div>
@@ -507,8 +507,8 @@ export const UserFriendlyReleaseNotes: React.FC<UserFriendlyReleaseNotesProps> =
                 return (
                   <div
                     key={item.id}
-                    className={`pt-2.5 first:pt-0 pb-1 flex items-center gap-1.5 text-xs font-bold text-slate-900 dark:text-slate-100 ${
-                      item.level && item.level <= 2 ? 'border-b border-slate-200 dark:border-slate-800 pb-1.5' : ''
+                    className={`pt-2.5 first:pt-0 pb-1 flex items-center gap-1.5 text-xs font-bold text-app-text ${
+                      item.level && item.level <= 2 ? 'border-b border-app-card-inner-border pb-1.5' : ''
                     }`}
                   >
                     {getHeaderIcon(item.text || '')}
@@ -523,7 +523,7 @@ export const UserFriendlyReleaseNotes: React.FC<UserFriendlyReleaseNotesProps> =
                 return (
                   <div
                     key={item.id}
-                    className="flex items-start gap-2 text-xs text-slate-700 dark:text-slate-300 group py-0.5"
+                    className="flex items-start gap-2 text-xs text-app-text group py-0.5"
                   >
                     {/* Bullet indicator or Tag badge */}
                     {tagBadge ? (
@@ -533,7 +533,7 @@ export const UserFriendlyReleaseNotes: React.FC<UserFriendlyReleaseNotesProps> =
                         {tagBadge.label}
                       </span>
                     ) : item.isNumbered ? (
-                      <span className="w-4 h-4 rounded-full bg-slate-200/70 dark:bg-slate-800 text-slate-700 dark:text-slate-300 flex items-center justify-center shrink-0 mt-0.5 text-[10px] font-semibold">
+                      <span className="w-4 h-4 rounded-full bg-app-card-inner-hover text-app-text flex items-center justify-center shrink-0 mt-0.5 text-[10px] font-semibold">
                         •
                       </span>
                     ) : (
@@ -542,7 +542,7 @@ export const UserFriendlyReleaseNotes: React.FC<UserFriendlyReleaseNotesProps> =
 
                     {/* Scope badge if present (e.g. [sync]) */}
                     {item.scope && (
-                      <span className="px-1.5 py-0.2 rounded text-[10px] font-mono bg-slate-200/60 dark:bg-slate-800 text-slate-600 dark:text-slate-400 border border-slate-300/60 dark:border-slate-700/60 shrink-0 mt-0.5">
+                      <span className="px-1.5 py-0.2 rounded text-[10px] font-mono bg-app-card-inner-hover text-app-text-muted border border-app-card-inner-border shrink-0 mt-0.5">
                         {item.scope}
                       </span>
                     )}
@@ -558,7 +558,7 @@ export const UserFriendlyReleaseNotes: React.FC<UserFriendlyReleaseNotesProps> =
                         type="button"
                         onClick={() => handleOpenExternal(item.prUrl!)}
                         title="View Pull Request on GitHub"
-                        className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-mono font-medium text-slate-600 hover:text-blue-600 dark:text-slate-400 dark:hover:text-blue-300 bg-slate-200/50 hover:bg-blue-50 dark:bg-slate-800/80 dark:hover:bg-slate-800 border border-slate-300/60 dark:border-slate-700 transition-colors cursor-pointer shrink-0 ml-1.5"
+                        className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-mono font-medium text-app-text-muted hover:text-blue-600 dark:hover:text-blue-300 bg-app-card-inner-hover hover:bg-blue-50/50 dark:hover:bg-blue-950/30 border border-app-card-inner-border transition-colors cursor-pointer shrink-0 ml-1.5"
                       >
                         <GitPullRequest className="w-2.5 h-2.5" />
                         <span>#{item.prNumber || 'PR'}</span>
@@ -567,7 +567,7 @@ export const UserFriendlyReleaseNotes: React.FC<UserFriendlyReleaseNotesProps> =
 
                     {/* Contributor Mention */}
                     {item.author && !item.prUrl && (
-                      <span className="text-[10px] text-slate-400 dark:text-slate-500 font-medium shrink-0 ml-1.5">
+                      <span className="text-[10px] text-app-text-muted font-medium shrink-0 ml-1.5">
                         {item.author}
                       </span>
                     )}
@@ -579,7 +579,7 @@ export const UserFriendlyReleaseNotes: React.FC<UserFriendlyReleaseNotesProps> =
                 return (
                   <div
                     key={item.id}
-                    className="border-l-2 border-blue-500/60 pl-3 py-1 my-1.5 text-xs text-slate-600 dark:text-slate-400 italic bg-blue-50/40 dark:bg-blue-950/20 rounded-r-lg"
+                    className="border-l-2 border-blue-500/60 pl-3 py-1 my-1.5 text-xs text-app-text-muted italic bg-blue-50/40 dark:bg-blue-950/20 rounded-r-lg"
                   >
                     {renderInlineFormatting(item.text || '')}
                   </div>
@@ -590,7 +590,7 @@ export const UserFriendlyReleaseNotes: React.FC<UserFriendlyReleaseNotesProps> =
                 return (
                   <pre
                     key={item.id}
-                    className="p-3 rounded-lg bg-slate-100 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-[11px] font-mono text-slate-800 dark:text-slate-200 overflow-x-auto my-1.5 select-text leading-relaxed"
+                    className="p-3 rounded-lg bg-app-canvas border border-app-card-inner-border text-[11px] font-mono text-app-text overflow-x-auto my-1.5 select-text leading-relaxed"
                   >
                     <code>{item.code}</code>
                   </pre>
@@ -601,14 +601,14 @@ export const UserFriendlyReleaseNotes: React.FC<UserFriendlyReleaseNotesProps> =
                 return (
                   <hr
                     key={item.id}
-                    className="border-t border-slate-200 dark:border-slate-800/80 my-2"
+                    className="border-t border-app-card-inner-border my-2"
                   />
                 )
               }
 
               // Paragraph
               return (
-                <p key={item.id} className="text-xs text-slate-700 dark:text-slate-300 leading-relaxed">
+                <p key={item.id} className="text-xs text-app-text leading-relaxed">
                   {renderInlineFormatting(item.text || '')}
                 </p>
               )
@@ -616,8 +616,8 @@ export const UserFriendlyReleaseNotes: React.FC<UserFriendlyReleaseNotesProps> =
 
             {/* Bottom Full Changelog Link */}
             {fullChangelogUrl && (
-              <div className="pt-3 mt-3 border-t border-slate-200 dark:border-slate-800/80 flex items-center justify-between text-xs">
-                <span className="text-[11px] text-slate-500 dark:text-slate-400 flex items-center gap-1.5">
+              <div className="pt-3 mt-3 border-t border-app-card-inner-border flex items-center justify-between text-xs">
+                <span className="text-[11px] text-app-text-muted flex items-center gap-1.5">
                   <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
                   <span>Full commit changes on GitHub</span>
                 </span>

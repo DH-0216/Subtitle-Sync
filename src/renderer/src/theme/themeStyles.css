@@ -1,0 +1,363 @@
+/* ==========================================================================
+   CENTRALIZED THEME TOKENS (DATA-DRIVEN)
+   Adding, editing or removing themes requires editing ONLY the CSS variables below!
+   Components use semantic utilities:
+     bg-app-canvas, bg-app-card, bg-app-header, bg-app-footer, bg-app-sidebar
+     bg-app-modal, bg-app-card-inner, bg-app-input, bg-app-btn
+     bg-app-dropzone, bg-app-primary, hover:bg-app-primary-hover
+     border-app-card-border, border-app-header-border, text-app-text, text-app-accent
+   ========================================================================== */
+
+:root {
+  --theme-transition: background-color 0.2s ease, border-color 0.2s ease, color 0.2s ease;
+}
+
+/* --------------------------------------------------------------------------
+   1. LIGHT THEME TOKENS (Software Mansion palette with modern electric blue)
+   -------------------------------------------------------------------------- */
+:root,
+[data-theme='light'] {
+  --app-canvas-bg: #FAFBFD;
+  --app-text-main: #000000;
+  --app-text-muted: #334155;
+
+  --app-header-bg: #FFFFFF;
+  --app-header-border: #E2E8F0;
+
+  --app-footer-bg: #FFFFFF;
+  --app-footer-border: #E2E8F0;
+  --app-footer-text: #0F172A;
+
+  --app-sidebar-bg: #F8FAFC;
+  --app-sidebar-border: #E2E8F0;
+  --app-sidebar-hover: rgba(224, 236, 255, 0.6);
+  --app-sidebar-status-bg: #FFFFFF;
+  --app-sidebar-status-border: #E2E8F0;
+
+  --app-card-bg: #FFFFFF;
+  --app-card-locked-bg: rgba(248, 250, 252, 0.8);
+  --app-card-border: #E2E8F0;
+  --app-card-header: #F8FAFC;
+  --app-card-header-border: #E2E8F0;
+  --app-card-inner-bg: #F8FAFC;
+  --app-card-inner-border: #E2E8F0;
+  --app-card-inner-hover: rgba(241, 245, 249, 0.8);
+
+  --app-modal-bg: var(--app-card-bg);
+  --app-modal-border: var(--app-card-border);
+  --app-modal-header-bg: var(--app-header-bg);
+  --app-modal-header-border: var(--app-header-border);
+  --app-modal-sidebar-bg: var(--app-sidebar-bg);
+  --app-modal-sidebar-border: var(--app-sidebar-border);
+
+  --app-input-bg: #FFFFFF;
+  --app-input-border: #CBD5E1;
+  --app-input-text: #000000;
+
+  --app-btn-secondary-bg: #FFFFFF;
+  --app-btn-secondary-hover: #F8FAFC;
+  --app-btn-secondary-border: #CBD5E1;
+  --app-btn-secondary-text: #000000;
+
+  --app-dropzone-bg: #F8FAFC;
+  --app-dropzone-border: #CBD5E1;
+  --app-dropzone-hover-bg: #EFF6FF;
+  --app-dropzone-hover-border: #3B82F6;
+  --app-dropzone-drag-bg: rgba(239, 246, 255, 0.7);
+  --app-dropzone-icon-bg: #EFF6FF;
+  --app-dropzone-icon-border: #BFDBFE;
+  --app-dropzone-icon-text: #2563EB;
+
+  --app-primary-bg: #2563EB;
+  --app-primary-hover-bg: #3B82F6;
+  --app-primary-fg: #FFFFFF;
+
+  --app-accent-text: #2563EB;
+  --app-accent-hover: #1D4ED8;
+  --app-accent-bg: #EFF6FF;
+  --app-accent-border: #BFDBFE;
+}
+
+/* --------------------------------------------------------------------------
+   2. DARK THEME TOKENS (Deep Charcoal with vibrant electric blue accents)
+   -------------------------------------------------------------------------- */
+[data-theme='dark'],
+.dark {
+  --app-canvas-bg: #0B0F19;
+  --app-text-main: #F1F5F9;
+  --app-text-muted: #94A3B8;
+
+  --app-header-bg: #0B0F19;
+  --app-header-border: rgba(30, 41, 59, 0.8);
+
+  --app-footer-bg: #0B0F19;
+  --app-footer-border: rgba(30, 41, 59, 0.8);
+  --app-footer-text: #94A3B8;
+
+  --app-sidebar-bg: #0B0F19;
+  --app-sidebar-border: rgba(30, 41, 59, 0.8);
+  --app-sidebar-hover: rgba(30, 41, 59, 0.6);
+  --app-sidebar-status-bg: rgba(15, 23, 42, 0.6);
+  --app-sidebar-status-border: rgba(30, 41, 59, 0.6);
+
+  --app-card-bg: #0F172A;
+  --app-card-locked-bg: #0F172A;
+  --app-card-border: #1E293B;
+  --app-card-header: #0F172A;
+  --app-card-header-border: #1E293B;
+  --app-card-inner-bg: #0B0F19;
+  --app-card-inner-border: #1E293B;
+  --app-card-inner-hover: #0B0F19;
+
+  --app-modal-bg: var(--app-card-bg);
+  --app-modal-border: var(--app-card-border);
+  --app-modal-header-bg: var(--app-header-bg);
+  --app-modal-header-border: var(--app-header-border);
+  --app-modal-sidebar-bg: var(--app-sidebar-bg);
+  --app-modal-sidebar-border: var(--app-sidebar-border);
+
+  --app-input-bg: #0F172A;
+  --app-input-border: #334155;
+  --app-input-text: #F1F5F9;
+
+  --app-btn-secondary-bg: #1E293B;
+  --app-btn-secondary-hover: #334155;
+  --app-btn-secondary-border: #334155;
+  --app-btn-secondary-text: #E2E8F0;
+
+  --app-dropzone-bg: #0B0F19;
+  --app-dropzone-border: #334155;
+  --app-dropzone-hover-bg: #0E1424;
+  --app-dropzone-hover-border: #475569;
+  --app-dropzone-drag-bg: rgba(23, 37, 84, 0.4);
+  --app-dropzone-icon-bg: rgba(23, 37, 84, 0.4);
+  --app-dropzone-icon-border: rgba(30, 58, 138, 0.4);
+  --app-dropzone-icon-text: #60A5FA;
+
+  --app-primary-bg: #2563EB;
+  --app-primary-hover-bg: #3B82F6;
+  --app-primary-fg: #FFFFFF;
+
+  --app-accent-text: #60A5FA;
+  --app-accent-hover: #93C5FD;
+  --app-accent-bg: rgba(23, 37, 84, 0.4);
+  --app-accent-border: rgba(30, 58, 138, 0.4);
+}
+
+/* --------------------------------------------------------------------------
+   3. GLASSMORPHISM THEME TOKENS & OVERRIDES
+   Pure translucent frosted-glass styling with native Windows Acrylic blur
+   -------------------------------------------------------------------------- */
+[data-theme='glass'] {
+  --app-canvas-bg: rgba(7, 10, 18, 0.35);
+  --app-text-main: #FFFFFF;
+  --app-text-muted: rgba(255, 255, 255, 0.65);
+
+  --app-header-bg: rgba(255, 255, 255, 0.03);
+  --app-header-border: rgba(255, 255, 255, 0.10);
+
+  --app-footer-bg: rgba(255, 255, 255, 0.03);
+  --app-footer-border: rgba(255, 255, 255, 0.10);
+  --app-footer-text: rgba(255, 255, 255, 0.70);
+
+  --app-sidebar-bg: rgba(255, 255, 255, 0.025);
+  --app-sidebar-border: rgba(255, 255, 255, 0.12);
+  --app-sidebar-hover: rgba(255, 255, 255, 0.08);
+  --app-sidebar-status-bg: rgba(255, 255, 255, 0.05);
+  --app-sidebar-status-border: rgba(255, 255, 255, 0.14);
+
+  --app-card-bg: rgba(7, 10, 18, 0.35);
+  --app-card-locked-bg: rgba(7, 10, 18, 0.35);
+  --app-card-border: rgba(255, 255, 255, 0.14);
+  --app-card-header: rgba(255, 255, 255, 0.02);
+  --app-card-header-border: rgba(255, 255, 255, 0.08);
+  --app-card-inner-bg: rgba(255, 255, 255, 0.05);
+  --app-card-inner-border: rgba(255, 255, 255, 0.12);
+  --app-card-inner-hover: rgba(255, 255, 255, 0.09);
+
+  --app-modal-bg: rgba(11, 15, 25, 0.88);
+  --app-modal-border: rgba(255, 255, 255, 0.16);
+  --app-modal-header-bg: var(--app-header-bg);
+  --app-modal-header-border: var(--app-header-border);
+  --app-modal-sidebar-bg: var(--app-sidebar-bg);
+  --app-modal-sidebar-border: var(--app-sidebar-border);
+
+  --app-input-bg: rgba(11, 15, 25, 0.70);
+  --app-input-border: rgba(255, 255, 255, 0.16);
+  --app-input-text: #FFFFFF;
+
+  --app-btn-secondary-bg: rgba(255, 255, 255, 0.08);
+  --app-btn-secondary-hover: rgba(255, 255, 255, 0.14);
+  --app-btn-secondary-border: rgba(255, 255, 255, 0.18);
+  --app-btn-secondary-text: #FFFFFF;
+
+  --app-dropzone-bg: rgba(255, 255, 255, 0.03);
+  --app-dropzone-border: rgba(255, 255, 255, 0.16);
+  --app-dropzone-hover-bg: rgba(255, 255, 255, 0.07);
+  --app-dropzone-hover-border: rgba(255, 255, 255, 0.32);
+  --app-dropzone-drag-bg: rgba(255, 255, 255, 0.12);
+  --app-dropzone-icon-bg: rgba(255, 255, 255, 0.08);
+  --app-dropzone-icon-border: rgba(255, 255, 255, 0.18);
+  --app-dropzone-icon-text: #FFFFFF;
+
+  --app-primary-bg: #2563EB;
+  --app-primary-hover-bg: #3B82F6;
+  --app-primary-fg: #FFFFFF;
+
+  --app-accent-text: #60A5FA;
+  --app-accent-hover: #93C5FD;
+  --app-accent-bg: rgba(59, 130, 246, 0.15);
+  --app-accent-border: rgba(96, 165, 250, 0.30);
+}
+
+[data-theme='glass'] body,
+[data-theme='glass'] .bg-app-canvas {
+  background: var(--app-canvas-bg) !important;
+  backdrop-filter: blur(28px) saturate(150%);
+  -webkit-backdrop-filter: blur(28px) saturate(150%);
+}
+
+/* Prevent GPU shader flickering on backdrop-filtered translucent elements during theme transitions */
+[data-theme='glass'] body,
+[data-theme='glass'] .bg-app-canvas,
+[data-theme='glass'] .bg-app-sidebar,
+[data-theme='glass'] .bg-app-header,
+[data-theme='glass'] .bg-app-footer,
+[data-theme='glass'] .bg-app-card,
+[data-theme='glass'] .bg-app-modal {
+  transition: none !important;
+}
+
+[data-theme='glass'] .bg-app-sidebar {
+  backdrop-filter: blur(28px) saturate(170%);
+  -webkit-backdrop-filter: blur(28px) saturate(170%);
+  box-shadow: inset -1px 0 0 rgba(255, 255, 255, 0.08);
+}
+
+[data-theme='glass'] .bg-app-header {
+  backdrop-filter: blur(24px) saturate(160%);
+  -webkit-backdrop-filter: blur(24px) saturate(160%);
+  box-shadow: inset 0 -1px 0 rgba(255, 255, 255, 0.08);
+}
+
+[data-theme='glass'] .bg-app-footer {
+  backdrop-filter: blur(24px) saturate(160%);
+  -webkit-backdrop-filter: blur(24px) saturate(160%);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08);
+}
+
+[data-theme='glass'] .bg-app-card {
+  backdrop-filter: blur(24px) saturate(170%);
+  -webkit-backdrop-filter: blur(24px) saturate(170%);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.32), inset 0 1px 0 rgba(255, 255, 255, 0.18);
+}
+
+/* Modal backdrop overlay: frosted translucent mist instead of opaque black */
+[data-theme='glass'] .fixed.inset-0.z-50 {
+  background-color: rgba(5, 8, 15, 0.35) !important;
+  backdrop-filter: blur(14px) !important;
+  -webkit-backdrop-filter: blur(14px) !important;
+}
+
+[data-theme='glass'] .bg-app-modal {
+  backdrop-filter: blur(28px) saturate(170%);
+  -webkit-backdrop-filter: blur(28px) saturate(170%);
+  box-shadow: 0 24px 64px rgba(0, 0, 0, 0.40), inset 0 1px 0 rgba(255, 255, 255, 0.20);
+}
+
+[data-theme='glass'] .bg-app-modal-header {
+  backdrop-filter: blur(24px) saturate(160%);
+  -webkit-backdrop-filter: blur(24px) saturate(160%);
+  box-shadow: inset 0 -1px 0 rgba(255, 255, 255, 0.08);
+}
+
+[data-theme='glass'] .bg-app-modal-sidebar {
+  backdrop-filter: blur(28px) saturate(170%);
+  -webkit-backdrop-filter: blur(28px) saturate(170%);
+  box-shadow: inset -1px 0 0 rgba(255, 255, 255, 0.08);
+}
+
+[data-theme='glass'] .bg-app-card-inner {
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.20), inset 0 1px 0 rgba(255, 255, 255, 0.12);
+}
+
+[data-theme='glass'] .bg-app-btn {
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+}
+
+[data-theme='glass'] .bg-app-dropzone {
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+}
+
+[data-theme='glass'] .bg-app-primary {
+  background: #2563EB !important;
+  box-shadow: 0 4px 16px rgba(37, 99, 235, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.20);
+}
+
+[data-theme='glass'] .bg-app-primary:hover {
+  background: #1D4ED8 !important;
+}
+
+/* ==========================================================================
+   DROPDOWN MENUS (GLASS THEME & DARK THEME)
+   ========================================================================== */
+
+/* Glass Theme: Dark Glass Dropdown Controls */
+[data-theme='glass'] select,
+[data-theme='glass'] select.bg-app-input {
+  color-scheme: dark;
+  background-color: rgba(11, 15, 25, 0.75) !important;
+  border-color: rgba(255, 255, 255, 0.18) !important;
+  color: #FFFFFF !important;
+  backdrop-filter: blur(20px) saturate(170%);
+  -webkit-backdrop-filter: blur(20px) saturate(170%);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.28), inset 0 1px 0 rgba(255, 255, 255, 0.12);
+}
+
+[data-theme='glass'] select:hover {
+  background-color: rgba(15, 23, 42, 0.85) !important;
+  border-color: rgba(255, 255, 255, 0.28) !important;
+}
+
+[data-theme='glass'] select:focus {
+  background-color: rgba(15, 23, 42, 0.95) !important;
+  border-color: rgba(96, 165, 250, 0.55) !important;
+  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.30), inset 0 1px 0 rgba(255, 255, 255, 0.15) !important;
+}
+
+/* Glass Theme: Dark Glass Dropdown Popup Menu List (<option> & <optgroup>) */
+[data-theme='glass'] select option,
+[data-theme='glass'] select optgroup {
+  background-color: #0b0f19 !important;
+  color: #F1F5F9 !important;
+}
+
+[data-theme='glass'] select option:checked {
+  background-color: #1e293b !important;
+  color: #60a5fa !important;
+  font-weight: 600;
+}
+
+[data-theme='glass'] select option:hover,
+[data-theme='glass'] select option:focus {
+  background-color: #1e293b !important;
+  color: #93c5fd !important;
+}
+
+/* Dark Theme Dropdown Options */
+[data-theme='dark'] select,
+.dark select {
+  color-scheme: dark;
+}
+
+[data-theme='dark'] select option,
+[data-theme='dark'] select optgroup,
+.dark select option,
+.dark select optgroup {
+  background-color: #0b0f19 !important;
+  color: #F1F5F9 !important;
+}

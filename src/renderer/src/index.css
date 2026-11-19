@@ -1,17 +1,28 @@
+@import './theme/themeStyles.css';
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
 @layer base {
+  html {
+    background-color: transparent;
+  }
   body {
     @apply font-sans;
-    background-color: #0b0f19;
+    background: var(--app-canvas-bg, #0b0f19);
+    background-attachment: fixed;
   }
 }
 
-/* In dark mode, eliminate heavy/chunky bold text for a clean, sleek appearance */
-.dark,
-.dark * {
+.bg-app-canvas {
+  background: var(--app-canvas-bg, #0b0f19) !important;
+  background-attachment: fixed !important;
+}
+
+/* Eliminate heavy/chunky bold text across the app for a clean, sleek appearance in both light & dark themes */
+*,
+*::before,
+*::after {
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
@@ -33,21 +44,29 @@
   font-weight: 400 !important;
 }
 
-/* Custom dark scrollbar */
+/* Theme-adaptive sleek scrollbar */
 ::-webkit-scrollbar {
   width: 7px;
   height: 7px;
 }
 
 ::-webkit-scrollbar-track {
-  background: #070a10;
+  background: transparent;
 }
 
 ::-webkit-scrollbar-thumb {
-  background: #1e293b;
+  background: rgba(148, 163, 184, 0.4);
   border-radius: 4px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
+  background: rgba(100, 116, 139, 0.6);
+}
+
+.dark ::-webkit-scrollbar-thumb {
+  background: #1e293b;
+}
+
+.dark ::-webkit-scrollbar-thumb:hover {
   background: #334155;
 }

@@ -118,13 +118,13 @@ export class SyncEngine {
           if (!trimmed) continue
           this.onLog(trimmed)
 
-          // Parse explicit percentage if present
+          // Parse explicit percentage if present (monotonic only)
           const pctMatch = trimmed.match(PERCENT_REGEX)
           if (pctMatch) {
             const p = parseInt(pctMatch[1], 10)
-            if (p >= 0 && p <= 100) {
+            if (p >= estimatedProgress && p <= 100) {
               estimatedProgress = p
-              onPassProgress?.(p)
+              onPassProgress?.(estimatedProgress)
             }
           } else {
             // Heuristic progress updates from stage text
@@ -148,8 +148,8 @@ export class SyncEngine {
           if (m) {
             const parsed = parseFloat(m[1])
             if (!isNaN(parsed)) score = parsed
-            estimatedProgress = 95
-            onPassProgress?.(95)
+            estimatedProgress = Math.max(estimatedProgress, 95)
+            onPassProgress?.(estimatedProgress)
           }
         }
       })
@@ -165,21 +165,25 @@ export class SyncEngine {
           const pctMatch = trimmed.match(PERCENT_REGEX)
           if (pctMatch) {
             const p = parseInt(pctMatch[1], 10)
-            if (p >= 0 && p <= 100) {
-              onPassProgress?.(p)
+            if (p >= estimatedProgress && p <= 100) {
+              estimatedProgress = p
+              onPassProgress?.(estimatedProgress)
             }
           }
         }
       })
 
-      proc.on('close', (code) => {
+      proc.on('close', (code, signal) => {
         if (this.currentProc === proc) {
           this.currentProc = null
         }
         if (this.pendingPassResolve === resolve) {
           this.pendingPassResolve = null
-          onPassProgress?.(100)
-          resolve({ code: code || 0, score })
+          const exitCode = code !== null ? code : (signal ? -1 : 1)
+          if (exitCode === 0) {
+            onPassProgress?.(100)
+          }
+          resolve({ code: exitCode, score })
         }
       })
 
@@ -233,9 +237,18 @@ export class SyncEngine {
       return { success: false, score: null }
     }
 
-    if (fs.existsSync(options.out)) {
-      sanitizeOutputSrt(options.out)
+    // Verify output file was successfully generated and contains content
+    if (!fs.existsSync(options.out) || fs.statSync(options.out).size === 0) {
+      this.onLog(`[ERROR] Alignment engine finished without generating output file: "${options.out}"`)
+      if (fs.existsSync(options.out)) {
+        try {
+          fs.unlinkSync(options.out)
+        } catch (e) {}
+      }
+      return { success: false, score: null }
     }
+
+    sanitizeOutputSrt(options.out)
 
     this.onProgress(100, 'Synchronization complete!')
     return { success: true, score }
@@ -292,13 +305,13 @@ export class SyncEngine {
 
         this.onLog(`Pass ${i + 1} finished with score: ${res.score ?? 'N/A'}`)
 
-        if (res.code === 0 && currentScore > bestScore && fs.existsSync(passOut)) {
+        if (res.code === 0 && currentScore > bestScore && fs.existsSync(passOut) && fs.statSync(passOut).size > 0) {
           bestScore = currentScore
           bestFile = passOut
         }
       }
 
-      if (!this.cancelled && bestFile && fs.existsSync(bestFile)) {
+      if (!this.cancelled && bestFile && fs.existsSync(bestFile) && fs.statSync(bestFile).size > 0) {
         fs.copyFileSync(bestFile, options.out)
         sanitizeOutputSrt(options.out)
         this.onProgress(100, 'Smart sync complete!')
@@ -349,7 +362,7 @@ export class SyncEngine {
         }
       )
 
-      if (!this.cancelled && baseRes.code === 0 && fs.existsSync(baseOut)) {
+      if (!this.cancelled && baseRes.code === 0 && fs.existsSync(baseOut) && fs.statSync(baseOut).size > 0) {
         fs.copyFileSync(baseOut, options.out)
         sanitizeOutputSrt(options.out)
         this.onProgress(100, 'Split sync complete!')

@@ -19,9 +19,14 @@ const api = {
   },
   dialog: {
     openVideo: () => ipcRenderer.invoke('dialog:openVideo'),
+    openVideos: () => ipcRenderer.invoke('dialog:openVideos'),
     openSubtitles: () => ipcRenderer.invoke('dialog:openSubtitles'),
+    openFolder: (title?: string) => ipcRenderer.invoke('dialog:openFolder', title),
     selectFolder: (defaultPath?: string) => ipcRenderer.invoke('dialog:selectFolder', defaultPath),
     saveSrt: (defaultPath: string) => ipcRenderer.invoke('dialog:saveSrt', defaultPath)
+  },
+  batch: {
+    scanFolder: (folderPath: string) => ipcRenderer.invoke('batch:scanFolder', folderPath)
   },
   shell: {
     showItemInFolder: (path: string) => ipcRenderer.invoke('shell:showItemInFolder', path),
@@ -31,6 +36,10 @@ const api = {
   settings: {
     load: () => ipcRenderer.invoke('settings:load'),
     save: (settings: any) => ipcRenderer.invoke('settings:save', settings)
+  },
+  window: {
+    setBackgroundMaterial: (material: 'acrylic' | 'mica' | 'none') =>
+      ipcRenderer.invoke('window:setBackgroundMaterial', material)
   },
   notification: {
     show: (title: string, body: string) => ipcRenderer.invoke('notification:show', { title, body })
@@ -72,7 +81,7 @@ const api = {
     downloadModel: (quality: string) => ipcRenderer.invoke('generator:downloadModel', quality),
     cancelDownload: () => ipcRenderer.invoke('generator:cancelDownload'),
     startGenerate: (params: any) => ipcRenderer.invoke('generator:startGenerate', params),
-    cancelGenerate: () => ipcRenderer.invoke('generator:cancelGenerate'),
+    cancelGenerate: (job?: 'translate' | 'generate') => ipcRenderer.invoke('generator:cancelGenerate', job),
     onDownloadProgress: (callback: (data: any) => void) => {
       const sub = (_: any, data: any) => callback(data)
       ipcRenderer.on('generator:downloadProgress', sub)

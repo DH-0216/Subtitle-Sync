@@ -1,119 +1,109 @@
 import React from 'react'
-import { Settings, Info, Sun, Moon, CheckCircle2, AlertTriangle, WifiOff, RefreshCw } from 'lucide-react'
+import { Settings, Info, RefreshCw } from 'lucide-react'
 import appIcon from '../assets/app_icon.png'
 import { APP_VERSION } from '@shared/version'
+import { SubtitleAction } from './SubtitleModeSelector'
+import { useUIStore, useUpdaterStore } from '../store'
 
 interface HeaderProps {
-  theme: string
-  setTheme: (t: 'dark' | 'light') => void
-  onOpenSettings: () => void
-  onOpenAbout: () => void
-  engineReady: boolean
-  isOnline?: boolean
+  currentAction?: SubtitleAction
+  onOpenSettings?: () => void
+  onOpenAbout?: () => void
   isUpdateReady?: boolean
   onRestartToApplyUpdate?: () => void
 }
 
 export const Header: React.FC<HeaderProps> = ({
-  theme,
-  setTheme,
-  onOpenSettings,
-  onOpenAbout,
-  engineReady,
-  isOnline = true,
-  isUpdateReady = false,
-  onRestartToApplyUpdate
+  currentAction: propAction,
+  onOpenSettings: propOpenSettings,
+  onOpenAbout: propOpenAbout,
+  isUpdateReady: propIsUpdateReady,
+  onRestartToApplyUpdate: propRestart
 }) => {
+  const storeAction = useUIStore((s) => s.subtitleAction)
+  const storeIsUpdateReady = useUpdaterStore((s) => s.isUpdateReady)
+  const currentAction = propAction ?? storeAction
+  const onOpenSettings =
+    propOpenSettings ?? (() => useUIStore.getState().setSettingsModalOpen(true, 'general'))
+  const onOpenAbout = propOpenAbout ?? (() => useUIStore.getState().setAboutModalOpen(true))
+  const isUpdateReady = propIsUpdateReady !== undefined ? propIsUpdateReady : storeIsUpdateReady
+  const onRestartToApplyUpdate =
+    propRestart ?? (() => useUpdaterStore.getState().handleRestartToApply())
   return (
-    <header className="bg-white dark:bg-[#0B0F19] border-b border-slate-300 dark:border-slate-800 sticky top-0 z-30 shadow-xs dark:shadow-none transition-colors">
-      <div className="max-w-5xl xl:max-w-6xl 2xl:max-w-[1400px] w-full mx-auto px-6 py-3.5 flex items-center justify-between">
-        <div className="flex items-center gap-3.5">
+    <header className="bg-app-header border-b border-app-header-border pr-5 py-2.5 flex items-center justify-between shrink-0 z-20">
+      <div className="flex items-center min-w-0 flex-1">
+        {/* App Branding (Matches sidebar column width) */}
+        <div className="w-56 xl:w-60 px-5 shrink-0 flex items-center gap-2.5">
           <img
             src={appIcon}
             alt="Subtitle Sync Studio"
-            className="w-10 h-10 rounded-xl object-contain shadow-xs"
+            className="w-8 h-8 rounded-lg object-contain shadow-xs"
           />
-          <div>
-            <div className="flex items-center gap-2.5">
-              <h1 className="font-bold text-lg text-slate-900 dark:text-slate-100 tracking-tight">Subtitle Sync Studio</h1>
-              <span className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-blue-100 text-blue-900 border border-blue-300 dark:bg-blue-500/10 dark:text-blue-400 dark:border-blue-500/25">
-                v{APP_VERSION}
-              </span>
-            </div>
-            <p className="text-xs text-slate-700 dark:text-slate-300 font-medium">Automatic speech-to-subtitle audio alignment</p>
+          <div className="flex items-center gap-1.5">
+            <span className="font-bold text-sm text-app-text tracking-tight whitespace-nowrap">
+              Subtitle Sync
+            </span>
+            <span className="text-[10px] font-bold px-1.5 py-0.2 rounded-full bg-blue-50 text-blue-600 dark:bg-blue-500/10 dark:text-blue-400 border border-blue-200/60 dark:border-transparent">
+              v{APP_VERSION}
+            </span>
           </div>
         </div>
 
-      <div className="flex items-center gap-2">
-        {/* Offline Badge */}
-        {!isOnline && (
-          <div
-            className="flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold border bg-slate-100 text-slate-900 border-slate-300 dark:bg-slate-800/90 dark:text-slate-300 dark:border-slate-700 shadow-2xs"
-            title="You are currently offline. Movie speech transcription and subtitle synchronization work 100% locally."
-          >
-            <WifiOff className="w-3.5 h-3.5 text-amber-600 shrink-0" />
-            <span>Offline</span>
-          </div>
-        )}
-
-        {/* Engine Ready Badge */}
-        <div
-          className={`flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold border transition-all ${
-            engineReady
-              ? 'bg-emerald-100 text-emerald-950 border-emerald-400 dark:bg-emerald-500/10 dark:text-emerald-400 dark:border-emerald-500/25'
-              : 'bg-amber-100 text-amber-950 border-amber-400 dark:bg-amber-500/10 dark:text-amber-400 dark:border-amber-500/25'
-          }`}
-        >
-          {engineReady ? (
-            <>
-              <CheckCircle2 className="w-3.5 h-3.5 text-emerald-700" />
-              <span>Engine Ready</span>
-            </>
-          ) : (
-            <>
-              <AlertTriangle className="w-3.5 h-3.5 text-amber-700" />
-              <span>Checking Engine...</span>
-            </>
-          )}
+        {/* Active Mode Title & Description (Aligned directly at the sidebar divider line) */}
+        <div className="min-w-0 hidden sm:block pl-3.5 pt-0.5">
+          <h1 className="font-bold text-sm text-app-text tracking-tight leading-tight truncate">
+            {currentAction === 'sync' && 'Synchronize Subtitles'}
+            {currentAction === 'extract' && 'Extract Encoded Subtitles'}
+            {currentAction === 'translate' && 'Translate Subtitles (Cloud AI)'}
+            {currentAction === 'generate' && 'Generate Subtitles (Whisper AI)'}
+            {currentAction === 'batch' && 'Batch Queue Processing'}
+          </h1>
+          <p className="text-[11px] text-app-text-muted font-medium truncate">
+            {currentAction === 'sync' && 'Align out-of-sync subtitle files (.srt) automatically with movie audio'}
+            {currentAction === 'extract' && 'Extract embedded subtitle streams from MKV or MP4 video containers'}
+            {currentAction === 'translate' && 'Translate subtitle dialogue into other languages using Cloud AI (Gemini / OpenAI)'}
+            {currentAction === 'generate' && 'Transcribe speech from movie audio using local offline Whisper AI'}
+            {currentAction === 'batch' && 'Queue multiple TV series episodes or movie files to synchronize, generate, or translate in sequence'}
+          </p>
         </div>
+      </div>
 
+      {/* Right Navbar Utility Controls */}
+      <div className="flex items-center gap-1.5 shrink-0">
         {isUpdateReady && onRestartToApplyUpdate && (
           <button
+            type="button"
             onClick={onRestartToApplyUpdate}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold transition-all shadow-xs cursor-pointer animate-pulse"
-            title="Update downloaded! Click to restart and apply."
+            className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold transition-all shadow-xs cursor-pointer animate-pulse mr-1"
+            title="Update downloaded! Click to restart."
           >
             <RefreshCw className="w-3.5 h-3.5" />
             <span>Restart to Update</span>
           </button>
         )}
 
+        {/* Settings */}
         <button
+          type="button"
           onClick={onOpenSettings}
-          className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-slate-300 bg-white hover:bg-slate-50 dark:border-slate-700/80 dark:bg-transparent dark:hover:bg-slate-800 text-slate-900 dark:text-slate-200 text-xs font-bold transition-colors shadow-2xs cursor-pointer"
+          className="w-8 h-8 rounded-lg flex items-center justify-center text-app-text-muted hover:text-app-text hover:bg-app-card-inner-hover transition-colors cursor-pointer"
           title="Settings & Preferences"
+          aria-label="Open settings"
         >
-          <Settings className="w-3.5 h-3.5 text-slate-700 dark:text-slate-400" />
-          <span>Settings</span>
+          <Settings className="w-4 h-4" />
         </button>
 
+        {/* About */}
         <button
-          onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
-          className="p-2 rounded-xl text-slate-900 hover:text-black bg-white hover:bg-slate-50 border border-slate-300 dark:bg-transparent dark:border-transparent dark:text-slate-400 dark:hover:text-slate-200 dark:hover:bg-slate-800/80 transition-colors shadow-2xs cursor-pointer"
-          title={theme === 'dark' ? 'Switch to Light Mode' : 'Switch to Dark Mode'}
-        >
-          {theme === 'dark' ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
-        </button>
-
-        <button
+          type="button"
           onClick={onOpenAbout}
-          className="p-2 rounded-xl text-slate-900 hover:text-black bg-white hover:bg-slate-50 border border-slate-300 dark:bg-transparent dark:border-transparent dark:text-slate-400 dark:hover:text-slate-200 dark:hover:bg-slate-800/80 transition-colors shadow-2xs cursor-pointer"
-          title="About & GitHub"
+          className="w-8 h-8 rounded-lg flex items-center justify-center text-app-text-muted hover:text-app-text hover:bg-app-card-inner-hover transition-colors cursor-pointer"
+          title="About Subtitle Sync"
+          aria-label="About Subtitle Sync"
         >
           <Info className="w-4 h-4" />
         </button>
       </div>
-    </div>
-  </header>
+    </header>
   )
 }

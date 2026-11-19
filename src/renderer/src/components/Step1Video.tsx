@@ -1,6 +1,16 @@
 import React, { useState } from 'react'
-import { Film, Upload, CheckCircle2, Music, X, FileDown, Sparkles, AlertCircle } from 'lucide-react'
+import {
+  Film,
+  CheckCircle2,
+  Music,
+  X,
+  FileUp
+} from 'lucide-react'
 import { MetadataBadge } from './MetadataBadge'
+import { StepCard } from './common/StepCard'
+import { FileDropzone } from './common/FileDropzone'
+import { cleanPathString } from '@shared/fileSanitizer'
+import { useMediaStore, useUIStore } from '../store'
 
 export interface AudioTrack {
   index: number
@@ -21,43 +31,51 @@ export interface SubtitleTrack {
   isText: boolean
 }
 
-interface Step1VideoProps {
-  videoPath: string | null
-  videoDetails: {
+export interface Step1VideoProps {
+  videoPath?: string | null
+  videoDetails?: {
     fps: number | null
     duration: string
     resolution: string
     audioCount: number
     subtitleCount?: number
   } | null
-  audioTracks: AudioTrack[]
-  selectedTrack: number | null
+  audioTracks?: AudioTrack[]
+  selectedTrack?: number | null
   subtitleTracks?: SubtitleTrack[]
   errorMessage?: string | null
   onClearError?: () => void
-  onBrowse: () => void
-  onRemove: () => void
-  onSelectTrackModal: () => void
+  onBrowse?: () => void
+  onRemove?: () => void
+  onSelectTrackModal?: () => void
   onDropFile?: (path: string) => void
   onDropFiles?: (paths: string[]) => void
-  onSwitchToTranslate?: () => void
 }
 
 export const Step1Video: React.FC<Step1VideoProps> = ({
-  videoPath,
-  videoDetails,
-  audioTracks,
-  selectedTrack,
-  subtitleTracks = [],
+  videoPath: propVideoPath,
+  videoDetails: propVideoDetails,
+  audioTracks: propAudioTracks,
+  selectedTrack: propSelectedTrack,
+  subtitleTracks: propSubtitleTracks,
   errorMessage,
   onClearError,
   onBrowse,
   onRemove,
   onSelectTrackModal,
   onDropFile,
-  onDropFiles,
-  onSwitchToTranslate
+  onDropFiles
 }) => {
+  const mediaStore = useMediaStore()
+  const uiStore = useUIStore()
+
+  const videoPath = propVideoPath !== undefined ? propVideoPath : mediaStore.videoPath
+  const videoDetails = propVideoDetails !== undefined ? propVideoDetails : mediaStore.videoDetails
+  const audioTracks = propAudioTracks !== undefined ? propAudioTracks : mediaStore.audioTracks
+  const selectedTrack = propSelectedTrack !== undefined ? propSelectedTrack : mediaStore.selectedTrack
+  const subtitleTracks = propSubtitleTracks !== undefined ? propSubtitleTracks : mediaStore.subtitleTracks
+  const handleSelectTrackModal = onSelectTrackModal ?? (() => uiStore.setAudioModalOpen(true))
+
   const [isDragOver, setIsDragOver] = useState(false)
 
   const handleDragOver = (e: React.DragEvent) => {
@@ -77,8 +95,11 @@ export const Step1Video: React.FC<Step1VideoProps> = ({
       const paths: string[] = []
       for (let i = 0; i < e.dataTransfer.files.length; i++) {
         const file = e.dataTransfer.files[i]
-        const fullPath = window.api.getPathForFile ? window.api.getPathForFile(file) : ((file as any).path || file.name)
-        if (fullPath) paths.push(fullPath)
+        const raw = window.api.getPathForFile
+          ? window.api.getPathForFile(file)
+          : (file as any).path || file.name
+        const clean = cleanPathString(raw)
+        if (clean) paths.push(clean)
       }
       if (onDropFiles) {
         onDropFiles(paths)
@@ -89,153 +110,115 @@ export const Step1Video: React.FC<Step1VideoProps> = ({
   }
 
   const fileName = videoPath ? videoPath.split(/[\/\\]/).pop() : ''
-  const currentTrackObj = audioTracks.find((t) => t.index === selectedTrack) || audioTracks[0]
+  const currentTrackObj =
+    audioTracks.find((t) => t.index === selectedTrack) || audioTracks[0]
+
+  const headerRight = videoPath ? (
+    <span className="flex items-center gap-1.5 text-xs font-bold text-emerald-950 bg-emerald-100 border border-emerald-400 dark:text-emerald-300 dark:bg-emerald-950/40 px-2.5 py-0.5 rounded-full dark:border-emerald-700 whitespace-nowrap shrink-0">
+      <CheckCircle2 className="w-3.5 h-3.5" /> Ready
+    </span>
+  ) : undefined
 
   return (
-    <div className="bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-800 rounded-2xl p-5 shadow-xs transition-all">
-      <div className="flex items-center justify-between pb-3 mb-3.5 border-b border-slate-200 dark:border-slate-800">
-        <div className="flex items-center gap-2.5">
-          <span className="w-6 h-6 rounded-full bg-blue-800 dark:bg-blue-600 text-white font-bold text-xs flex items-center justify-center shadow-xs">
-            1
-          </span>
-          <h2 className="font-bold text-slate-900 dark:text-slate-100 text-xs tracking-wider uppercase">
-            Reference Movie / Video
-          </h2>
-        </div>
-        {videoPath && (
-          <span className="flex items-center gap-1.5 text-xs font-bold text-emerald-950 bg-emerald-100 border border-emerald-400 dark:text-emerald-300 dark:bg-emerald-950/40 px-2.5 py-0.5 rounded-full dark:border-emerald-700">
-            <CheckCircle2 className="w-3.5 h-3.5" /> Ready
-          </span>
-        )}
-      </div>
-
-      {errorMessage && (
-        <div className="mb-3.5 p-3.5 rounded-xl border border-rose-300 dark:border-rose-900/60 bg-rose-50 dark:bg-rose-950/40 text-rose-900 dark:text-rose-200 text-xs flex items-start justify-between gap-3 animate-in fade-in">
-          <div className="flex items-start gap-2.5 min-w-0">
-            <AlertCircle className="w-4 h-4 text-rose-600 dark:text-rose-400 shrink-0 mt-0.5" />
-            <div className="space-y-0.5 min-w-0">
-              <p className="font-bold text-rose-950 dark:text-rose-100">Unsupported File</p>
-              <p className="text-[11.5px] text-rose-800 dark:text-rose-300 leading-relaxed break-words">{errorMessage}</p>
-            </div>
-          </div>
-          <button
-            onClick={(e) => {
-              e.stopPropagation()
-              onClearError?.()
-            }}
-            className="text-rose-500 hover:text-rose-800 dark:hover:text-rose-200 p-1 rounded-lg shrink-0 cursor-pointer"
-            title="Dismiss message"
-          >
-            <X className="w-3.5 h-3.5" />
-          </button>
-        </div>
-      )}
-
+    <StepCard
+      step={1}
+      title="Reference Movie / Video"
+      headerRight={headerRight}
+      errorMessage={errorMessage}
+      errorTitle="Unsupported File"
+      onClearError={onClearError}
+    >
       {!videoPath ? (
-        <div
+        <FileDropzone
+          icon={<Film className="w-6 h-6" />}
+          title={
+            <>
+              Drag &amp; drop movie here, or <span className="text-blue-600 dark:text-blue-400 underline font-extrabold">browse</span>
+            </>
+          }
+          subtitle="Supports MP4, MKV, AVI, MOV, WEBM, FLV, TS, M4V (Audio track extracted automatically)"
+          isDragOver={isDragOver}
           onDragOver={handleDragOver}
           onDragLeave={handleDragLeave}
           onDrop={handleDrop}
           onClick={onBrowse}
-          className={`border-2 border-dashed rounded-xl p-7 text-center cursor-pointer transition-all duration-200 ${
-            isDragOver
-              ? 'border-blue-800 bg-blue-50 dark:bg-blue-950/40 scale-[0.99] shadow-xs'
-              : 'border-slate-400 hover:border-blue-800 bg-slate-50 hover:bg-blue-50/30 dark:border-slate-700 dark:hover:border-slate-600 dark:bg-[#0B0F19] dark:hover:bg-[#0E1424]'
-          }`}
-        >
-          <div className="w-12 h-12 rounded-xl bg-blue-800 dark:bg-slate-800 text-white dark:text-blue-400 flex items-center justify-center mx-auto mb-3 shadow-xs">
-            <Upload className="w-6 h-6" />
-          </div>
-          <p className="text-sm font-bold text-slate-900 dark:text-slate-100 mb-1">
-            Drag & drop movie file here, or <span className="text-blue-800 dark:text-blue-400 underline font-extrabold">browse</span>
-          </p>
-          <p className="text-xs text-slate-700 dark:text-slate-300 font-semibold">Supports MKV, MP4, AVI, MOV, WEBM, M4V</p>
-        </div>
+        />
       ) : (
-        <div className="bg-slate-50 dark:bg-[#0B0F19] border border-slate-300 dark:border-slate-800 rounded-xl p-4 shadow-xs">
+        <div className="bg-app-card-inner border border-app-card-inner-border rounded-xl p-4 space-y-3 shadow-2xs">
           <div className="flex items-start justify-between gap-3">
-            <div className="flex items-center gap-3.5 min-w-0">
-              <div className="w-11 h-11 rounded-xl bg-blue-800 dark:bg-blue-600 text-white shadow-xs flex items-center justify-center shrink-0">
+            <div className="flex items-center gap-3 min-w-0">
+              <div className="w-10 h-10 rounded-xl bg-app-primary text-app-primary-fg shadow-xs flex items-center justify-center shrink-0">
                 <Film className="w-5 h-5" />
               </div>
               <div className="min-w-0">
-                <p className="text-sm font-bold text-slate-900 dark:text-slate-100 truncate" title={videoPath}>
+                <p className="text-sm font-bold text-app-text truncate" title={videoPath}>
                   {fileName}
                 </p>
-                <div className="flex items-center gap-1 mt-1 flex-wrap">
-                  {videoDetails?.duration && (
-                    <MetadataBadge variant="mono" icon="⏱" label={videoDetails.duration} />
-                  )}
+                {/* Video details: 🎬 FPS • ⏱️ Duration • 📺 Resolution • 🎵 Audio stream count */}
+                <div className="flex flex-wrap items-center gap-1.5 mt-1">
                   {videoDetails?.fps && (
-                    <MetadataBadge variant="mono" icon="🎬" label={`${videoDetails.fps.toFixed(3)} fps`} />
+                    <MetadataBadge icon="🎬" label={`${videoDetails.fps} fps`} />
+                  )}
+                  {videoDetails?.duration && (
+                    <MetadataBadge icon="⏱️" label={videoDetails.duration} />
                   )}
                   {videoDetails?.resolution && (
-                    <MetadataBadge variant="mono" icon="🖥️" label={videoDetails.resolution} />
+                    <MetadataBadge variant="mono" icon="📺" label={videoDetails.resolution} />
+                  )}
+                  {audioTracks.length > 0 && (
+                    <MetadataBadge variant="mono" icon="🎵" label={`${audioTracks.length} audio track${audioTracks.length === 1 ? '' : 's'}`} />
                   )}
                 </div>
               </div>
             </div>
 
-            <button
-              onClick={onRemove}
-              className="p-1.5 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-slate-200/60 dark:hover:bg-rose-500/10 transition-colors cursor-pointer"
-              title="Remove movie"
-            >
-              <X className="w-4 h-4" />
-            </button>
+            <div className="flex items-center gap-2 shrink-0">
+              <button
+                type="button"
+                onClick={onBrowse}
+                className="text-xs font-semibold px-2.5 py-1.5 rounded-lg border border-app-btn-border bg-app-btn hover:bg-app-btn-hover text-app-btn-text transition-colors cursor-pointer shadow-2xs"
+              >
+                Change
+              </button>
+              <button
+                type="button"
+                onClick={onRemove}
+                className="p-1.5 rounded-lg text-app-text-muted hover:text-rose-500 hover:bg-app-card-inner-hover transition-colors cursor-pointer"
+                title="Remove video"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
           </div>
 
-          {/* Audio Tracks & Encoded Subtitles Information (Combined into single row) */}
-          {(audioTracks.length > 0 || (subtitleTracks && subtitleTracks.length > 0) || videoPath) && (
-            <div className="mt-3.5 pt-3 border-t border-slate-200 dark:border-slate-800 flex items-center justify-between flex-wrap gap-x-6 gap-y-2 text-xs">
-              <div className="flex items-center gap-4 sm:gap-6 flex-wrap">
-                {/* Audio Tracks Count & Languages */}
-                {audioTracks.length > 0 && (
-                  <div className="flex items-center gap-2 text-slate-800 dark:text-slate-300">
-                    <Music className="w-3.5 h-3.5 text-blue-700 dark:text-blue-400 shrink-0" />
-                    <span>
-                      Audio Tracks:{' '}
-                      <strong className="text-blue-900 dark:text-blue-300 font-bold">
-                        {audioTracks.length} {audioTracks.length === 1 ? 'Track' : 'Tracks'} Detected ({audioTracks
-                          .slice(0, 4)
-                          .map((t) => (t.language ? t.language.toUpperCase() : 'UNK'))
-                          .join(', ')}
-                        {audioTracks.length > 4 ? '...' : ''})
-                      </strong>
+          {/* Active Audio Track & Subtitle Track Detection Row */}
+          {(currentTrackObj || subtitleTracks.length > 0) && (
+            <div className="pt-3 border-t border-app-card-inner-border flex flex-wrap items-center justify-between gap-2.5 text-xs">
+              <div className="flex flex-wrap items-center gap-3">
+                {currentTrackObj && (
+                  <div className="flex items-center gap-1.5 font-bold text-app-text">
+                    <Music className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400 shrink-0" />
+                    <span>Reference Audio:</span>
+                    <span className="font-semibold text-app-text">
+                      Track #{currentTrackObj.index + 1}
+                      {currentTrackObj.language && ` (${currentTrackObj.language.toUpperCase()})`}
+                      {currentTrackObj.title && ` - ${currentTrackObj.title}`}
+                      {currentTrackObj.channels && ` [${currentTrackObj.channels}ch ${currentTrackObj.codec}]`}
                     </span>
                   </div>
                 )}
 
-                {/* Encoded Subtitle Tracks Count & Languages */}
-                {subtitleTracks && subtitleTracks.length > 0 ? (
-                  <div className="flex items-center gap-2 flex-wrap text-slate-800 dark:text-slate-300">
-                    <FileDown className="w-3.5 h-3.5 text-emerald-700 dark:text-emerald-400 shrink-0" />
-                    <span>
-                      Encoded Subtitles:{' '}
-                      <strong className="text-emerald-800 dark:text-emerald-400 font-bold">
-                        {subtitleTracks.length} {subtitleTracks.length === 1 ? 'Track' : 'Tracks'} Detected ({subtitleTracks
-                          .slice(0, 4)
-                          .map((t) => t.language.toUpperCase())
-                          .join(', ')}
-                        {subtitleTracks.length > 4 ? '...' : ''})
-                      </strong>
+                {subtitleTracks.length > 0 ? (
+                  <div className="flex items-center gap-1.5 font-bold text-app-text">
+                    <FileUp className="w-3.5 h-3.5 text-emerald-700 dark:text-emerald-400 shrink-0" />
+                    <span>Embedded Subtitles:</span>
+                    <span className="font-semibold text-app-text">
+                      {subtitleTracks.length} track{subtitleTracks.length === 1 ? '' : 's'} detected in container
                     </span>
-
-                    {onSwitchToTranslate && subtitleTracks.some((t) => t.isText) && (
-                      <button
-                        type="button"
-                        onClick={onSwitchToTranslate}
-                        className="inline-flex items-center gap-1 text-[11px] font-bold text-blue-700 dark:text-blue-300 hover:text-blue-800 dark:hover:text-blue-200 cursor-pointer bg-blue-100/80 dark:bg-blue-950/70 hover:bg-blue-200/80 dark:hover:bg-blue-900/60 border border-blue-300/80 dark:border-blue-800 px-2.5 py-0.5 rounded-full transition-all shadow-2xs ml-1"
-                        title="Extract and translate this movie's embedded subtitles with AI"
-                      >
-                        <Sparkles className="w-3 h-3 text-blue-600 dark:text-blue-400" />
-                        <span>Translate with AI</span>
-                      </button>
-                    )}
                   </div>
                 ) : videoPath ? (
-                  <div className="flex items-center gap-1.5 text-slate-500 dark:text-slate-400">
-                    <FileDown className="w-3.5 h-3.5 opacity-50 shrink-0" />
+                  <div className="flex items-center gap-1.5 text-app-text-muted">
+                    <FileUp className="w-3.5 h-3.5 opacity-50 shrink-0" />
                     <span>Encoded Subtitles: None detected in container</span>
                   </div>
                 ) : null}
@@ -244,8 +227,9 @@ export const Step1Video: React.FC<Step1VideoProps> = ({
               {/* Change Audio Track Button */}
               {audioTracks.length > 1 && (
                 <button
-                  onClick={onSelectTrackModal}
-                  className="text-xs font-bold text-white bg-blue-800 hover:bg-blue-900 dark:bg-blue-600 dark:hover:bg-blue-500 shadow-2xs px-3 py-1 rounded-lg transition-all cursor-pointer shrink-0 ml-auto"
+                  type="button"
+                  onClick={handleSelectTrackModal}
+                  className="text-xs font-bold text-app-primary-fg bg-app-primary hover:bg-app-primary-hover shadow-2xs px-3 py-1 rounded-lg transition-all cursor-pointer shrink-0 ml-auto"
                 >
                   Change Audio Track ({audioTracks.length})
                 </button>
@@ -254,6 +238,6 @@ export const Step1Video: React.FC<Step1VideoProps> = ({
           )}
         </div>
       )}
-    </div>
+    </StepCard>
   )
 }

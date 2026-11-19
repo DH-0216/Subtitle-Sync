@@ -1,5 +1,8 @@
 import React, { useEffect } from 'react'
-import { X, Cpu, Download, Loader2, AlertCircle, HardDrive, WifiOff } from 'lucide-react'
+import { Cpu, Download, Loader2, AlertCircle, HardDrive, WifiOff } from 'lucide-react'
+import { formatBytes } from '@shared/fileSanitizer'
+import { ModalHeader, Badge } from './common'
+import { useWhisperStore } from '../store'
 
 export interface WhisperModelModalItem {
   id: string
@@ -10,44 +13,52 @@ export interface WhisperModelModalItem {
   description?: string
 }
 
-interface ModelDownloadModalProps {
-  isOpen: boolean
-  onClose: () => void
-  modelQuality: string
+export interface ModelDownloadModalProps {
+  isOpen?: boolean
+  onClose?: () => void
+  modelQuality?: string
   modelInfo?: WhisperModelModalItem | null
-  isDownloading: boolean
-  downloadProgress: number
+  isDownloading?: boolean
+  downloadProgress?: number
   downloadSpeed?: string
   downloadedBytes?: number
   totalBytes?: number
   errorMessage?: string | null
-  onStartDownload: () => void
-  onCancelDownload: () => void
-}
-
-function formatBytes(bytes?: number): string {
-  if (!bytes || bytes <= 0) return '0 MB'
-  const mb = bytes / (1024 * 1024)
-  if (mb >= 1024) {
-    return `${(mb / 1024).toFixed(2)} GB`
-  }
-  return `${mb.toFixed(1)} MB`
+  onStartDownload?: () => void
+  onCancelDownload?: () => void
 }
 
 export const ModelDownloadModal: React.FC<ModelDownloadModalProps> = ({
-  isOpen,
-  onClose,
-  modelQuality,
-  modelInfo,
-  isDownloading,
-  downloadProgress,
-  downloadSpeed,
-  downloadedBytes,
-  totalBytes,
-  errorMessage,
-  onStartDownload,
-  onCancelDownload
+  isOpen: propIsOpen,
+  onClose: propOnClose,
+  modelQuality: propModelQuality,
+  modelInfo: propModelInfo,
+  isDownloading: propIsDownloading,
+  downloadProgress: propDownloadProgress,
+  downloadSpeed: propDownloadSpeed,
+  downloadedBytes: propDownloadedBytes,
+  totalBytes: propTotalBytes,
+  errorMessage: propErrorMessage,
+  onStartDownload: propOnStartDownload,
+  onCancelDownload: propOnCancelDownload
 }) => {
+  const store = useWhisperStore()
+
+  const isOpen = propIsOpen !== undefined ? propIsOpen : store.downloadModalOpen
+  const onClose = propOnClose ?? (() => store.setDownloadModalOpen(false))
+  const modelQuality = propModelQuality !== undefined ? propModelQuality : store.activeModelQuality
+  const modelInfo =
+    propModelInfo !== undefined
+      ? propModelInfo
+      : store.whisperModels.find((m) => m.id === modelQuality)
+  const isDownloading = propIsDownloading !== undefined ? propIsDownloading : store.isDownloadingModel
+  const downloadProgress = propDownloadProgress !== undefined ? propDownloadProgress : store.modelDownloadProgress
+  const downloadSpeed = propDownloadSpeed !== undefined ? propDownloadSpeed : store.modelDownloadSpeed
+  const downloadedBytes = propDownloadedBytes !== undefined ? propDownloadedBytes : store.modelDownloadedBytes
+  const totalBytes = propTotalBytes !== undefined ? propTotalBytes : store.modelTotalBytes
+  const errorMessage = propErrorMessage !== undefined ? propErrorMessage : store.modelDownloadError
+  const onStartDownload = propOnStartDownload ?? (() => store.handleStartDownloadModel())
+  const onCancelDownload = propOnCancelDownload ?? (() => store.handleCancelDownloadModel())
   useEffect(() => {
     if (!isOpen) return
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -87,49 +98,29 @@ export const ModelDownloadModal: React.FC<ModelDownloadModalProps> = ({
         if (e.target === e.currentTarget && !isDownloading) onClose()
       }}
     >
-      <div className="bg-white dark:bg-[#0B0F19] border border-slate-200 dark:border-slate-800 rounded-2xl w-full max-w-[480px] shadow-2xl p-6 transition-colors">
+      <div className="bg-app-card border border-app-card-border rounded-2xl w-full max-w-[480px] shadow-2xl overflow-hidden transition-colors">
         {/* Header */}
-        <div className="flex items-center justify-between pb-3.5 mb-4 border-b border-slate-100 dark:border-slate-800/80">
-          <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-xl bg-blue-50 border border-blue-200 dark:bg-blue-500/10 dark:border-blue-500/20 flex items-center justify-center text-blue-600 dark:text-blue-400">
-              <Cpu className="w-5 h-5" />
-            </div>
-            <div>
-              <h3 className="font-bold text-slate-900 dark:text-slate-100 text-sm">
-                Whisper AI Model Required
-              </h3>
-              <p className="text-xs text-slate-500 dark:text-slate-400">
-                One-time download for offline speech transcription
-              </p>
-            </div>
-          </div>
+        <ModalHeader
+          title="Whisper AI Model Required"
+          subtitle="One-time download for offline speech transcription"
+          icon={<Cpu className="w-5 h-5" />}
+          onClose={isDownloading ? () => {} : onClose}
+        />
 
-          {!isDownloading && (
-            <button
-              onClick={onClose}
-              className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
-              title="Close"
-            >
-              <X className="w-4 h-4" />
-            </button>
-          )}
-        </div>
-
+        <div className="p-6 pt-4">
         {/* Model Card Info */}
         <div className="p-4 rounded-xl border border-blue-200/90 dark:border-blue-900/50 bg-blue-50/50 dark:bg-blue-950/20 mb-4 space-y-2">
           <div className="flex items-center justify-between">
             <span className="font-mono font-bold text-xs text-blue-900 dark:text-blue-200">
               {currentInfo.name}
             </span>
-            <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-blue-100 text-blue-800 dark:bg-blue-500/20 dark:text-blue-300">
-              {currentInfo.size}
-            </span>
+            <Badge text={currentInfo.size} variant="primary" size="xs" />
           </div>
-          <p className="text-xs text-slate-600 dark:text-slate-400 leading-relaxed">
+          <p className="text-xs text-app-text-muted leading-relaxed">
             {currentInfo.desc}. Stored locally in your app folder so you can transcribe speech completely offline anytime.
           </p>
 
-          <div className="pt-2 border-t border-blue-100/60 dark:border-blue-900/30 flex items-center gap-1.5 text-[11px] text-slate-500 dark:text-slate-400">
+          <div className="pt-2 border-t border-blue-100/60 dark:border-blue-900/30 flex items-center gap-1.5 text-[11px] text-app-text-muted">
             <HardDrive className="w-3.5 h-3.5" />
             <span>Saved permanently to local storage</span>
           </div>
@@ -157,7 +148,7 @@ export const ModelDownloadModal: React.FC<ModelDownloadModalProps> = ({
             <div className="flex items-center justify-between text-xs">
               <div className="flex items-center gap-2 min-w-0">
                 <Loader2 className="w-4 h-4 text-blue-600 dark:text-blue-400 animate-spin shrink-0" />
-                <span className="font-semibold text-slate-800 dark:text-slate-200">
+                <span className="font-semibold text-app-text">
                   Downloading model...
                 </span>
               </div>
@@ -166,14 +157,14 @@ export const ModelDownloadModal: React.FC<ModelDownloadModalProps> = ({
               </span>
             </div>
 
-            <div className="h-3 w-full bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden p-0.5 border border-slate-200 dark:border-slate-700">
+            <div className="h-3 w-full bg-app-canvas rounded-full overflow-hidden p-0.5 border border-app-card-inner-border">
               <div
                 className="h-full rounded-full bg-gradient-to-r from-blue-600 to-indigo-500 transition-all duration-300"
                 style={{ width: `${Math.min(100, Math.max(3, downloadProgress))}%` }}
               />
             </div>
 
-            <div className="flex items-center justify-between text-[11px] text-slate-500 dark:text-slate-400 font-medium">
+            <div className="flex items-center justify-between text-[11px] text-app-text-muted font-medium">
               <span>{formatBytes(downloadedBytes)} / {formatBytes(totalBytes) || currentInfo.size}</span>
               <span className="font-mono text-blue-600 dark:text-blue-400 font-semibold">
                 {downloadSpeed || 'Calculating speed...'}
@@ -194,7 +185,7 @@ export const ModelDownloadModal: React.FC<ModelDownloadModalProps> = ({
             <button
               type="button"
               onClick={onClose}
-              className="px-4 py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 text-slate-700 dark:text-slate-300 text-xs font-semibold hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
+              className="px-4 py-2.5 rounded-xl border border-app-btn-border bg-app-btn hover:bg-app-btn-hover text-app-btn-text text-xs font-semibold transition-colors cursor-pointer"
             >
               Cancel
             </button>
@@ -202,13 +193,14 @@ export const ModelDownloadModal: React.FC<ModelDownloadModalProps> = ({
             <button
               type="button"
               onClick={onStartDownload}
-              className="flex-1 py-2.5 rounded-xl bg-blue-800 hover:bg-blue-900 dark:bg-blue-600 dark:hover:bg-blue-500 text-white font-semibold text-xs flex items-center justify-center gap-2 transition-all shadow-2xs active:scale-[0.99] cursor-pointer"
+              className="flex-1 py-2.5 rounded-xl bg-app-primary hover:bg-app-primary-hover text-app-primary-fg font-semibold text-xs flex items-center justify-center gap-2 transition-all shadow-2xs active:scale-[0.99] cursor-pointer"
             >
               <Download className="w-4 h-4" />
               <span>Start Download ({currentInfo.size})</span>
             </button>
           </div>
         )}
+        </div>
       </div>
     </div>
   )

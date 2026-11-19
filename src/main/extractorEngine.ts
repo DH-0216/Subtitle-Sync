@@ -6,8 +6,10 @@
 import { spawn, ChildProcess } from 'child_process'
 import { join, dirname, basename, extname, resolve } from 'path'
 import * as fs from 'fs'
+import { app } from 'electron'
 import { getFfmpegPath, SubtitleTrackInfo, killProcessTree } from './media'
 import { parseSrt, formatHms } from './srtTools'
+import { cleanPathString } from '@shared/fileSanitizer'
 
 let activeExtractProcess: ChildProcess | null = null
 let isExtractionCancelled = false
@@ -20,6 +22,7 @@ export interface ExtractSingleParams {
   outputPath?: string
   outputDir?: string
   cleanTags?: boolean
+  isTemporary?: boolean
 }
 
 export interface ExtractSingleResult {
@@ -127,7 +130,10 @@ export async function extractSingleSubtitleTrack(
   params: ExtractSingleParams,
   onLog?: (line: string) => void
 ): Promise<ExtractSingleResult> {
-  const { videoPath, track, outputDir, cleanTags = true } = params
+  const videoPath = cleanPathString(params.videoPath)
+  const outputDir = cleanPathString(params.outputDir)
+  const outputPath = cleanPathString(params.outputPath)
+  const { track, cleanTags = true, isTemporary = false } = params
 
   if (!fs.existsSync(videoPath)) {
     return {
@@ -140,7 +146,12 @@ export async function extractSingleSubtitleTrack(
     }
   }
 
-  const outPath = params.outputPath || buildDefaultSrtOutputPath(videoPath, track, outputDir)
+  const targetDir = isTemporary ? app.getPath('temp') : (outputDir || dirname(videoPath))
+  const outPath =
+    outputPath ||
+    (isTemporary
+      ? join(targetDir, `temp_extract_${Date.now()}_track${track.index + 1}.srt`)
+      : buildDefaultSrtOutputPath(videoPath, track, outputDir))
   const ffmpegRaw = getFfmpegPath()
   const ffmpeg = resolve(ffmpegRaw)
 
@@ -293,7 +304,9 @@ export async function extractMultipleSubtitleTracks(
   onProgress?: (progress: { percent: number; message: string; currentTrack?: string }) => void,
   onLog?: (line: string) => void
 ): Promise<ExtractMultipleResult> {
-  const { videoPath, tracks, outputDir, cleanTags = true } = params
+  const videoPath = cleanPathString(params.videoPath)
+  const outputDir = cleanPathString(params.outputDir)
+  const { tracks, cleanTags = true } = params
   const extracted: ExtractSingleResult[] = []
   const failed: ExtractSingleResult[] = []
 

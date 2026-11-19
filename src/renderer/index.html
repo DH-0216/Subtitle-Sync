@@ -4,8 +4,27 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Subtitle Sync Studio</title>
+    <script>
+      try {
+        var t = localStorage.getItem('app_theme');
+        if (t === 'glass') {
+          document.documentElement.setAttribute('data-theme', 'glass');
+          document.documentElement.setAttribute('data-theme-mode', 'glass');
+          document.documentElement.classList.add('dark', 'glass');
+        } else if (t === 'light') {
+          document.documentElement.setAttribute('data-theme', 'light');
+          document.documentElement.setAttribute('data-theme-mode', 'light');
+          document.documentElement.classList.remove('dark', 'glass');
+        } else if (t === 'dark') {
+          document.documentElement.setAttribute('data-theme', 'dark');
+          document.documentElement.setAttribute('data-theme-mode', 'dark');
+          document.documentElement.classList.add('dark');
+          document.documentElement.classList.remove('glass');
+        }
+      } catch (e) {}
+    </script>
   </head>
-  <body class="bg-slate-100 dark:bg-[#0B0F19] text-slate-900 dark:text-slate-100 antialiased select-none overflow-x-hidden font-sans transition-colors duration-200">
+  <body class="bg-app-canvas text-app-text antialiased select-none overflow-x-hidden font-sans transition-colors duration-200">
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>

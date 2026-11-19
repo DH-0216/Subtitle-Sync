@@ -17,9 +17,9 @@ export const MetadataBadge: React.FC<MetadataBadgeProps> = ({
 }) => {
   const variantStyles = {
     default:
-      'bg-slate-200 text-slate-900 border-slate-300 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700 font-medium dark:font-normal',
+      'bg-app-card-inner-hover text-app-text border-app-card-inner-border font-medium dark:font-normal',
     mono:
-      'bg-slate-200 text-slate-900 border-slate-300 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700 font-mono font-medium dark:font-normal',
+      'bg-app-card-inner-hover text-app-text border-app-card-inner-border font-mono font-medium dark:font-normal',
     emerald:
       'bg-emerald-100 text-emerald-900 border-emerald-300 dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-700 font-medium dark:font-normal',
     amber:

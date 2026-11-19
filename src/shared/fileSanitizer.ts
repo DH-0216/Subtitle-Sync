@@ -54,7 +54,8 @@ function isWindowsEnvironment(): boolean {
  * - Trims leading/trailing whitespace and zero-width spaces
  * - Strips enclosing double ("...") or single ('...') or curly quotes (“...”)
  * - Handles file:// and file:/// URL schemes
- * - Strips null bytes (\0)
+ * - Strips null bytes (\0), linebreaks, and control characters
+ * - Fixes leading slash before drive letters on Windows (e.g. /C:/path -> C:/path)
  */
 export function cleanPathString(rawPath: unknown): string {
   try {
@@ -63,8 +64,8 @@ export function cleanPathString(rawPath: unknown): string {
     let p = rawPath.trim()
     if (!p) return ''
 
-    // Remove zero-width spaces and control characters
-    p = p.replace(/[\u200B-\u200D\uFEFF\0]/g, '')
+    // Remove zero-width spaces, null bytes, linebreaks, and control characters
+    p = p.replace(/[\u200B-\u200D\uFEFF\0\r\n\t]/g, '')
 
     // Remove leading and trailing quotes (including curly, smart, backticks)
     p = p.replace(/^["'“”‘’`]+|["'“”‘’`]+$/g, '').trim()
@@ -78,10 +79,33 @@ export function cleanPathString(rawPath: unknown): string {
       }
     }
 
+    // On Windows, fix leading slash before drive letter from file URLs e.g. /C:/path/to/file -> C:/path/to/file
+    if (isWindowsEnvironment() && /^\/[a-zA-Z]:/.test(p)) {
+      p = p.substring(1)
+    }
+
     return p.trim()
   } catch {
     return typeof rawPath === 'string' ? rawPath.trim() : ''
   }
+}
+
+/**
+ * Sanitize an array of file path strings:
+ * Cleans each path, strips empty paths, and deduplicates the list preserving order.
+ */
+export function sanitizeFilePaths(rawPaths: unknown[]): string[] {
+  if (!Array.isArray(rawPaths)) return []
+  const unique = new Set<string>()
+  const result: string[] = []
+  for (const raw of rawPaths) {
+    const clean = cleanPathString(raw)
+    if (clean && !unique.has(clean)) {
+      unique.add(clean)
+      result.push(clean)
+    }
+  }
+  return result
 }
 
 /**
@@ -244,4 +268,16 @@ export interface FileValidationItem {
   isValid: boolean
   errorMessage?: string
   directorySubtitles?: string[]
+}
+
+/**
+ * Shared byte size formatter across modals and file displays.
+ */
+export function formatBytes(bytes?: number): string {
+  if (!bytes || bytes <= 0) return '0 MB'
+  const mb = bytes / (1024 * 1024)
+  if (mb >= 1024) {
+    return `${(mb / 1024).toFixed(2)} GB`
+  }
+  return `${mb.toFixed(1)} MB`
 }
