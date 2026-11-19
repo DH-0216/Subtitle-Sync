@@ -111,7 +111,7 @@ function loadSettings() {
   } catch (e) {
     console.error('Failed to load settings:', e)
   }
-  return { theme: 'dark', checkUpdates: true, defaultMode: 'Standard' }
+  return { theme: 'dark', checkUpdates: true, defaultMode: 'Standard', saveBridgeFile: false }
 }
 
 function saveSettings(settings: any) {
@@ -908,6 +908,10 @@ app.whenReady().then(() => {
     if (params) {
       if (params.video) params.video = cleanPathString(params.video)
       if (params.sourceSubPath) params.sourceSubPath = cleanPathString(params.sourceSubPath)
+      if (params.saveBridgeFile === undefined) {
+        const diskSettings = loadSettings()
+        params.saveBridgeFile = Boolean(diskSettings?.saveBridgeFile)
+      }
     }
     const job = (params?.sourceType === 'subtitle' || (!params?.video && params?.sourceSubPath)) ? 'translate' : 'generate'
     try {

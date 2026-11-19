@@ -22,6 +22,8 @@ export interface SettingsModalProps {
   setNotificationsEnabled?: (n: boolean) => void;
   defaultSubtitleFormat?: 'srt' | 'vtt' | 'txt';
   setDefaultSubtitleFormat?: (fmt: 'srt' | 'vtt' | 'txt') => void;
+  saveBridgeFile?: boolean;
+  setSaveBridgeFile?: (s: boolean) => void;
   aiApiKey?: string;
   setAiApiKey?: (k: string) => void;
   aiProvider?: AiProviderId;
@@ -53,6 +55,8 @@ export function useSettingsModalState(props: SettingsModalProps = {}) {
   const setNotificationsEnabled = props.setNotificationsEnabled ?? storeSettings.setNotificationsEnabled;
   const defaultSubtitleFormat = props.defaultSubtitleFormat ?? storeSettings.defaultSubtitleFormat;
   const setDefaultSubtitleFormat = props.setDefaultSubtitleFormat ?? storeSettings.setDefaultSubtitleFormat;
+  const saveBridgeFile = props.saveBridgeFile ?? storeSettings.saveBridgeFile;
+  const setSaveBridgeFile = props.setSaveBridgeFile ?? storeSettings.setSaveBridgeFile;
   const aiApiKey = props.aiApiKey ?? storeSettings.aiApiKey;
   const setAiApiKey = props.setAiApiKey ?? storeSettings.setAiApiKey;
   const aiProvider = props.aiProvider ?? storeSettings.aiProvider;
@@ -190,6 +194,8 @@ export function useSettingsModalState(props: SettingsModalProps = {}) {
       checkUpdates,
       autoDownloadUpdates,
       notificationsEnabled,
+      defaultSubtitleFormat,
+      saveBridgeFile,
       aiApiKey: draftApiKey,
       aiProvider: draftProvider,
       aiModel: draftModel,
@@ -371,19 +377,15 @@ export function useSettingsModalState(props: SettingsModalProps = {}) {
 
   const handleSelectTheme = (newTheme: ThemeMode) => {
     setTheme(newTheme);
+    if (props.setTheme) {
+      window.api?.settings?.save?.({ theme: newTheme });
+    }
   };
 
   const handleToggleAutoUpdate = (enabled: boolean) => {
     setCheckUpdates(enabled);
-    window.api?.settings?.save({
-      theme,
-      checkUpdates: enabled,
-      autoDownloadUpdates,
-      notificationsEnabled,
-      aiApiKey,
-      aiProvider,
-      aiModel,
-      aiPrompt
+    window.api?.settings?.save?.({
+      checkUpdates: enabled
     });
   };
 
@@ -391,15 +393,8 @@ export function useSettingsModalState(props: SettingsModalProps = {}) {
     if (setAutoDownloadUpdates) {
       setAutoDownloadUpdates(enabled);
     }
-    window.api?.settings?.save({
-      theme,
-      checkUpdates,
-      autoDownloadUpdates: enabled,
-      notificationsEnabled,
-      aiApiKey,
-      aiProvider,
-      aiModel,
-      aiPrompt
+    window.api?.settings?.save?.({
+      autoDownloadUpdates: enabled
     });
     toast.success(
       enabled
@@ -412,15 +407,8 @@ export function useSettingsModalState(props: SettingsModalProps = {}) {
     if (setNotificationsEnabled) {
       setNotificationsEnabled(enabled);
     }
-    window.api?.settings?.save({
-      theme,
-      checkUpdates,
-      autoDownloadUpdates,
-      notificationsEnabled: enabled,
-      aiApiKey,
-      aiProvider,
-      aiModel,
-      aiPrompt
+    window.api?.settings?.save?.({
+      notificationsEnabled: enabled
     });
     toast.success(
       enabled
@@ -437,6 +425,20 @@ export function useSettingsModalState(props: SettingsModalProps = {}) {
       defaultSubtitleFormat: format
     });
     toast.success(`Default subtitle format set to .${format.toUpperCase()}`);
+  };
+
+  const handleToggleSaveBridgeFile = (enabled: boolean) => {
+    if (setSaveBridgeFile) {
+      setSaveBridgeFile(enabled);
+    }
+    window.api?.settings?.save?.({
+      saveBridgeFile: enabled
+    });
+    toast.success(
+      enabled
+        ? "Enabled: Intermediate English bridge subtitles will be saved"
+        : "Disabled: Intermediate bridge subtitles will be removed after translation"
+    );
   };
 
   const handleCheckNow = async () => {
@@ -650,6 +652,8 @@ export function useSettingsModalState(props: SettingsModalProps = {}) {
     handleToggleNotifications,
     defaultSubtitleFormat,
     handleSelectDefaultSubtitleFormat,
+    saveBridgeFile,
+    handleToggleSaveBridgeFile,
     handleCheckNow,
     handleOpenGitHub,
     handleOpenKeyPortal,

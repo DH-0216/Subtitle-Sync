@@ -7,6 +7,8 @@ export interface SettingsGeneralTabProps {
   onSelectTheme: (t: ThemeMode) => void
   defaultSubtitleFormat?: 'srt' | 'vtt' | 'txt'
   onSelectDefaultSubtitleFormat?: (fmt: 'srt' | 'vtt' | 'txt') => void
+  saveBridgeFile?: boolean
+  onToggleSaveBridgeFile?: (s: boolean) => void
   checkUpdates: boolean
   onToggleAutoUpdate: (c: boolean) => void
   autoDownloadUpdates: boolean
@@ -28,6 +30,8 @@ export const SettingsGeneralTab: React.FC<SettingsGeneralTabProps> = ({
   onSelectTheme,
   defaultSubtitleFormat = 'srt',
   onSelectDefaultSubtitleFormat,
+  saveBridgeFile = false,
+  onToggleSaveBridgeFile,
   checkUpdates,
   onToggleAutoUpdate,
   autoDownloadUpdates,
@@ -89,6 +93,24 @@ export const SettingsGeneralTab: React.FC<SettingsGeneralTabProps> = ({
         <p className="text-[11px] text-app-text-muted">
           SubRip (.srt) is universally supported by VLC, television sets, home theaters, and all media players.
         </p>
+
+        {/* Row 2: Save Intermediate Bridge Subtitles */}
+        <div className="pt-3 border-t border-app-card-inner-border flex items-center justify-between gap-3">
+          <div>
+            <h4 className="font-bold text-sm text-app-text">
+              Save Intermediate English Subtitles (Bridge Files)
+            </h4>
+            <p className="text-[11px] text-app-text-muted mt-0.5">
+              When translating video speech into Sinhala, Tamil, Hindi, or Spanish, also keep the intermediate English transcription created by Whisper
+            </p>
+          </div>
+
+          <ToggleSwitch
+            checked={Boolean(saveBridgeFile)}
+            onChange={(checked) => onToggleSaveBridgeFile?.(checked)}
+            title="Toggle saving intermediate bridge subtitles"
+          />
+        </div>
       </div>
 
       {/* Card 2: Software Updates */}

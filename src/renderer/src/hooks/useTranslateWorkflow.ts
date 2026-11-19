@@ -51,6 +51,7 @@ export function useTranslateWorkflow(options: UseTranslateWorkflowOptions = {}) 
   const notifyJobComplete = options.notifyJobComplete ?? settingsStore.notifyJobComplete
   const onOutputReady = options.onOutputReady ?? mediaStore.setOutput
   const [translateSubPath, setTranslateSubPath] = useState<string | null>(null)
+  const [isTempExtraction, setIsTempExtraction] = useState(false)
   const [translateLanguage, setTranslateLanguage] = useState('si')
   const [translateFormat, setTranslateFormat] = useState<'srt' | 'vtt' | 'txt'>('srt')
   const [translateSubError, setTranslateSubError] = useState<string | null>(null)
@@ -82,6 +83,7 @@ export function useTranslateWorkflow(options: UseTranslateWorkflowOptions = {}) 
     }
     setTranslateSubError(null)
     setTranslateSubPath(clean)
+    setIsTempExtraction(false)
     if (videoPath) {
       onRemoveVideo()
     }
@@ -133,6 +135,7 @@ export function useTranslateWorkflow(options: UseTranslateWorkflowOptions = {}) 
 
       if (res.success && res.outputPath) {
         setTranslateSubPath(res.outputPath)
+        setIsTempExtraction(true)
         setTranslateLanguage('si')
         toast.success(`Track #${track.index + 1} selected! Ready for translation.`, { duration: 3500, icon: '✨' })
         addLog(`[AI TRANSLATION] Subtitle extracted to temporary file: ${res.outputPath}`)
@@ -182,15 +185,21 @@ export function useTranslateWorkflow(options: UseTranslateWorkflowOptions = {}) 
         trackIndex: 0,
         sourceType: 'subtitle',
         sourceSubPath: translateSubPath,
+        deleteSourceAfter: isTempExtraction,
         language: translateLanguage,
         format: translateFormat,
         aiApiKey,
         aiProvider,
         aiModel,
-        customPrompt: resolveEffectiveAiPrompt(translateLanguage, aiPrompt, aiPromptsByLang)
+        customPrompt: resolveEffectiveAiPrompt(translateLanguage, aiPrompt, aiPromptsByLang),
+        saveBridgeFile: settingsStore.saveBridgeFile
       })
 
       if (res?.success) {
+        if (isTempExtraction) {
+          setTranslateSubPath(res.bridgeOutput || null)
+          setIsTempExtraction(false)
+        }
         setTranslateProgress(100)
         setTranslateStatusMessage('AI subtitle translation complete!')
         toast.success('Subtitle translated successfully!', { duration: 4000 })
@@ -226,7 +235,7 @@ export function useTranslateWorkflow(options: UseTranslateWorkflowOptions = {}) 
     } finally {
       setIsTranslatingSync(false)
     }
-  }, [addLog, aiApiKey, aiModel, aiPrompt, aiProvider, isOnline, notifyJobComplete, onOpenSettingsAiTab, onOutputReady, setIsTranslatingSync, translateFormat, translateLanguage, translateSubPath, videoPath])
+  }, [addLog, aiApiKey, aiModel, aiPrompt, aiProvider, isOnline, isTempExtraction, notifyJobComplete, onOpenSettingsAiTab, onOutputReady, setIsTranslatingSync, settingsStore.saveBridgeFile, translateFormat, translateLanguage, translateSubPath, videoPath])
 
   const handleCancelTranslate = useCallback(async () => {
     translateCancelledRef.current = true

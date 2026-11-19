@@ -133,7 +133,7 @@ export interface IElectronAPI {
     checkWhisper: () => Promise<{ exists: boolean; path: string | null }>
     downloadModel: (quality: string) => Promise<{ success: boolean; path?: string; error?: string }>
     cancelDownload: () => Promise<boolean>
-    startGenerate: (params: any) => Promise<{ success: boolean; output?: string; message?: string; error?: string }>
+    startGenerate: (params: any) => Promise<{ success: boolean; output?: string; bridgeOutput?: string; message?: string; error?: string }>
     cancelGenerate: (job?: 'translate' | 'generate') => Promise<boolean>
     onDownloadProgress: (callback: (data: {
       percent: number

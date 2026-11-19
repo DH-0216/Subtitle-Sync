@@ -29,6 +29,7 @@ export interface SettingsState {
   autoDownloadUpdates: boolean
   notificationsEnabled: boolean
   defaultSubtitleFormat: 'srt' | 'vtt' | 'txt'
+  saveBridgeFile: boolean
   aiApiKey: string
   aiProvider: AiProviderId
   aiModel: string
@@ -42,6 +43,7 @@ export interface SettingsState {
   setAutoDownloadUpdates: (auto: boolean) => void
   setNotificationsEnabled: (enabled: boolean) => void
   setDefaultSubtitleFormat: (format: 'srt' | 'vtt' | 'txt') => void
+  setSaveBridgeFile: (saveBridgeFile: boolean) => void
   setAiApiKey: (key: string) => void
   setAiProvider: (provider: AiProviderId) => void
   setAiModel: (model: string) => void
@@ -74,6 +76,7 @@ export const useSettingsStore = create<SettingsState>((set, get) => {
     autoDownloadUpdates: false,
     notificationsEnabled: true,
     defaultSubtitleFormat: 'srt',
+    saveBridgeFile: false,
     aiApiKey: '',
     aiProvider: 'gemini',
     aiModel: 'auto',
@@ -89,6 +92,7 @@ export const useSettingsStore = create<SettingsState>((set, get) => {
         } catch {}
       }
       applyThemeToDocument(def, theme)
+      window.api?.settings?.save?.({ theme })
     },
 
     setIsSystemDark: (isSystemDark) => {
@@ -102,6 +106,10 @@ export const useSettingsStore = create<SettingsState>((set, get) => {
     setAutoDownloadUpdates: (autoDownloadUpdates) => set({ autoDownloadUpdates }),
     setNotificationsEnabled: (notificationsEnabled) => set({ notificationsEnabled }),
     setDefaultSubtitleFormat: (defaultSubtitleFormat) => set({ defaultSubtitleFormat }),
+    setSaveBridgeFile: (saveBridgeFile) => {
+      set({ saveBridgeFile })
+      window.api?.settings?.save?.({ saveBridgeFile })
+    },
     setAiApiKey: (aiApiKey) => set({ aiApiKey }),
     setAiProvider: (aiProvider) => set({ aiProvider }),
     setAiModel: (aiModel) => set({ aiModel }),
@@ -121,7 +129,16 @@ export const useSettingsStore = create<SettingsState>((set, get) => {
         if (!s) return
 
         if (s.theme) {
-          get().setTheme(s.theme)
+          const def = resolveTheme(s.theme, get().isSystemDark)
+          set({ theme: s.theme, activeThemeDef: def })
+          if (typeof window !== 'undefined' && window.localStorage) {
+            try {
+              window.localStorage.setItem('app_theme', s.theme)
+            } catch {}
+          }
+          applyThemeToDocument(def, s.theme)
+        } else if (get().theme) {
+          window.api?.settings?.save?.({ theme: get().theme })
         }
         if (s.defaultMode) {
           set({ defaultMode: s.defaultMode })
@@ -137,6 +154,9 @@ export const useSettingsStore = create<SettingsState>((set, get) => {
         }
         if (s.defaultSubtitleFormat) {
           set({ defaultSubtitleFormat: s.defaultSubtitleFormat })
+        }
+        if (s.saveBridgeFile !== undefined) {
+          set({ saveBridgeFile: s.saveBridgeFile })
         }
         if (s.aiApiKey) {
           set({ aiApiKey: s.aiApiKey })
@@ -171,6 +191,7 @@ export const useSettingsStore = create<SettingsState>((set, get) => {
         autoDownloadUpdates: state.autoDownloadUpdates,
         notificationsEnabled: state.notificationsEnabled,
         defaultSubtitleFormat: state.defaultSubtitleFormat,
+        saveBridgeFile: state.saveBridgeFile,
         aiApiKey: state.aiApiKey,
         aiProvider: state.aiProvider,
         aiModel: state.aiModel,
