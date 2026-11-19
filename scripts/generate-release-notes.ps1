@@ -1,5 +1,5 @@
 ﻿param(
-    [string]$Tag = "v2.3.0",
+    [string]$Tag = "v2.3.1",
     [string]$Title = "",
     [string]$OutputPath = "dist/RELEASE_NOTES.md",
     [string]$ChecksumPath = "dist/SHA256SUMS.txt",

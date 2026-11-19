@@ -42,6 +42,7 @@ export interface GenerateParams {
   aiProvider?: AiProviderId
   aiModel?: string
   customPrompt?: string
+  saveBridgeFile?: boolean
 }
 
 let activeGeneratorProcess: any = null
@@ -109,7 +110,7 @@ async function translateCuesViaAi(
 export async function executeSubtitleGeneration(
   params: GenerateParams,
   onEvent: (data: any) => void
-): Promise<{ success: boolean; output?: string; message?: string }> {
+): Promise<{ success: boolean; output?: string; bridgeOutput?: string; message?: string }> {
   const isSubtitleSource = params.sourceType === 'subtitle' || (!params.video && params.sourceSubPath)
 
   if (isSubtitleSource) {
@@ -133,7 +134,8 @@ export async function executeSubtitleGeneration(
     aiModel,
     customPrompt,
     sourceType,
-    deleteSourceAfter
+    deleteSourceAfter,
+    saveBridgeFile = false
   } = params
 
   // Workflow A: Translate an existing subtitle file (.srt) directly via AI
@@ -144,6 +146,8 @@ export async function executeSubtitleGeneration(
     if (deleteSourceAfter) {
       activeCreatedFiles.add(sourceSubPath)
     }
+
+    const targetBase = video ? video.replace(/\.[^/.]+$/, '') : sourceSubPath.replace(/\.[^/.]+$/, '')
 
     try {
       onEvent({ type: 'status', message: 'Reading subtitle file...' })
@@ -159,7 +163,6 @@ export async function executeSubtitleGeneration(
       onEvent({ type: 'log', message: `[SUBTITLE] Loaded ${cues.length} cues from ${sourceSubPath}` })
 
       let processedCues = cleanSdhFromCues(removeHallucinationLoops(cues))
-      const targetBase = video ? video.replace(/\.[^/.]+$/, '') : sourceSubPath.replace(/\.[^/.]+$/, '')
       let finalSrtPath = sourceSubPath
 
       const supportedAiLanguages = ['si', 'en', 'ta', 'hi', 'es']
@@ -219,19 +222,45 @@ export async function executeSubtitleGeneration(
         fs.writeFileSync(finalOutputPath, finalContent, 'utf-8')
       }
 
-      if (deleteSourceAfter && fs.existsSync(sourceSubPath)) {
+      let savedSourcePath: string | undefined
+      const isTempExtracted = Boolean(
+        deleteSourceAfter ||
+        (sourceSubPath && (sourceSubPath.includes('temp_extract_') || sourceSubPath.startsWith(app.getPath('temp'))))
+      )
+      if (isTempExtracted && fs.existsSync(sourceSubPath)) {
+        if (saveBridgeFile && video) {
+          try {
+            const ext = sourceSubPath.endsWith('.vtt') ? '.vtt' : '.srt'
+            savedSourcePath = getUniqueFilePath(`${targetBase}.extracted${ext}`)
+            fs.copyFileSync(sourceSubPath, savedSourcePath)
+            onEvent({ type: 'log', message: `[SUBTITLE] Saved extracted source subtitle: ${savedSourcePath}` })
+          } catch {}
+        }
         try {
           fs.unlinkSync(sourceSubPath)
         } catch {}
+        activeCreatedFiles.delete(sourceSubPath)
       }
 
       onEvent({ type: 'progress', percent: 100, message: 'Subtitle translation complete!' })
       onEvent({ type: 'status', message: 'Subtitle translation complete!' })
       onEvent({ type: 'log', message: `[SUBTITLE] Translated subtitle saved: ${finalOutputPath}` })
 
-      return { success: true, output: finalOutputPath }
+      return { success: true, output: finalOutputPath, bridgeOutput: savedSourcePath }
     } catch (err: any) {
-      if (deleteSourceAfter && fs.existsSync(sourceSubPath)) {
+      const isTempExtracted = Boolean(
+        deleteSourceAfter ||
+        (sourceSubPath && (sourceSubPath.includes('temp_extract_') || sourceSubPath.startsWith(app.getPath('temp'))))
+      )
+      if (isTempExtracted && fs.existsSync(sourceSubPath)) {
+        if (saveBridgeFile && video && !isTranslationCancelled) {
+          try {
+            const ext = sourceSubPath.endsWith('.vtt') ? '.vtt' : '.srt'
+            const savedSourcePath = getUniqueFilePath(`${targetBase}.extracted${ext}`)
+            fs.copyFileSync(sourceSubPath, savedSourcePath)
+            onEvent({ type: 'log', message: `[SUBTITLE] Preserved extracted source subtitle: ${savedSourcePath}` })
+          } catch {}
+        }
         try {
           fs.unlinkSync(sourceSubPath)
         } catch {}
@@ -288,8 +317,10 @@ export async function executeSubtitleGeneration(
     onEvent({ type: 'status', message: 'Running Whisper AI transcription...' })
     onEvent({ type: 'progress', percent: 10, message: 'Starting Whisper AI transcription...' })
 
-    const langSlug = language === 'si' ? 'sinhala' : (language === 'en' ? 'english' : 'original')
-    const isBridgeTranslation = language === 'si'
+    const videoAiLanguages = ['si', 'ta', 'hi', 'es']
+    const isBridgeTranslation = videoAiLanguages.includes(language)
+    const langConfig = getLanguageConfig(language)
+    const langSlug = langConfig?.name?.toLowerCase() || (language === 'en' ? 'english' : 'original')
     const outBase = isBridgeTranslation
       ? join(app.getPath('temp'), `whisper_bridge_${Date.now()}`)
       : getUniqueFilePath(video.replace(/\.[^/.]+$/, `.${langSlug}.generated.srt`)).replace(/\.srt$/, '')
@@ -328,9 +359,8 @@ export async function executeSubtitleGeneration(
 
     // Step 3: Handle AI Translation for non-English target languages
     let finalSrtPath = generatedSrt
-    const videoAiLanguages = ['si', 'ta', 'hi', 'es']
+    let savedBridgePath: string | undefined
     if (videoAiLanguages.includes(language)) {
-      const langConfig = getLanguageConfig(language)
       const langName = langConfig?.name || language.toUpperCase()
 
       if (!aiApiKey) {
@@ -386,6 +416,29 @@ export async function executeSubtitleGeneration(
         fs.writeFileSync(finalSrtPath, finalSrt, 'utf-8')
         onEvent({ type: 'log', message: `[AI TRANSLATION] Translated subtitle saved: ${finalSrtPath}` })
 
+        if (saveBridgeFile && fs.existsSync(generatedSrt)) {
+          try {
+            if (format === 'vtt') {
+              const bridgeSrtContent = fs.readFileSync(generatedSrt, 'utf-8')
+              const bridgeVttContent = `WEBVTT\n\n${bridgeSrtContent.replace(/(\d{2}:\d{2}:\d{2}),(\d{3})/g, '$1.$2')}`
+              savedBridgePath = getUniqueFilePath(video.replace(/\.[^/.]+$/, '.english.generated.vtt'))
+              fs.writeFileSync(savedBridgePath, bridgeVttContent, 'utf-8')
+            } else {
+              savedBridgePath = getUniqueFilePath(video.replace(/\.[^/.]+$/, '.english.generated.srt'))
+              fs.copyFileSync(generatedSrt, savedBridgePath)
+            }
+            onEvent({
+              type: 'log',
+              message: `[AI TRANSLATION] Intermediate bridge subtitle (English) saved: ${savedBridgePath}`
+            })
+          } catch (bridgeErr: any) {
+            onEvent({
+              type: 'log',
+              message: `[AI TRANSLATION] Notice: Could not save intermediate bridge subtitle (${bridgeErr?.message || 'IO error'})`
+            })
+          }
+        }
+
         if (fs.existsSync(generatedSrt)) {
           try {
             fs.unlinkSync(generatedSrt)
@@ -393,6 +446,24 @@ export async function executeSubtitleGeneration(
         }
         activeCreatedFiles.delete(generatedSrt)
       } catch (err: any) {
+        if (saveBridgeFile && !isGenerationCancelled && fs.existsSync(generatedSrt)) {
+          try {
+            let bridgeEmergencyPath: string
+            if (format === 'vtt') {
+              const bridgeSrtContent = fs.readFileSync(generatedSrt, 'utf-8')
+              const bridgeVttContent = `WEBVTT\n\n${bridgeSrtContent.replace(/(\d{2}:\d{2}:\d{2}),(\d{3})/g, '$1.$2')}`
+              bridgeEmergencyPath = getUniqueFilePath(video.replace(/\.[^/.]+$/, '.english.generated.vtt'))
+              fs.writeFileSync(bridgeEmergencyPath, bridgeVttContent, 'utf-8')
+            } else {
+              bridgeEmergencyPath = getUniqueFilePath(video.replace(/\.[^/.]+$/, '.english.generated.srt'))
+              fs.copyFileSync(generatedSrt, bridgeEmergencyPath)
+            }
+            onEvent({
+              type: 'log',
+              message: `[AI TRANSLATION] Intermediate bridge subtitle preserved: ${bridgeEmergencyPath}`
+            })
+          } catch {}
+        }
         if (fs.existsSync(generatedSrt)) {
           try {
             fs.unlinkSync(generatedSrt)
@@ -416,11 +487,12 @@ export async function executeSubtitleGeneration(
 
     activeCreatedFiles.clear()
     onEvent({ type: 'progress', percent: 100, message: 'Subtitle generation complete!' })
-    onEvent({ type: 'done', success: true, output: finalOutputPath })
+    onEvent({ type: 'done', success: true, output: finalOutputPath, bridgeOutput: savedBridgePath })
 
     return {
       success: true,
-      output: finalOutputPath
+      output: finalOutputPath,
+      bridgeOutput: savedBridgePath
     }
   } catch (err: any) {
     if (isGenerationCancelled) {

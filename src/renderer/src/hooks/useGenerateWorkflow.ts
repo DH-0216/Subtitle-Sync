@@ -223,7 +223,8 @@ export function useGenerateWorkflow(options: UseGenerateWorkflowOptions = {}) {
         aiApiKey,
         aiProvider,
         aiModel,
-        customPrompt: resolveEffectiveAiPrompt(effectiveConfig.language, aiPrompt, aiPromptsByLang)
+        customPrompt: resolveEffectiveAiPrompt(effectiveConfig.language, aiPrompt, aiPromptsByLang),
+        saveBridgeFile: settingsStore.saveBridgeFile
       })
 
       if (res?.success) {
@@ -289,7 +290,7 @@ export function useGenerateWorkflow(options: UseGenerateWorkflowOptions = {}) {
       isGeneratingRef.current = false
       setIsGenerating(false)
     }
-  }, [addLog, aiApiKey, aiModel, aiPrompt, aiProvider, audioTracks, generateConfig, notifyJobComplete, onOpenSettingsAiTab, onOutputReady, selectedTrack, videoDetails?.durationSec, videoPath])
+  }, [addLog, aiApiKey, aiModel, aiPrompt, aiProvider, audioTracks, generateConfig, notifyJobComplete, onOpenSettingsAiTab, onOutputReady, selectedTrack, settingsStore.saveBridgeFile, videoDetails?.durationSec, videoPath])
 
   const handleCancelGenerate = useCallback(async () => {
     generateCancelledRef.current = true

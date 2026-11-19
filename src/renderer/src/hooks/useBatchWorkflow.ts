@@ -1128,7 +1128,8 @@ export function useBatchWorkflow(options: UseBatchWorkflowOptions = {}) {
             aiApiKey,
             aiProvider,
             aiModel,
-            customPrompt: resolveEffectiveAiPrompt(generateLanguage, aiPrompt, aiPromptsByLang)
+            customPrompt: resolveEffectiveAiPrompt(generateLanguage, aiPrompt, aiPromptsByLang),
+            saveBridgeFile: settingsStore.saveBridgeFile
           })
 
           if (cancelRequestedRef.current || result?.cancelled) {
@@ -1245,7 +1246,8 @@ export function useBatchWorkflow(options: UseBatchWorkflowOptions = {}) {
             aiApiKey,
             aiProvider,
             aiModel,
-            customPrompt: resolveEffectiveAiPrompt(translateLanguage, aiPrompt, aiPromptsByLang)
+            customPrompt: resolveEffectiveAiPrompt(translateLanguage, aiPrompt, aiPromptsByLang),
+            saveBridgeFile: settingsStore.saveBridgeFile
           })
 
           if (cancelRequestedRef.current || result?.cancelled) {
@@ -1504,7 +1506,8 @@ export function useBatchWorkflow(options: UseBatchWorkflowOptions = {}) {
     preferredTrackLang,
     whisperModelQuality,
     extractTrackOption,
-    extractCleanTags
+    extractCleanTags,
+    settingsStore.saveBridgeFile
   ])
 
   // 8. Stop / Cancel batch

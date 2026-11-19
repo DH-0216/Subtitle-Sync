@@ -79,6 +79,8 @@ export const SettingsModal: React.FC<SettingsModalProps> = (props) => {
                 onSelectTheme={state.handleSelectTheme}
                 defaultSubtitleFormat={state.defaultSubtitleFormat}
                 onSelectDefaultSubtitleFormat={state.handleSelectDefaultSubtitleFormat}
+                saveBridgeFile={state.saveBridgeFile}
+                onToggleSaveBridgeFile={state.handleToggleSaveBridgeFile}
                 checkUpdates={state.checkUpdates}
                 onToggleAutoUpdate={state.handleToggleAutoUpdate}
                 autoDownloadUpdates={state.autoDownloadUpdates}
@@ -142,6 +144,8 @@ export const SettingsModal: React.FC<SettingsModalProps> = (props) => {
                     [state.selectedPromptLang]: state.currentLangConfig.defaultPrompt
                   }));
                 }}
+                saveBridgeFile={state.saveBridgeFile}
+                onToggleSaveBridgeFile={state.handleToggleSaveBridgeFile}
                 onSaveAiSettings={state.handleSaveAiSettings}
                 savedSuccess={state.savedSuccess}
                 onOpenKeyPortal={state.handleOpenKeyPortal}

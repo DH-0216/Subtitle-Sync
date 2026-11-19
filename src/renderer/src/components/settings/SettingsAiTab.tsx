@@ -10,11 +10,12 @@ import {
   Languages,
   RotateCcw,
   Check,
-  Save
+  Save,
+  FileCheck
 } from 'lucide-react'
 import { AiProviderId, AI_PROVIDER_LIST, getAiProvider } from '@shared/aiModels'
 import { TRANSLATION_LANGUAGES, getLanguageConfig } from '@shared/translationPrompts'
-import { AiModelSelector, LanguageSelector } from '../common'
+import { AiModelSelector, LanguageSelector, ToggleSwitch } from '../common'
 
 export interface SettingsAiTabProps {
   draftProvider: AiProviderId
@@ -37,6 +38,8 @@ export interface SettingsAiTabProps {
   selectedPromptLang: string
   onChangePromptLang: (code: string) => void
   onResetPrompt: () => void
+  saveBridgeFile?: boolean
+  onToggleSaveBridgeFile?: (s: boolean) => void
   onSaveAiSettings: () => void
   savedSuccess: boolean
   onOpenKeyPortal: (url: string) => void
@@ -63,6 +66,8 @@ export const SettingsAiTab: React.FC<SettingsAiTabProps> = ({
   selectedPromptLang,
   onChangePromptLang,
   onResetPrompt,
+  saveBridgeFile = false,
+  onToggleSaveBridgeFile,
   onSaveAiSettings,
   savedSuccess,
   onOpenKeyPortal
@@ -216,6 +221,30 @@ export const SettingsAiTab: React.FC<SettingsAiTabProps> = ({
             </p>
           )}
         </div>
+      </div>
+
+      {/* Intermediate English Subtitles (Bridge Files) Card */}
+      <div className="p-4 rounded-xl border border-app-card-border bg-app-card space-y-2.5 transition-colors">
+        <div className="flex items-center justify-between gap-4">
+          <div>
+            <h3 className="font-bold text-sm text-app-text flex items-center gap-2">
+              <FileCheck className="w-4 h-4 text-app-accent" />
+              Save Intermediate English Subtitle (Bridge File)
+            </h3>
+            <p className="text-xs text-app-text-muted mt-0.5">
+              When translating videos to Sinhala, Tamil, Hindi, or Spanish, keep the intermediate English subtitle file created by Whisper speech recognition instead of deleting it.
+            </p>
+          </div>
+
+          <ToggleSwitch
+            checked={Boolean(saveBridgeFile)}
+            onChange={(checked) => onToggleSaveBridgeFile?.(checked)}
+            title="Toggle saving intermediate bridge subtitles"
+          />
+        </div>
+        <p className="text-[11px] text-app-text-muted pt-2 border-t border-app-card-inner-border">
+          💡 <strong>How it works:</strong> Video speech is first transcribed into English before the AI translates it into your chosen language. When this setting is ON, you get both files side-by-side: the English subtitle (<code className="font-mono text-[10px]">.english.generated.srt</code>) and your translated subtitle.
+        </p>
       </div>
 
       {/* Custom Translation Prompt & Rules Card */}
