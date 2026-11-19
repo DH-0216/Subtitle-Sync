@@ -371,19 +371,15 @@ export function useSettingsModalState(props: SettingsModalProps = {}) {
 
   const handleSelectTheme = (newTheme: ThemeMode) => {
     setTheme(newTheme);
+    if (props.setTheme) {
+      window.api?.settings?.save?.({ theme: newTheme });
+    }
   };
 
   const handleToggleAutoUpdate = (enabled: boolean) => {
     setCheckUpdates(enabled);
-    window.api?.settings?.save({
-      theme,
-      checkUpdates: enabled,
-      autoDownloadUpdates,
-      notificationsEnabled,
-      aiApiKey,
-      aiProvider,
-      aiModel,
-      aiPrompt
+    window.api?.settings?.save?.({
+      checkUpdates: enabled
     });
   };
 
@@ -391,15 +387,8 @@ export function useSettingsModalState(props: SettingsModalProps = {}) {
     if (setAutoDownloadUpdates) {
       setAutoDownloadUpdates(enabled);
     }
-    window.api?.settings?.save({
-      theme,
-      checkUpdates,
-      autoDownloadUpdates: enabled,
-      notificationsEnabled,
-      aiApiKey,
-      aiProvider,
-      aiModel,
-      aiPrompt
+    window.api?.settings?.save?.({
+      autoDownloadUpdates: enabled
     });
     toast.success(
       enabled
@@ -412,15 +401,8 @@ export function useSettingsModalState(props: SettingsModalProps = {}) {
     if (setNotificationsEnabled) {
       setNotificationsEnabled(enabled);
     }
-    window.api?.settings?.save({
-      theme,
-      checkUpdates,
-      autoDownloadUpdates,
-      notificationsEnabled: enabled,
-      aiApiKey,
-      aiProvider,
-      aiModel,
-      aiPrompt
+    window.api?.settings?.save?.({
+      notificationsEnabled: enabled
     });
     toast.success(
       enabled

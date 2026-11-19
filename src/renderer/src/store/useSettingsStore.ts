@@ -89,6 +89,7 @@ export const useSettingsStore = create<SettingsState>((set, get) => {
         } catch {}
       }
       applyThemeToDocument(def, theme)
+      window.api?.settings?.save?.({ theme })
     },
 
     setIsSystemDark: (isSystemDark) => {
@@ -121,7 +122,16 @@ export const useSettingsStore = create<SettingsState>((set, get) => {
         if (!s) return
 
         if (s.theme) {
-          get().setTheme(s.theme)
+          const def = resolveTheme(s.theme, get().isSystemDark)
+          set({ theme: s.theme, activeThemeDef: def })
+          if (typeof window !== 'undefined' && window.localStorage) {
+            try {
+              window.localStorage.setItem('app_theme', s.theme)
+            } catch {}
+          }
+          applyThemeToDocument(def, s.theme)
+        } else if (get().theme) {
+          window.api?.settings?.save?.({ theme: get().theme })
         }
         if (s.defaultMode) {
           set({ defaultMode: s.defaultMode })
