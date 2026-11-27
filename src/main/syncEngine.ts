@@ -339,7 +339,7 @@ export class SyncEngine {
     this.onStatus('Running Split Sync (piecewise cut alignment)...')
     this.onProgress(5, 'Initializing piecewise alignment engine...')
 
-    const extra: string[] = ['--split-penalty', '5', '--max-offset-seconds', '900']
+    const extra: string[] = ['--split-penalty', '7', '--max-offset-seconds', '900']
 
     if (options.trackIndex !== undefined && options.trackIndex !== null) {
       extra.push('--reference-stream', `0:a:${options.trackIndex}`)
