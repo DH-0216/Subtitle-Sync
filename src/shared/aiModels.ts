@@ -95,8 +95,14 @@ export const GEMINI_EXCLUDED_PATTERNS = [
  */
 export function isGeminiModelExcluded(modelId: string): boolean {
   if (!modelId) return true
-  const lower = modelId.toLowerCase().trim()
+  const lower = modelId.replace(/^models\//, '').toLowerCase().trim()
+  if (!lower.startsWith('gemini-')) return true
   return GEMINI_EXCLUDED_PATTERNS.some((pattern) => lower.includes(pattern))
+}
+
+function getGeminiMajorVersion(modelId: string): number {
+  const match = modelId.toLowerCase().match(/^gemini-(\d+)/)
+  return match ? parseInt(match[1], 10) : 0
 }
 
 function sortGeminiTier(models: string[]): string[] {
@@ -106,22 +112,38 @@ function sortGeminiTier(models: string[]): string[] {
 }
 
 function orderGeminiGroup(models: string[]): string[] {
-  const flash = models.filter((id) => id.toLowerCase().includes('flash'))
-  const fullFlash = sortGeminiTier(flash.filter((id) => !id.toLowerCase().includes('lite')))
-  const liteFlash = sortGeminiTier(flash.filter((id) => id.toLowerCase().includes('lite')))
-  const otherModels = sortGeminiTier(
-    models.filter((id) => {
-      const lower = id.toLowerCase()
-      return !lower.includes('flash') && !lower.includes('pro')
-    })
-  )
-  const proModels = sortGeminiTier(
-    models.filter((id) => {
-      const lower = id.toLowerCase()
-      return !lower.includes('flash') && lower.includes('pro')
-    })
-  )
-  return [...fullFlash, ...liteFlash, ...otherModels, ...proModels]
+  const byMajor = new Map<number, string[]>()
+  for (const id of models) {
+    const major = getGeminiMajorVersion(id)
+    const bucket = byMajor.get(major) || []
+    bucket.push(id)
+    byMajor.set(major, bucket)
+  }
+
+  const majorsDesc = Array.from(byMajor.keys()).sort((a, b) => b - a)
+  const ordered: string[] = []
+
+  for (const major of majorsDesc) {
+    const group = byMajor.get(major) || []
+    const flash = group.filter((id) => id.toLowerCase().includes('flash'))
+    const fullFlash = sortGeminiTier(flash.filter((id) => !id.toLowerCase().includes('lite')))
+    const liteFlash = sortGeminiTier(flash.filter((id) => id.toLowerCase().includes('lite')))
+    const otherModels = sortGeminiTier(
+      group.filter((id) => {
+        const lower = id.toLowerCase()
+        return !lower.includes('flash') && !lower.includes('pro')
+      })
+    )
+    const proModels = sortGeminiTier(
+      group.filter((id) => {
+        const lower = id.toLowerCase()
+        return !lower.includes('flash') && lower.includes('pro')
+      })
+    )
+    ordered.push(...fullFlash, ...liteFlash, ...otherModels, ...proModels)
+  }
+
+  return ordered
 }
 
 /**
