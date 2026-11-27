@@ -36,10 +36,12 @@ export const AI_MODELS_CONFIG = {
 
   // Offline emergency seeds (used only if live API model discovery completely times out)
   GEMINI_EMERGENCY_SEEDS: [
+    'gemini-4-hydrogen',
+    'gemini-4-carbon',
+    'gemini-4-argon',
     'gemini-3.8-flash',
     'gemini-3.5-flash',
-    'gemini-3.5-flash-lite',
-    'gemini-3.1-flash-lite'
+    'gemini-3.5-flash-lite'
   ],
 
   OPENAI_EMERGENCY_SEEDS: [
