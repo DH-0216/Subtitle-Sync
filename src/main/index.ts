@@ -16,6 +16,7 @@ import {
 } from './generatorEngine'
 import {
   isGeminiModelExcluded,
+  isValidGeminiThinkingLevel,
   buildDynamicGeminiChain,
   buildDynamicOpenAiChain,
   AiProviderId,
@@ -33,6 +34,7 @@ import {
   restartAndInstallApp
 } from './updater'
 import { EXTERNAL_LINKS, getGeminiVerifyUrl } from '@shared/links'
+import { updateGeminiModelCache } from './services/geminiTranslator'
 import { APP_VERSION } from '@shared/version'
 import { formatUserFriendlyError } from '@shared/errorUtils'
 import {
@@ -566,6 +568,7 @@ app.whenReady().then(() => {
     })
     const rawIds = supported.map((m: any) => (m.name || '').replace(/^models\//, ''))
     const orderedChain = buildDynamicGeminiChain(rawIds)
+    updateGeminiModelCache(cleanKey, orderedChain)
 
     const rawMap = new Map<string, any>()
     for (const m of supported) {
@@ -573,15 +576,17 @@ app.whenReady().then(() => {
       rawMap.set(id, m)
     }
 
-    const formatted = orderedChain.map((id) => {
-      const m = rawMap.get(id)
-      const displayName = m?.displayName || id
-      return {
-        id,
-        name: displayName !== id ? `${displayName} (${id})` : id,
-        description: m?.description || ''
-      }
-    })
+    const formatted = orderedChain
+      .filter((id) => !id.toLowerCase().includes('preview'))
+      .map((id) => {
+        const m = rawMap.get(id)
+        const displayName = m?.displayName || id
+        return {
+          id,
+          name: displayName !== id ? `${displayName} (${id})` : id,
+          description: m?.description || ''
+        }
+      })
 
     return { success: true, models: formatted }
   }
@@ -908,9 +913,14 @@ app.whenReady().then(() => {
     if (params) {
       if (params.video) params.video = cleanPathString(params.video)
       if (params.sourceSubPath) params.sourceSubPath = cleanPathString(params.sourceSubPath)
-      if (params.saveBridgeFile === undefined) {
+      if (params.saveBridgeFile === undefined || params.aiThinkingLevel === undefined) {
         const diskSettings = loadSettings()
-        params.saveBridgeFile = Boolean(diskSettings?.saveBridgeFile)
+        if (params.saveBridgeFile === undefined) {
+          params.saveBridgeFile = Boolean(diskSettings?.saveBridgeFile)
+        }
+        if (params.aiThinkingLevel === undefined && isValidGeminiThinkingLevel(diskSettings?.aiThinkingLevel)) {
+          params.aiThinkingLevel = diskSettings.aiThinkingLevel
+        }
       }
     }
     const job = (params?.sourceType === 'subtitle' || (!params?.video && params?.sourceSubPath)) ? 'translate' : 'generate'

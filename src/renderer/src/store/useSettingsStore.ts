@@ -1,5 +1,5 @@
 import { create } from 'zustand'
-import { AiProviderId, isValidAiProvider } from '@shared/aiModels'
+import { AiProviderId, GeminiThinkingLevel, isValidAiProvider, isValidGeminiThinkingLevel } from '@shared/aiModels'
 import { DEFAULT_AI_PROMPT } from '@shared/translationPrompts'
 import { SyncMode } from '../components/Step3Sync'
 import { ThemeMode, ThemeDefinition, resolveTheme, applyThemeToDocument } from '../theme'
@@ -33,6 +33,7 @@ export interface SettingsState {
   aiApiKey: string
   aiProvider: AiProviderId
   aiModel: string
+  aiThinkingLevel: GeminiThinkingLevel
   aiPrompt: string
   aiPromptsByLang: Record<string, string>
 
@@ -47,6 +48,7 @@ export interface SettingsState {
   setAiApiKey: (key: string) => void
   setAiProvider: (provider: AiProviderId) => void
   setAiModel: (model: string) => void
+  setAiThinkingLevel: (level: GeminiThinkingLevel) => void
   setAiPrompt: (prompt: string) => void
   setAiPromptsByLang: (prompts: Record<string, string>) => void
 
@@ -80,6 +82,7 @@ export const useSettingsStore = create<SettingsState>((set, get) => {
     aiApiKey: '',
     aiProvider: 'gemini',
     aiModel: 'auto',
+    aiThinkingLevel: 'low',
     aiPrompt: DEFAULT_AI_PROMPT,
     aiPromptsByLang: {},
 
@@ -113,6 +116,7 @@ export const useSettingsStore = create<SettingsState>((set, get) => {
     setAiApiKey: (aiApiKey) => set({ aiApiKey }),
     setAiProvider: (aiProvider) => set({ aiProvider }),
     setAiModel: (aiModel) => set({ aiModel }),
+    setAiThinkingLevel: (aiThinkingLevel) => set({ aiThinkingLevel }),
     setAiPrompt: (aiPrompt) => set({ aiPrompt }),
     setAiPromptsByLang: (aiPromptsByLang) => set({ aiPromptsByLang }),
 
@@ -167,6 +171,9 @@ export const useSettingsStore = create<SettingsState>((set, get) => {
         if (s.aiModel) {
           set({ aiModel: s.aiModel })
         }
+        if (isValidGeminiThinkingLevel(s.aiThinkingLevel)) {
+          set({ aiThinkingLevel: s.aiThinkingLevel })
+        }
         if (s.aiPrompt) {
           if (!s.aiPrompt.includes('Background Sounds') && !s.aiPrompt.includes('SDH')) {
             set({ aiPrompt: DEFAULT_AI_PROMPT })
@@ -195,6 +202,7 @@ export const useSettingsStore = create<SettingsState>((set, get) => {
         aiApiKey: state.aiApiKey,
         aiProvider: state.aiProvider,
         aiModel: state.aiModel,
+        aiThinkingLevel: state.aiThinkingLevel,
         aiPrompt: state.aiPrompt,
         aiPromptsByLang: state.aiPromptsByLang
       })

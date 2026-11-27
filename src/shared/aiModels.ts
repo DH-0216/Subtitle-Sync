@@ -6,6 +6,18 @@ import { EXTERNAL_LINKS } from './links'
  * Follows the same modular design as @shared/links and @shared/version.
  */
 
+export type GeminiThinkingLevel = 'low' | 'medium' | 'high'
+
+export const GEMINI_THINKING_LEVELS: readonly GeminiThinkingLevel[] = [
+  'low',
+  'medium',
+  'high'
+] as const
+
+export function isValidGeminiThinkingLevel(val: unknown): val is GeminiThinkingLevel {
+  return typeof val === 'string' && (GEMINI_THINKING_LEVELS as readonly string[]).includes(val)
+}
+
 export const AI_MODELS_CONFIG = {
   // Model resolver in-memory cache time-to-live (6 hours)
   CACHE_TTL_MS: 6 * 60 * 60 * 1000,
@@ -15,8 +27,8 @@ export const AI_MODELS_CONFIG = {
   MAX_RETRIES: 3,
   RETRY_BACKOFF_MS: 2500,
 
-  // Thinking level for thinking-capable models (saves ~70% tokens on dialogue)
-  THINKING_LEVEL: 'low' as const,
+  // Default thinking level for thinking-capable models (saves ~70% tokens on dialogue)
+  THINKING_LEVEL: 'low' as GeminiThinkingLevel,
 
   // Offline emergency seeds (used only if live API model discovery completely times out)
   GEMINI_EMERGENCY_SEEDS: [
@@ -46,11 +58,14 @@ export const GEMINI_EXCLUDED_PATTERNS = [
   '2.0',
   'gemini-2',
 
-  // Preview & floating latest aliases
-  'preview',
+  // Floating latest aliases
   'latest',
 
-  // Specialized Non-Text / Incompatible Endpoints
+  // Specialized Non-Text / Agent / Incompatible Endpoints
+  'deep-research',
+  'antigravity',
+  'customtools',
+  'robotics',
   'tts',
   'live',
   'image',
@@ -78,13 +93,37 @@ export function isGeminiModelExcluded(modelId: string): boolean {
   return GEMINI_EXCLUDED_PATTERNS.some((pattern) => lower.includes(pattern))
 }
 
+function sortGeminiTier(models: string[]): string[] {
+  return [...models].sort((a, b) =>
+    b.localeCompare(a, undefined, { numeric: true, sensitivity: 'base' })
+  )
+}
+
+function orderGeminiGroup(models: string[]): string[] {
+  const flash = models.filter((id) => id.toLowerCase().includes('flash'))
+  const fullFlash = sortGeminiTier(flash.filter((id) => !id.toLowerCase().includes('lite')))
+  const liteFlash = sortGeminiTier(flash.filter((id) => id.toLowerCase().includes('lite')))
+  const otherModels = sortGeminiTier(
+    models.filter((id) => {
+      const lower = id.toLowerCase()
+      return !lower.includes('flash') && !lower.includes('pro')
+    })
+  )
+  const proModels = sortGeminiTier(
+    models.filter((id) => {
+      const lower = id.toLowerCase()
+      return !lower.includes('flash') && lower.includes('pro')
+    })
+  )
+  return [...fullFlash, ...liteFlash, ...otherModels, ...proModels]
+}
+
 /**
  * Dynamically builds an optimal, self-healing Gemini priority chain from live models returned by Google.
  * Priority hierarchy:
  * 1. User preferred model (if explicitly set and not excluded)
- * 2. Full-sized Flash models sorted descending by version (e.g. 4.0 -> 3.8 -> 3.5)
- * 3. Lite Flash models sorted descending by version (e.g. 3.5-lite -> 3.1-lite)
- * 4. Pro models sorted descending by version (high-accuracy emergency rescue tier)
+ * 2. Stable models ordered by tier: Full Flash -> Lite Flash -> Other/Named models (e.g. Hydrogen) -> Pro
+ * 3. Preview models ordered by the same tier hierarchy
  * Zero hardcoded models: Automatically adapts to future Google releases and retirements.
  */
 export function buildDynamicGeminiChain(liveModelIds: string[], preferredModel?: string): string[] {
@@ -92,26 +131,13 @@ export function buildDynamicGeminiChain(liveModelIds: string[], preferredModel?:
     .map((id) => id.replace(/^models\//, '').trim())
     .filter((id) => id.length > 0 && !isGeminiModelExcluded(id))
 
-  // 1. Separate full Flash models vs Lite Flash models
-  const flashModels = approved.filter((id) => id.toLowerCase().includes('flash'))
-  const fullFlash = flashModels
-    .filter((id) => !id.toLowerCase().includes('lite'))
-    .sort((a, b) => b.localeCompare(a, undefined, { numeric: true, sensitivity: 'base' }))
-
-  const liteFlash = flashModels
-    .filter((id) => id.toLowerCase().includes('lite'))
-    .sort((a, b) => b.localeCompare(a, undefined, { numeric: true, sensitivity: 'base' }))
-
-  // 2. High-accuracy Pro models as emergency rescue tier
-  const proModels = approved
-    .filter((id) => id.toLowerCase().includes('pro'))
-    .sort((a, b) => b.localeCompare(a, undefined, { numeric: true, sensitivity: 'base' }))
+  const stable = approved.filter((id) => !id.toLowerCase().includes('preview'))
+  const preview = approved.filter((id) => id.toLowerCase().includes('preview'))
 
   const dynamicChain = [
     ...(preferredModel && preferredModel !== 'auto' && !isGeminiModelExcluded(preferredModel) ? [preferredModel] : []),
-    ...fullFlash,
-    ...liteFlash,
-    ...proModels
+    ...orderGeminiGroup(stable),
+    ...orderGeminiGroup(preview)
   ]
 
   const unique = Array.from(new Set(dynamicChain))

@@ -13,9 +13,14 @@ import {
   Save,
   FileCheck
 } from 'lucide-react'
-import { AiProviderId, AI_PROVIDER_LIST, getAiProvider } from '@shared/aiModels'
+import {
+  AiProviderId,
+  AI_PROVIDER_LIST,
+  GeminiThinkingLevel,
+  getAiProvider
+} from '@shared/aiModels'
 import { TRANSLATION_LANGUAGES, getLanguageConfig } from '@shared/translationPrompts'
-import { AiModelSelector, LanguageSelector, ToggleSwitch } from '../common'
+import { AiModelSelector, LanguageSelector, ThinkingLevelSelector, ToggleSwitch } from '../common'
 
 export interface SettingsAiTabProps {
   draftProvider: AiProviderId
@@ -30,6 +35,8 @@ export interface SettingsAiTabProps {
   verifyStatus: { valid: boolean; message: string } | null
   draftModel: string
   onChangeModel: (m: string) => void
+  draftThinkingLevel?: GeminiThinkingLevel
+  onChangeThinkingLevel?: (level: GeminiThinkingLevel) => void
   availableModels: Array<{ id: string; name: string }>
   isLoadingModels: boolean
   onFetchModels: () => void
@@ -58,6 +65,8 @@ export const SettingsAiTab: React.FC<SettingsAiTabProps> = ({
   verifyStatus,
   draftModel,
   onChangeModel,
+  draftThinkingLevel = 'low',
+  onChangeThinkingLevel,
   availableModels,
   isLoadingModels,
   onFetchModels,
@@ -219,6 +228,15 @@ export const SettingsAiTab: React.FC<SettingsAiTabProps> = ({
             <p className="text-[10px] text-app-text-muted">
               {getAiProvider(draftProvider).notice}
             </p>
+          )}
+
+          {/* Gemini Thinking Level Bar */}
+          {draftProvider === 'gemini' && onChangeThinkingLevel && (
+            <ThinkingLevelSelector
+              value={draftThinkingLevel}
+              onChange={onChangeThinkingLevel}
+              className="pt-2.5 border-t border-app-card-inner-border"
+            />
           )}
         </div>
       </div>
