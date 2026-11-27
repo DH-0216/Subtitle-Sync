@@ -22,3 +22,5 @@ export { WhisperModelSelector, DEFAULT_WHISPER_MODELS } from './WhisperModelSele
 export type { WhisperModelSelectorProps, WhisperModelOption } from './WhisperModelSelector'
 export { AiModelSelector } from './AiModelSelector'
 export type { AiModelSelectorProps, AiModelOption } from './AiModelSelector'
+export { ThinkingLevelSelector } from './ThinkingLevelSelector'
+export type { ThinkingLevelSelectorProps } from './ThinkingLevelSelector'

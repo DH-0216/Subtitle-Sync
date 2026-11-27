@@ -28,7 +28,7 @@ const NAV_ITEMS: readonly SidebarNavItem<SubtitleAction>[] = [
     id: "translate",
     label: "Translate Subtitle",
     icon: Languages,
-    badge: "BETA",
+    badge: null,
   },
   {
     id: "generate",
@@ -40,7 +40,7 @@ const NAV_ITEMS: readonly SidebarNavItem<SubtitleAction>[] = [
     id: "batch",
     label: "Batch Process",
     icon: Layers,
-    badge: "NEW",
+    badge: null,
   },
 ];
 

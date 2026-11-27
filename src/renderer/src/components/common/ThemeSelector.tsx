@@ -24,7 +24,7 @@ export const ThemeSelector: React.FC<ThemeSelectorProps> = ({
       <div className="flex items-center gap-4 pt-1">
         {AVAILABLE_THEMES.map((opt) => {
           const isSelected = theme === opt.id
-          const badgeText = opt.badge || (opt.id === 'glass' ? 'NEW' : undefined)
+          const badgeText = opt.badge
 
           return (
             <button

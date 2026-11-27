@@ -3,7 +3,7 @@ import toast from "react-hot-toast";
 import { EXTERNAL_LINKS, getGeminiVerifyUrl } from "@shared/links";
 import { formatUserFriendlyError } from "@shared/errorUtils";
 import { APP_VERSION, compareVersions } from "@shared/version";
-import { AiProviderId, getAiProvider } from "@shared/aiModels";
+import { AiProviderId, GeminiThinkingLevel, getAiProvider } from "@shared/aiModels";
 import { getLanguageConfig } from "@shared/translationPrompts";
 import { ThemeMode } from "../common";
 import { useSettingsStore, useUIStore, useUpdaterStore } from "../../store";
@@ -30,6 +30,8 @@ export interface SettingsModalProps {
   setAiProvider?: (p: AiProviderId) => void;
   aiModel?: string;
   setAiModel?: (m: string) => void;
+  aiThinkingLevel?: GeminiThinkingLevel;
+  setAiThinkingLevel?: (l: GeminiThinkingLevel) => void;
   aiPrompt?: string;
   setAiPrompt?: (p: string) => void;
   aiPromptsByLang?: Record<string, string>;
@@ -63,6 +65,8 @@ export function useSettingsModalState(props: SettingsModalProps = {}) {
   const setAiProvider = props.setAiProvider ?? storeSettings.setAiProvider;
   const aiModel = props.aiModel ?? storeSettings.aiModel;
   const setAiModel = props.setAiModel ?? storeSettings.setAiModel;
+  const aiThinkingLevel = props.aiThinkingLevel ?? storeSettings.aiThinkingLevel;
+  const setAiThinkingLevel = props.setAiThinkingLevel ?? storeSettings.setAiThinkingLevel;
   const aiPrompt = props.aiPrompt ?? storeSettings.aiPrompt;
   const setAiPrompt = props.setAiPrompt ?? storeSettings.setAiPrompt;
   const aiPromptsByLang = props.aiPromptsByLang ?? storeSettings.aiPromptsByLang;
@@ -92,6 +96,7 @@ export function useSettingsModalState(props: SettingsModalProps = {}) {
   const [draftApiKey, setDraftApiKey] = useState(aiApiKey);
   const [draftProvider, setDraftProvider] = useState<AiProviderId>(aiProvider);
   const [draftModel, setDraftModel] = useState(aiModel);
+  const [draftThinkingLevel, setDraftThinkingLevel] = useState<GeminiThinkingLevel>(aiThinkingLevel);
   const [selectedPromptLang, setSelectedPromptLang] = useState<string>("si");
   const [draftPromptsByLang, setDraftPromptsByLang] = useState<Record<string, string>>({
     si: aiPrompt || getLanguageConfig("si").defaultPrompt
@@ -167,6 +172,7 @@ export function useSettingsModalState(props: SettingsModalProps = {}) {
       setDraftApiKey(aiApiKey);
       setDraftProvider(aiProvider);
       setDraftModel(aiModel || "auto");
+      setDraftThinkingLevel(aiThinkingLevel || "low");
       setDraftPromptsByLang({
         si: aiPrompt || getLanguageConfig("si").defaultPrompt,
         ...aiPromptsByLang
@@ -174,7 +180,7 @@ export function useSettingsModalState(props: SettingsModalProps = {}) {
       setSavedSuccess(false);
       setVerifyStatus(null);
     }
-  }, [isOpen, initialTab, aiApiKey, aiProvider, aiModel, aiPrompt, aiPromptsByLang]);
+  }, [isOpen, initialTab, aiApiKey, aiProvider, aiModel, aiThinkingLevel, aiPrompt, aiPromptsByLang]);
 
   const handleSaveAiSettings = () => {
     const finalSiPrompt = draftPromptsByLang["si"] || aiPrompt;
@@ -182,10 +188,12 @@ export function useSettingsModalState(props: SettingsModalProps = {}) {
     const promptChanged = finalSiPrompt !== aiPrompt;
     const providerChanged = draftProvider !== aiProvider;
     const modelChanged = draftModel !== aiModel;
+    const thinkingChanged = draftThinkingLevel !== aiThinkingLevel;
 
     setAiApiKey(draftApiKey);
     setAiProvider(draftProvider);
     if (setAiModel) setAiModel(draftModel);
+    if (setAiThinkingLevel) setAiThinkingLevel(draftThinkingLevel);
     setAiPrompt(finalSiPrompt);
     if (setAiPromptsByLang) setAiPromptsByLang(draftPromptsByLang);
 
@@ -199,6 +207,7 @@ export function useSettingsModalState(props: SettingsModalProps = {}) {
       aiApiKey: draftApiKey,
       aiProvider: draftProvider,
       aiModel: draftModel,
+      aiThinkingLevel: draftThinkingLevel,
       aiPrompt: finalSiPrompt,
       aiPromptsByLang: draftPromptsByLang
     });
@@ -217,6 +226,8 @@ export function useSettingsModalState(props: SettingsModalProps = {}) {
       toast.success("API key updated successfully!");
     } else if (modelChanged) {
       toast.success(`AI Model set to ${draftModel}!`);
+    } else if (thinkingChanged) {
+      toast.success(`Thinking level set to ${draftThinkingLevel.toUpperCase()}!`);
     } else if (promptChanged) {
       toast.success(`${currentLangConfig.name} prompt updated successfully!`);
     } else if (providerChanged) {
@@ -299,7 +310,9 @@ export function useSettingsModalState(props: SettingsModalProps = {}) {
               )
               .map((m: any) => (m.name || "").replace(/^models\//, ""));
             const ordered = providerMeta.buildDynamicChain(rawModels);
-            const models = ordered.map((id) => ({ id, name: id }));
+            const models = ordered
+              .filter((id) => !id.toLowerCase().includes("preview"))
+              .map((id) => ({ id, name: id }));
             if (models.length > 0) {
               setAvailableModels(models);
             }
@@ -628,6 +641,8 @@ export function useSettingsModalState(props: SettingsModalProps = {}) {
     setDraftProvider,
     draftModel,
     setDraftModel,
+    draftThinkingLevel,
+    setDraftThinkingLevel,
     setDraftPromptsByLang,
     showKey,
     setShowKey,

@@ -122,6 +122,8 @@ export const SettingsModal: React.FC<SettingsModalProps> = (props) => {
                 verifyStatus={state.verifyStatus}
                 draftModel={state.draftModel}
                 onChangeModel={(m) => state.setDraftModel(m)}
+                draftThinkingLevel={state.draftThinkingLevel}
+                onChangeThinkingLevel={(lvl) => state.setDraftThinkingLevel(lvl)}
                 availableModels={state.availableModels}
                 isLoadingModels={state.isLoadingModels}
                 onFetchModels={() =>

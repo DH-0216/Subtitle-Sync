@@ -4,7 +4,7 @@ import * as fs from 'fs'
 import { findBinary, killProcessTree } from './media'
 import { parseSrt, writeSrt, removeHallucinationLoops, getUniqueFilePath, cleanSdhFromCues } from './srtTools'
 import { cleanPathString } from '@shared/fileSanitizer'
-import { AiProviderId } from '@shared/aiModels'
+import { AiProviderId, GeminiThinkingLevel } from '@shared/aiModels'
 import { DEFAULT_AI_PROMPT, getLanguageConfig } from '@shared/translationPrompts'
 import {
   getWhisperModelPath,
@@ -41,6 +41,7 @@ export interface GenerateParams {
   aiApiKey?: string
   aiProvider?: AiProviderId
   aiModel?: string
+  aiThinkingLevel?: GeminiThinkingLevel
   customPrompt?: string
   saveBridgeFile?: boolean
 }
@@ -76,7 +77,8 @@ const AI_TRANSLATION_HANDLERS = {
     translateCuesWithGemini(cues, apiKey, model, prompt, onLog, onProg, {
       isCancelled: opts?.isCancelled || (() => isTranslationCancelled),
       abortSignal: opts?.abortSignal || activeTranslateAbortController?.signal,
-      targetLang: targetLang || 'si'
+      targetLang: targetLang || 'si',
+      thinkingLevel: opts?.thinkingLevel
     }),
   openai: (cues: any[], apiKey: string, model?: string, prompt?: string, onLog?: any, onProg?: any, targetLang?: string, opts?: any) =>
     translateCuesWithOpenAI(cues, apiKey, model, prompt, onLog, onProg, {
@@ -95,7 +97,7 @@ async function translateCuesViaAi(
   onLog: (msg: string) => void,
   onProgress?: (batchIdx: number, totalBatches: number) => void,
   targetLang?: string,
-  opts?: { isCancelled?: () => boolean; abortSignal?: AbortSignal }
+  opts?: { isCancelled?: () => boolean; abortSignal?: AbortSignal; thinkingLevel?: GeminiThinkingLevel }
 ): Promise<any[]> {
   const handler = AI_TRANSLATION_HANDLERS[provider]
   if (!handler) {
@@ -195,7 +197,8 @@ export async function executeSubtitleGeneration(
           language,
           {
             isCancelled: () => isTranslationCancelled,
-            abortSignal: activeTranslateAbortController?.signal
+            abortSignal: activeTranslateAbortController?.signal,
+            thinkingLevel: params.aiThinkingLevel
           }
         )
 
@@ -401,7 +404,8 @@ export async function executeSubtitleGeneration(
           language,
           {
             isCancelled: () => isGenerationCancelled,
-            abortSignal: activeGenerateAbortController?.signal
+            abortSignal: activeGenerateAbortController?.signal,
+            thinkingLevel: params.aiThinkingLevel
           }
         )
 

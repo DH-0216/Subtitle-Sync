@@ -208,11 +208,19 @@ export function cleanAndSortCues(cues: SrtCue[]): SrtCue[] {
       endMs = startMs + 1500
     }
 
-    // Eliminate overlap: if cue starts before the previous cue finishes
+    const minReadableDuration = Math.min(Math.max(endMs - startMs, 1000), 1200)
+
+    // Eliminate overlap without crushing either cue's readable duration
     if (startMs < prevEndMs) {
-      startMs = prevEndMs + 50 // 50ms smooth gap
-      if (endMs <= startMs) {
-        endMs = startMs + 1000 // minimum 1s duration
+      const prevCue = cleaned[cleaned.length - 1]
+      const trimmedPrevEnd = startMs - 50
+      if (prevCue && trimmedPrevEnd - prevCue.startMs >= 800) {
+        prevCue.endMs = trimmedPrevEnd
+      } else {
+        startMs = prevEndMs + 50
+        if (endMs - startMs < minReadableDuration) {
+          endMs = startMs + minReadableDuration
+        }
       }
     }
 
