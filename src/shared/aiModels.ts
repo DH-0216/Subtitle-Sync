@@ -22,8 +22,12 @@ export const AI_MODELS_CONFIG = {
   // Model resolver in-memory cache time-to-live (6 hours)
   CACHE_TTL_MS: 6 * 60 * 60 * 1000,
 
-  // Batch sizing & retry cascading
-  DEFAULT_BATCH_SIZE: 35,
+  // Batch sizing, concurrency, context & retry cascading
+  DEFAULT_BATCH_SIZE: 45,
+  CONCURRENCY: 2,
+  CONTEXT_WINDOW_CUES: 3,
+  TEMPERATURE: 0.2,
+  REQUEST_TIMEOUT_MS: 45_000,
   MAX_RETRIES: 3,
   RETRY_BACKOFF_MS: 2500,
 
