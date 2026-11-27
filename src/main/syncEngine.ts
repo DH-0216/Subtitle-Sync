@@ -7,7 +7,7 @@ import * as fs from 'fs'
 import * as os from 'os'
 import { join, dirname } from 'path'
 import { getFfsubsyncPath, getFfmpegPath, killProcessTree } from './media'
-import { parseSrt, sanitizeOutputSrt } from './srtTools'
+import { sanitizeOutputSrt } from './srtTools'
 
 export interface SyncOptions {
   video: string
@@ -332,53 +332,55 @@ export class SyncEngine {
   }
 
   /**
-   * 3. Split Sync: Piecewise 2-minute chunk alignment
+   * 3. Split Sync: Alass-style piecewise alignment for commercial breaks & extended/director's cuts
    */
   public async runSplit(options: SyncOptions): Promise<{ success: boolean; score: number | null }> {
     this.currentOut = options.out
-    this.onStatus('Split Sync: Slicing subtitles into 2-minute parts...')
-    this.onProgress(10, 'Analyzing subtitle cues...')
-    const content = fs.readFileSync(options.sub, 'utf-8')
-    const allCues = parseSrt(content)
+    this.onStatus('Running Split Sync (piecewise cut alignment)...')
+    this.onProgress(5, 'Initializing piecewise alignment engine...')
 
-    if (allCues.length === 0) {
-      this.onLog('[ERROR] Input subtitle file has no valid cues.')
-      return { success: false, score: null }
+    const extra: string[] = ['--split-penalty', '5', '--max-offset-seconds', '900']
+
+    if (options.trackIndex !== undefined && options.trackIndex !== null) {
+      extra.push('--reference-stream', `0:a:${options.trackIndex}`)
+    }
+    if (options.subFps) {
+      extra.push('--sub-fps', String(options.subFps))
     }
 
-    const tempDir = fs.mkdtempSync(join(os.tmpdir(), 'subsync_split_'))
-
-    try {
-      this.onProgress(20, 'Running piecewise baseline alignment...')
-      const baseOut = join(tempDir, 'base.srt')
-      const baseRes = await this.runSinglePass(
-        options.video,
-        options.sub,
-        baseOut,
-        ['--max-offset-seconds', '900'],
-        (pct) => {
-          const overallPct = Math.min(95, Math.round(20 + pct * 0.75))
-          this.onProgress(overallPct, `Split Sync: Aligning cuts (${overallPct}%)...`)
-        }
-      )
-
-      if (!this.cancelled && baseRes.code === 0 && fs.existsSync(baseOut) && fs.statSync(baseOut).size > 0) {
-        fs.copyFileSync(baseOut, options.out)
-        sanitizeOutputSrt(options.out)
-        this.onProgress(100, 'Split sync complete!')
-        return { success: true, score: baseRes.score }
+    const { code, score } = await this.runSinglePass(
+      options.video,
+      options.sub,
+      options.out,
+      extra,
+      (passPct) => {
+        const scaled = Math.min(98, Math.max(5, passPct))
+        this.onProgress(scaled, `Split Sync: Aligning cuts (${scaled}%)...`)
       }
-    } finally {
-      try {
-        fs.rmSync(tempDir, { recursive: true, force: true })
-      } catch (e) {}
-      if (this.cancelled && fs.existsSync(options.out)) {
+    )
+
+    if (this.cancelled || code !== 0) {
+      if (fs.existsSync(options.out)) {
         try {
           fs.unlinkSync(options.out)
         } catch (e) {}
       }
+      return { success: false, score: null }
     }
 
-    return { success: false, score: null }
+    if (!fs.existsSync(options.out) || fs.statSync(options.out).size === 0) {
+      this.onLog(`[ERROR] Split Sync finished without generating output file: "${options.out}"`)
+      if (fs.existsSync(options.out)) {
+        try {
+          fs.unlinkSync(options.out)
+        } catch (e) {}
+      }
+      return { success: false, score: null }
+    }
+
+    sanitizeOutputSrt(options.out)
+
+    this.onProgress(100, 'Split sync complete!')
+    return { success: true, score }
   }
 }
