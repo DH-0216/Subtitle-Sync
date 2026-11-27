@@ -25,6 +25,7 @@ export const AI_MODELS_CONFIG = {
   // Batch sizing, concurrency, context & retry cascading
   DEFAULT_BATCH_SIZE: 45,
   CONCURRENCY: 2,
+  WORKER_STAGGER_MS: 600,
   CONTEXT_WINDOW_CUES: 3,
   TEMPERATURE: 0.2,
   REQUEST_TIMEOUT_MS: 45_000,

@@ -452,6 +452,10 @@ export async function translateCuesWithGemini(
 
   const workerCount = Math.min(AI_MODELS_CONFIG.CONCURRENCY, Math.max(1, totalBatches))
   const runWorker = async (workerIndex: number): Promise<void> => {
+    if (workerIndex > 0 && AI_MODELS_CONFIG.WORKER_STAGGER_MS > 0) {
+      await new Promise((resolve) => setTimeout(resolve, workerIndex * AI_MODELS_CONFIG.WORKER_STAGGER_MS))
+    }
+
     while (true) {
       if (options?.isCancelled?.()) {
         throw new Error('Subtitle generation cancelled by user.')
